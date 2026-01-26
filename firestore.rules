@@ -1,0 +1,41 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /enclaimUsers/{userId} {
+      allow read: if true;
+    }
+
+    match /users/{userId}/settings/appSettings {
+      allow read: if true;
+    }
+
+    match /users/{userId}/feedback/{document=**} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Public agent tasks can be read by anyone with the link
+    // but only written to by the owner of the original task.
+    match /agentTasks/{agentId}/tasks/{taskId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth == null; // Allow anonymous updates from agents
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.hostId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.hostId == request.auth.uid;
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if true;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || resource.data.hostId == request.auth.uid);
+    }
+  }
+}

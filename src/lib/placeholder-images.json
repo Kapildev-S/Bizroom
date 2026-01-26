@@ -1,0 +1,297 @@
+{
+  "businessTemplates": [
+    {
+      "id": "b1",
+      "name": "Corporate Brochure",
+      "previewImageUrl": "https://picsum.photos/seed/corp1/600/400",
+      "aiHint": "minimalist architecture",
+      "width": 1920,
+      "height": 1080,
+      "components": [
+        {
+          "type": "background",
+          "style": {
+            "backgroundColor": "#F0F2F5"
+          }
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "content": "Innovate & Create",
+          "style": {
+            "top": "10%",
+            "left": "5%",
+            "fontSize": "96px",
+            "fontWeight": "bold",
+            "color": "#1F2937"
+          }
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "content": "Building Tomorrow's Solutions, Today.",
+          "style": {
+            "top": "25%",
+            "left": "5%",
+            "fontSize": "36px",
+            "color": "#4B5563"
+          }
+        }
+      ]
+    },
+    {
+      "id": "b2",
+      "name": "Orange and White Modern Architecture Portfolio Presentation",
+      "previewImageUrl": "https://picsum.photos/seed/arch1/600/400",
+      "aiHint": "modern building",
+      "width": 1920,
+      "height": 1080,
+      "components": [
+        {
+          "type": "background",
+          "style": {
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "orange-swoosh",
+          "shape": "rectangle",
+          "style": {
+            "top": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "60%",
+            "backgroundColor": "#F97316",
+            "clipPath": "polygon(0 0, 100% 0, 100% 80%, 0 100%)"
+          }
+        },
+        {
+          "type": "text",
+          "id": "main-title",
+          "content": "MODERN ARCHITECTURE",
+          "style": {
+            "top": "15%",
+            "left": "5%",
+            "fontSize": "120px",
+            "fontWeight": "900",
+            "color": "white",
+            "lineHeight": "1.1"
+          }
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "content": "A PORTFOLIO BY VYNEX STUDIOS",
+          "style": {
+            "top": "45%",
+            "left": "5%",
+            "fontSize": "24px",
+            "fontWeight": "bold",
+            "color": "white",
+            "letterSpacing": "0.1em"
+          }
+        },
+        {
+          "type": "image",
+          "id": "main-image",
+          "src": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3VzZXxlbnwwfHx8fDE3NTA1NzI3MDR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+          "aiHint": "modern house",
+          "style": {
+            "bottom": "5%",
+            "right": "5%",
+            "width": "45%",
+            "height": "50%",
+            "objectFit": "cover",
+            "borderRadius": "0.5rem"
+          }
+        }
+      ]
+    },
+    {
+      "id": "b3",
+      "name": "Product Launch",
+      "previewImageUrl": "https://picsum.photos/seed/prod1/600/400",
+      "aiHint": "sleek product",
+      "width": 1920,
+      "height": 1080,
+      "components": [
+        {
+          "type": "background",
+          "style": {
+            "backgroundColor": "#111827"
+          }
+        },
+        {
+          "type": "text",
+          "id": "product-name",
+          "content": "The Future is Here",
+          "style": {
+            "top": "40%",
+            "left": "50%",
+            "transform": "translateX(-50%)",
+            "fontSize": "100px",
+            "fontWeight": "bold",
+            "color": "#FFFFFF",
+            "textAlign": "center"
+          }
+        }
+      ]
+    },
+    {
+      "id": "b4",
+      "name": "The Games Arcade",
+      "previewImageUrl": "https://picsum.photos/seed/game1/400/500",
+      "aiHint": "gaming arcade",
+      "width": 1080,
+      "height": 1350,
+      "components": [
+        {
+          "type": "background",
+          "style": {
+            "backgroundColor": "#4F2F9E",
+            "backgroundImage": "linear-gradient(rgba(107, 70, 193, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(107, 70, 193, 0.5) 1px, transparent 1px)",
+            "backgroundSize": "20px 20px"
+          }
+        },
+        {
+          "type": "text",
+          "id": "presenter",
+          "content": "LICERIA PRESENT",
+          "style": {
+            "top": "10%",
+            "left": "10%",
+            "fontSize": "36px",
+            "fontWeight": "bold",
+            "color": "#93C5FD",
+            "letterSpacing": "0.1em"
+          }
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "content": "THE GAMES ARCADE",
+          "style": {
+            "top": "16%",
+            "left": "10%",
+            "fontSize": "144px",
+            "fontWeight": "900",
+            "color": "#FFFFFF",
+            "lineHeight": "1"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "starburst",
+          "shape": "ellipse",
+          "style": {
+            "top": "42%",
+            "left": "10%",
+            "width": "250px",
+            "height": "250px",
+            "backgroundColor": "#6EE7B7",
+            "clipPath": "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
+            "transform": "rotate(-15deg)"
+          }
+        },
+        {
+          "type": "text",
+          "id": "snack-text",
+          "content": "FREE SNACK",
+          "style": {
+            "top": "49%",
+            "left": "14%",
+            "fontSize": "60px",
+            "fontWeight": "bold",
+            "color": "#FFFFFF",
+            "textAlign": "center",
+            "lineHeight": "1",
+            "transform": "rotate(-15deg)"
+          }
+        },
+        {
+          "type": "text",
+          "id": "date",
+          "content": "2-4 JUNE 2024",
+          "style": {
+            "top": "70%",
+            "left": "10%",
+            "fontSize": "48px",
+            "fontWeight": "bold",
+            "color": "#93C5FD"
+          }
+        },
+        {
+          "type": "text",
+          "id": "address",
+          "content": "123 Anywhere St., Any City, ST 12345",
+          "style": {
+            "top": "76%",
+            "left": "10%",
+            "fontSize": "30px",
+            "color": "#FFFFFF"
+          }
+        },
+        {
+          "type": "shape",
+          "id": "bottom-shape",
+          "shape": "rectangle",
+          "style": {
+            "bottom": "0",
+            "left": "0",
+            "width": "100%",
+            "height": "15%",
+            "backgroundColor": "#F472B6",
+            "clipPath": "polygon(0 30%, 100% 0, 100% 100%, 0 100%)"
+          }
+        },
+        {
+          "type": "text",
+          "id": "call-us",
+          "content": "CALL US NOW\n+123-456-7890",
+          "style": {
+            "bottom": "4%",
+            "right": "10%",
+            "fontSize": "32px",
+            "fontWeight": "bold",
+            "color": "#1E293B",
+            "textAlign": "right",
+            "lineHeight": "1.2"
+          }
+        }
+      ]
+    }
+  ],
+  "festivalTemplates": [
+    {
+      "id": "f1",
+      "name": "Diwali Greeting",
+      "previewImageUrl": "https://picsum.photos/seed/diwali1/400/600",
+      "aiHint": "diwali celebration",
+      "width": 1080,
+      "height": 1920,
+      "components": [
+        {
+          "type": "background",
+          "style": {
+            "backgroundColor": "#4C1D95"
+          }
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "content": "Happy Diwali",
+          "style": {
+            "top": "20%",
+            "left": "50%",
+            "transform": "translateX(-50%)",
+            "fontSize": "120px",
+            "fontWeight": "bold",
+            "color": "#FBBF24",
+            "textAlign": "center"
+          }
+        }
+      ]
+    }
+  ]
+}

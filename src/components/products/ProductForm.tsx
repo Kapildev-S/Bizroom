@@ -1,0 +1,243 @@
+
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Product } from "@/lib/mockData";
+import { useToast } from "@/hooks/use-toast";
+import { Package, Archive, Loader2 } from "lucide-react";
+import { auth, db } from "@/lib/firebase";
+import type { User } from "firebase/auth";
+import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const productFormSchema = z.object({
+  name: z.string().min(2, "Product name must be at least 2 characters."),
+  description: z.string().optional(),
+  price: z.coerce.number().min(0, "Price cannot be negative."),
+  stock: z.coerce.number().min(0, "Stock cannot be negative.").optional().nullable(),
+  unit: z.string().optional(),
+});
+
+type ProductFormValues = z.infer<typeof productFormSchema>;
+
+interface ProductFormProps {
+  initialData?: Product | null; // For editing
+}
+
+export function ProductForm({ initialData }: ProductFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: initialData ? {
+      ...initialData,
+      stock: initialData.stock === Infinity ? null : initialData.stock,
+      unit: initialData.unit || "",
+    } : {
+      name: "",
+      description: "",
+      price: 0,
+      stock: null,
+      unit: "",
+    },
+  });
+
+  const onSubmit = async (values: ProductFormValues) => {
+    if (!currentUser) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+      return;
+    }
+    setIsSubmitting(true);
+
+    const dataToSubmit = {
+      name: values.name,
+      description: values.description || "",
+      price: values.price,
+      stock: values.stock ?? null,
+      unit: values.unit || '',
+    };
+
+    try {
+      if (initialData?.id) {
+        const productDocRef = doc(db, `users/${currentUser.uid}/products`, initialData.id);
+        await updateDoc(productDocRef, dataToSubmit);
+        toast({
+          title: "Product Updated",
+          description: `${values.name} has been successfully updated.`,
+        });
+      } else {
+        const collectionRef = collection(db, `users/${currentUser.uid}/products`);
+        await addDoc(collectionRef, {
+            ...dataToSubmit,
+            userId: currentUser.uid,
+            createdAt: Timestamp.now(),
+        });
+        toast({
+          title: "Product Added",
+          description: `${values.name} has been successfully added.`,
+        });
+      }
+      router.push("/products");
+      router.refresh();
+    } catch (error) {
+      console.error("Error submitting product:", error);
+      toast({
+        variant: "destructive",
+        title: "Submission Error",
+        description: (error as Error).message || "Could not save the product. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Card className="max-w-2xl mx-auto shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-2xl font-headline text-primary">
+          {initialData ? "Edit Product/Service" : "Add New Product/Service"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <div className="relative">
+                    <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <FormControl>
+                      <Input placeholder="e.g. Premium Widget" {...field} className="pl-10" />
+                    </FormControl>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Price</FormLabel>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} className="pl-7" />
+                    </FormControl>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="unit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Unit of Measurement (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a unit (e.g. pcs, kg)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="pcs">PCS</SelectItem>
+                      <SelectItem value="unt">UNT</SelectItem>
+                      <SelectItem value="kg">KG</SelectItem>
+                      <SelectItem value="g">G</SelectItem>
+                      <SelectItem value="l">L</SelectItem>
+                      <SelectItem value="ml">ML</SelectItem>
+                      <SelectItem value="m">M</SelectItem>
+                      <SelectItem value="box">BOX</SelectItem>
+                      <SelectItem value="set">SET</SelectItem>
+                      <SelectItem value="dz">DZ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="stock"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Stock Quantity</FormLabel>
+                  <div className="relative">
+                    <Archive className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="e.g. 100 or leave blank for N/A" 
+                        {...field} 
+                        onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)}
+                        value={field.value ?? ''}
+                        className="pl-10" 
+                      />
+                    </FormControl>
+                  </div>
+                  <FormDescription>Leave blank for unlimited stock or for services.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Detailed description of the product or service..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end space-x-3">
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting || !currentUser}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {initialData ? "Save Changes" : "Add Product/Service"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
