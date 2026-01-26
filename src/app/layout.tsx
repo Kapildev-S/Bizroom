@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter as FontSans, Playfair_Display, Noto_Sans } from "next/font/google"
 import { cn } from "@/lib/utils"
+import { PWAInstallPrompt } from "@/components/shared/PWAInstallPrompt"
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -23,12 +24,28 @@ const fontBody = Noto_Sans({
 
 export const metadata: Metadata = {
   title: 'BizRoom - Simplified Billing',
-  description: 'Manage your invoices and finances with ease.',
+  description: 'Manage your invoices, customers, and finances with ease.',
+  manifest: '/manifest.json',
+  themeColor: '#0f172a',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'BizRoom',
+  },
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
-    apple: '/favicon.svg',
-  }
+    apple: '/icons/icon-192x192.png',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 };
 
 export default function RootLayout({
@@ -53,6 +70,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <PWAInstallPrompt />
         <Toaster />
       </body>
     </html>
