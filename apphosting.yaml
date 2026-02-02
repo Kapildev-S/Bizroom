@@ -17,3 +17,5 @@ env:
     value: plan_S9iVfArYmOjwo6
   - variable: RAZORPAY_PLAN_ID_YEARLY
     value: plan_S9jHBprusLvyEj0
+  - variable: RAZORPAY_KEY_SECRET
+    value: JrWHSiTtM6g2anHkgDbukLAI
