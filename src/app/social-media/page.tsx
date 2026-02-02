@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Sparkles, Copy, CheckCircle, Loader2 } from 'lucide-react';
 import { generateSocialMediaCaption } from '@/app/actions/socialMediaActions';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/useAuth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { AppSettings } from '@/lib/mockData';
