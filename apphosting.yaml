@@ -5,3 +5,15 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
+
+env:
+  - variable: RAZORPAY_KEY_ID
+    value: rzp_live_S9hQzqEYEPeaQ2
+  - variable: NEXT_PUBLIC_RAZORPAY_KEY_ID
+    value: rzp_live_S9hQzqEYEPeaQ2
+  - variable: RAZORPAY_PLAN_ID_MONTHLY
+    value: plan_S9gpkD5cpZlCLG
+  - variable: RAZORPAY_PLAN_ID_QUARTERLY
+    value: plan_S9iVfArYmOjwo6
+  - variable: RAZORPAY_PLAN_ID_YEARLY
+    value: plan_S9jHBprusLvyEj0
