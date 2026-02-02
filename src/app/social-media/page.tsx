@@ -1,100 +1,352 @@
-
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, FilePenLine, Sparkles, MessageCircleReply } from 'lucide-react';
-import Link from 'next/link';
-import Image from 'next/image';
-
-const includedServices = [
-  { icon: FilePenLine, title: "Consistent Weekly Posts", description: "We create and share relevant posts every week to keep your audience engaged and informed." },
-  { icon: Sparkles, title: "Timely Festival Greetings", description: "Never miss a chance to connect. We design and post beautiful greetings for all major festivals." },
-  { icon: MessageCircleReply, title: "Active Engagement", description: "We handle comments and direct messages promptly, building a loyal community around your brand." },
-];
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Sparkles, Copy, CheckCircle, Loader2 } from 'lucide-react';
+import { generateSocialMediaCaption } from '@/app/actions/socialMediaActions';
+import { useAuth } from '@/hooks/useAuth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { AppSettings } from '@/lib/mockData';
 
 export default function SocialMediaPage() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [copiedCaption, setCopiedCaption] = useState(false);
+  const [copiedHashtags, setCopiedHashtags] = useState(false);
+
+  // Form state
+  const [businessType, setBusinessType] = useState('');
+  const [businessCategory, setBusinessCategory] = useState('');
+  const [tone, setTone] = useState('Friendly');
+  const [language, setLanguage] = useState('English');
+  const [postPurpose, setPostPurpose] = useState('Daily post');
+  const [description, setDescription] = useState('');
+  const [length, setLength] = useState('Medium');
+  const [cta, setCta] = useState('');
+
+  // Output state
+  const [caption, setCaption] = useState('');
+  const [hashtags, setHashtags] = useState('');
+
+  // Auto-fill business details from profile
+  useEffect(() => {
+    const loadBusinessProfile = async () => {
+      if (!user) return;
+
+      try {
+        const settingsRef = doc(db, 'users', user.uid, 'settings', 'app');
+        const settingsSnap = await getDoc(settingsRef);
+
+        if (settingsSnap.exists()) {
+          const settings = settingsSnap.data() as AppSettings;
+          if (settings.businessProfile?.businessName) {
+            setBusinessType(settings.businessProfile.businessName);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading business profile:', error);
+      }
+    };
+
+    loadBusinessProfile();
+  }, [user]);
+
+  const handleGenerate = async () => {
+    if (!businessType.trim()) {
+      alert('Please enter your business type');
+      return;
+    }
+
+    setLoading(true);
+    setCaption('');
+    setHashtags('');
+
+    try {
+      const result = await generateSocialMediaCaption({
+        business_type: businessType,
+        business_category: businessCategory || undefined,
+        tone,
+        language,
+        post_purpose: postPurpose,
+        description: description || undefined,
+        length,
+        cta: cta || undefined,
+      });
+
+      if (result.success && result.data) {
+        setCaption(result.data.caption);
+        setHashtags(result.data.hashtags);
+      } else {
+        alert(result.error || 'Failed to generate caption');
+      }
+    } catch (error: any) {
+      console.error('Generation error:', error);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string, type: 'caption' | 'hashtags') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (type === 'caption') {
+        setCopiedCaption(true);
+        setTimeout(() => setCopiedCaption(false), 2000);
+      } else {
+        setCopiedHashtags(true);
+        setTimeout(() => setCopiedHashtags(false), 2000);
+      }
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
   return (
-    <div className="space-y-16">
-      {/* Hero Section */}
-      <section className="relative text-center py-16 md:py-24 rounded-lg overflow-hidden bg-gradient-to-br from-primary/10 to-background">
-        <div className="container mx-auto px-6 relative z-10">
-            <p className="text-sm font-semibold tracking-widest text-primary uppercase">Your Social Media, Handled</p>
-            <h1 className="mt-2 text-4xl md:text-5xl font-bold tracking-tight font-headline text-foreground">
-                Stay Connected, Even When You're Busy
-            </h1>
-            <p className="mt-4 text-lg text-muted-foreground max-w-3xl mx-auto">
-                Running your business is a full-time job. Let us manage your social media, so you can focus on what you do best while your online presence continues to grow.
-            </p>
-        </div>
-      </section>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold font-headline flex items-center justify-center gap-2">
+          <Sparkles className="h-8 w-8 text-primary" />
+          Social Media AI Assistant
+        </h1>
+        <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+          Generate ready-to-post captions and hashtags for your business in seconds
+        </p>
+      </div>
 
-      {/* "What's Included" Section */}
-      <section>
-        <h2 className="text-3xl font-bold text-center font-headline">Your Complete Social Media Solution</h2>
-        <p className="mt-2 text-center text-muted-foreground">We keep your accounts active, professional, and engaging.</p>
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {includedServices.map((service) => (
-            <Card key={service.title} className="text-center group hover:border-primary transition-all duration-300 hover:shadow-lg">
-              <CardHeader>
-                <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit group-hover:bg-primary/20 transition-colors">
-                    <service.icon className="h-8 w-8 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <h3 className="text-xl font-semibold text-foreground">{service.title}</h3>
-                <p className="text-muted-foreground mt-2 text-sm">{service.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Our Philosophy & CTA Section */}
-      <section className="bg-muted/50 rounded-lg">
-          <div className="container mx-auto px-6 py-12">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                 <div className="order-2 md:order-1">
-                     <h2 className="text-3xl font-bold font-headline text-primary">Save Time, Stay Visible</h2>
-                     <p className="mt-4 text-muted-foreground">
-                        You don't need to be a social media expert. Our service is designed to be simple and effective, giving you peace of mind and more time in your day. We ensure your business is always active and professional online.
-                     </p>
-                      <ul className="mt-6 space-y-4">
-                        <li className="flex items-start gap-3">
-                            <CheckCircle className="h-5 w-5 text-green-500 mt-1 flex-shrink-0" />
-                            <span><strong className="font-semibold">Consistency is Key.</strong> Regular posts build trust and keep you top-of-mind.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                            <CheckCircle className="h-5 w-5 text-green-500 mt-1 flex-shrink-0" />
-                            <span><strong className="font-semibold">Always Professional.</strong> Your brand's voice and style are always maintained.</span>
-                        </li>
-                         <li className="flex items-start gap-3">
-                            <CheckCircle className="h-5 w-5 text-green-500 mt-1 flex-shrink-0" />
-                            <span><strong className="font-semibold">Focus on Your Business.</strong> We handle the digital side, so you don't have to.</span>
-                        </li>
-                    </ul>
-                    <div className="mt-8">
-                         <Button asChild size="lg" className="rounded-full shadow-lg transition-transform hover:scale-105">
-                            <Link href="mailto:kapildevsubash@gmail.com?subject=Inquiry%20about%20Social%20Media%20Handling">
-                                Manage My Social Media
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-                <div className="order-1 md:order-2">
-                    <Image
-                        src="https://images.unsplash.com/photo-1689004624325-6edf074228dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzb2NpYWwlMjBuZXR3b3JrfGVufDB8fHx8MTc1MDUxNTY2OHww&ixlib=rb-4.1.0&q=80&w=1080"
-                        alt="Social media icons on a phone screen"
-                        className="rounded-lg shadow-2xl aspect-square object-cover"
-                        width={500}
-                        height={500}
-                        data-ai-hint="social media marketing"
-                    />
-                </div>
+      <div className="grid lg:grid-cols-2 gap-8">
+        {/* Input Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Post Details</CardTitle>
+            <CardDescription>Tell us about your post and we'll create the perfect caption</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Business Type */}
+            <div className="space-y-2">
+              <Label htmlFor="businessType">Business Type *</Label>
+              <Input
+                id="businessType"
+                placeholder="e.g., Grocery Store, Boutique, Restaurant"
+                value={businessType}
+                onChange={(e) => setBusinessType(e.target.value)}
+              />
             </div>
-          </div>
-      </section>
+
+            {/* Business Category */}
+            <div className="space-y-2">
+              <Label htmlFor="businessCategory">Business Category (Optional)</Label>
+              <Input
+                id="businessCategory"
+                placeholder="e.g., Retail, Food & Beverage"
+                value={businessCategory}
+                onChange={(e) => setBusinessCategory(e.target.value)}
+              />
+            </div>
+
+            {/* Tone */}
+            <div className="space-y-2">
+              <Label htmlFor="tone">Tone</Label>
+              <Select value={tone} onValueChange={setTone}>
+                <SelectTrigger id="tone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Friendly">Friendly</SelectItem>
+                  <SelectItem value="Professional">Professional</SelectItem>
+                  <SelectItem value="Casual">Casual</SelectItem>
+                  <SelectItem value="Festive">Festive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Language */}
+            <div className="space-y-2">
+              <Label htmlFor="language">Language</Label>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger id="language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="English">English</SelectItem>
+                  <SelectItem value="Hindi">Hindi</SelectItem>
+                  <SelectItem value="Tamil">Tamil</SelectItem>
+                  <SelectItem value="Mixed">Mixed (English + Regional)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Post Purpose */}
+            <div className="space-y-2">
+              <Label htmlFor="postPurpose">Post Purpose</Label>
+              <Select value={postPurpose} onValueChange={setPostPurpose}>
+                <SelectTrigger id="postPurpose">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Daily post">Daily Post</SelectItem>
+                  <SelectItem value="Offer">Offer/Discount</SelectItem>
+                  <SelectItem value="New arrival">New Arrival</SelectItem>
+                  <SelectItem value="Festival">Festival Greeting</SelectItem>
+                  <SelectItem value="Announcement">Announcement</SelectItem>
+                  <SelectItem value="Engagement">Customer Engagement</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                placeholder="Brief details about this post..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {/* Caption Length */}
+            <div className="space-y-2">
+              <Label>Caption Length</Label>
+              <RadioGroup value={length} onValueChange={setLength}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Short" id="short" />
+                  <Label htmlFor="short" className="font-normal cursor-pointer">Short (WhatsApp)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Medium" id="medium" />
+                  <Label htmlFor="medium" className="font-normal cursor-pointer">Medium (Instagram)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Story" id="story" />
+                  <Label htmlFor="story" className="font-normal cursor-pointer">Story Style</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* CTA */}
+            <div className="space-y-2">
+              <Label htmlFor="cta">Call-to-Action (Optional)</Label>
+              <Input
+                id="cta"
+                placeholder="e.g., Visit us today, Call now"
+                value={cta}
+                onChange={(e) => setCta(e.target.value)}
+              />
+            </div>
+
+            {/* Generate Button */}
+            <Button
+              onClick={handleGenerate}
+              disabled={loading || !businessType.trim()}
+              className="w-full"
+              size="lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Caption
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Output Display */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Generated Content</CardTitle>
+            <CardDescription>Your ready-to-post caption and hashtags</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Caption */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Caption</Label>
+                {caption && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(caption, 'caption')}
+                  >
+                    {copiedCaption ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                value={caption}
+                readOnly
+                placeholder="Your generated caption will appear here..."
+                className="min-h-[200px] bg-muted/50"
+              />
+            </div>
+
+            {/* Hashtags */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Hashtags</Label>
+                {hashtags && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(hashtags, 'hashtags')}
+                  >
+                    {copiedHashtags ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                value={hashtags}
+                readOnly
+                placeholder="Hashtags will appear here..."
+                className="min-h-[100px] bg-muted/50"
+              />
+            </div>
+
+            {caption && (
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground text-center">
+                  ✨ Your content is ready to post! Copy and share on your social media.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

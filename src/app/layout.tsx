@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Inter as FontSans, Playfair_Display, Noto_Sans } from "next/font/google"
 import { cn } from "@/lib/utils"
 import { PWAInstallPrompt } from "@/components/shared/PWAInstallPrompt"
+import { SupportChatbot } from "@/components/support/SupportChatbot"
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
   title: 'BizRoom - Simplified Billing',
   description: 'Manage your invoices, customers, and finances with ease.',
   manifest: '/manifest.json',
-  themeColor: '#0f172a',
+  themeColor: '#1fb2a6',
   viewport: {
     width: 'device-width',
     initialScale: 1,
@@ -70,6 +71,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <SupportChatbot />
         <PWAInstallPrompt />
         <Toaster />
       </body>

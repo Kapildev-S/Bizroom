@@ -71,6 +71,7 @@ const businessToolsItems = [
   { href: "/dashboard/events", label: "Organize Events", icon: CalendarCheck },
   { href: "/sms-marketing", label: "SMS Marketing", icon: MessageSquareText },
   { href: "/deliveries", label: "Deliveries", icon: Truck },
+  { href: "/recharge", label: "Mobile Recharge", icon: Smartphone },
 
 ];
 

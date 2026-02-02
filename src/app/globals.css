@@ -203,3 +203,113 @@
 .floating-object {
   filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.1));
 }
+
+/* ==================== */
+/* Mobile App UI Styles */
+/* ==================== */
+
+/* Safe area insets for notched devices (iPhone X, etc.) */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+
+  /* Disable text selection on nav elements for app-like feel */
+  nav,
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  /* Smoother scrolling on mobile */
+  main,
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Hide scrollbars on mobile for cleaner look */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Card touch feedback */
+  .mobile-card-press {
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  .mobile-card-press:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Bottom nav safe zone padding */
+  .pb-mobile-nav {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Pull-to-refresh indicator */
+.pull-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}
+
+/* Swipe action styles */
+.swipe-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-action-delete {
+  background: linear-gradient(90deg, transparent, hsl(var(--destructive)));
+}
+
+.swipe-action-edit {
+  background: linear-gradient(270deg, transparent, hsl(var(--primary)));
+}
+
+/* Mobile modal backdrop */
+@media (max-width: 768px) {
+  [data-radix-dialog-overlay] {
+    backdrop-filter: blur(4px);
+  }
+
+  [data-radix-dialog-content] {
+    border-radius: 1rem 1rem 0 0 !important;
+    max-height: 90vh !important;
+  }
+}
+
+/* Slide-up animation for mobile sheets */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Haptic-like button feedback */
+@media (max-width: 768px) {
+  button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}

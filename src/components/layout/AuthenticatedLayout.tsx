@@ -12,6 +12,8 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { SidebarNav } from './SidebarNav';
+import { MobileBottomNav } from './MobileBottomNav';
+import { MobileHeader } from './MobileHeader';
 import { Loader2 } from 'lucide-react';
 import FirebaseErrorListener from '../shared/FirebaseErrorListener';
 import NotificationProvider from './NotificationProvider';
@@ -19,9 +21,14 @@ import NotificationProvider from './NotificationProvider';
 interface AuthenticatedLayoutProps {
   children: ReactNode;
   pageTitle?: string;
+  showMobileHeader?: boolean;
 }
 
-export default function AuthenticatedLayout({ children, pageTitle }: AuthenticatedLayoutProps) {
+export default function AuthenticatedLayout({
+  children,
+  pageTitle,
+  showMobileHeader = true
+}: AuthenticatedLayoutProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
@@ -46,33 +53,46 @@ export default function AuthenticatedLayout({ children, pageTitle }: Authenticat
       </div>
     );
   }
-  
+
   if (!user) {
-      // This case should ideally be handled by the redirect in onAuthStateChanged,
-      // but as a fallback or if redirect is slow.
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-background">
-                <p className="text-lg text-muted-foreground">Redirecting to login...</p>
-          </div>
-      );
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-lg text-muted-foreground">Redirecting to login...</p>
+      </div>
+    );
   }
 
   return (
     <NotificationProvider user={user}>
       <SidebarProvider defaultOpen={true}>
         <FirebaseErrorListener />
-        <Sidebar variant="sidebar" collapsible="icon" side="left" className="shadow-lg no-print">
+
+        {/* Desktop Sidebar - Hidden on Mobile */}
+        <Sidebar variant="sidebar" collapsible="icon" side="left" className="shadow-lg no-print hidden md:flex">
           <SidebarNav />
         </Sidebar>
+
         <SidebarInset className="bg-background">
-          {/* Mobile Header */}
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:hidden">
+          {/* Mobile Header - Only visible on mobile */}
+          {showMobileHeader && (
+            <div className="md:hidden">
+              <MobileHeader title={pageTitle || "BizRoom"} />
+            </div>
+          )}
+
+          {/* Desktop Header - Only visible on desktop with sidebar trigger */}
+          <header className="sticky top-0 z-10 hidden md:flex h-14 items-center gap-4 border-b bg-background px-4">
             <SidebarTrigger />
             <h1 className="text-lg font-semibold">{pageTitle}</h1>
           </header>
-          <main className="flex-1 p-4 md:p-6 overflow-auto">
+
+          {/* Main Content */}
+          <main className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">
             {children}
           </main>
+
+          {/* Mobile Bottom Navigation - Only visible on mobile */}
+          <MobileBottomNav />
         </SidebarInset>
       </SidebarProvider>
     </NotificationProvider>

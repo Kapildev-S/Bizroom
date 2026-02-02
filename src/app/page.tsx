@@ -56,6 +56,11 @@ const mainFeatures = [
     title: "Customer Management",
     description: "Keep all your client information organized in one place for easy access.",
   },
+  {
+    icon: Smartphone,
+    title: "Mobile Recharge",
+    description: "Recharge mobile numbers for all major operators instantly.",
+  },
 ];
 
 // Animation variants
@@ -134,6 +139,11 @@ export default function HomePage() {
           <Link href="#contact" className="hover:text-primary transition-colors">Contact</Link>
         </nav>
         <div className="flex items-center space-x-4">
+          <Button variant="outline" asChild className="hidden md:flex gap-2 mr-2 border-primary/20 hover:bg-primary/5">
+            <Link href="/recharge">
+              <Smartphone className="w-4 h-4" /> Recharge
+            </Link>
+          </Button>
           <Button variant="ghost" asChild className="text-foreground hover:text-primary">
             <Link href="/auth/login">Login</Link>
           </Button>
@@ -149,7 +159,7 @@ export default function HomePage() {
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
         {/* Hero Section */}
-        <section className="container mx-auto pt-12 pb-20 md:pt-20 md:pb-32 px-4 md:px-6 relative z-10">
+        <section className="container mx-auto pt-32 pb-20 md:pt-40 md:pb-32 px-4 md:px-6 relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div initial="hidden" animate="visible" variants={fadeInFromLeft}>
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-headline font-bold mb-6 text-foreground tracking-tight leading-tight">
