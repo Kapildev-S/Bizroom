@@ -6,16 +6,16 @@ import { colorOptions } from '@/lib/mockData';
 import { CardContent } from "@/components/ui/card";
 
 interface TemplateProps {
-  invoice: Invoice;
-  customer: Customer | null;
-  settings: AppSettings | null;
-  logoDataUri: string | null;
-  onImageLoad: () => void;
+    invoice: Invoice;
+    customer: Customer | null;
+    settings: AppSettings | null;
+    logoDataUri: string | null;
+    onImageLoad: () => void;
 }
 
 const breakDetection = (text: string | undefined | null): string => {
-  if (!text) return '';
-  return text.split('').join('\u200B');
+    if (!text) return '';
+    return text.split('').join('\u200B');
 };
 
 // Helper to determine text color based on HSL background lightness
@@ -32,13 +32,13 @@ const getContrastingTextColor = (hslColor: string): string => {
     }
 }
 
-export default function ProfessionalInvoice({ invoice, customer, settings, logoDataUri, onImageLoad }: TemplateProps) {
+export default function ProfessionalInvoice({ invoice, customer, settings, logoDataUri, onImageLoad, onImageError }: TemplateProps) {
     const currencySymbol = getCurrencySymbol(invoice.currency);
     const businessProfile = settings?.businessProfile;
     const invoiceSettings = settings?.invoiceSettings;
     const selectedColorName = settings?.customizationSettings?.themeColor || 'Default';
     const themeColor = colorOptions.find(c => c.name === selectedColorName)?.value || 'hsl(var(--primary))';
-    
+
     const headerTextColor = getContrastingTextColor(themeColor);
 
     const notesBgColor = 'hsl(var(--secondary))';
@@ -50,10 +50,8 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
             <div className="p-4 flex justify-between items-start" style={{ backgroundColor: themeColor, color: headerTextColor }}>
                 <div className="flex items-center gap-4">
                     {(logoDataUri || businessProfile?.logoUrl) && (
-                        <div className="bg-white p-1 rounded-md">
-                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={100} height={100} className="object-contain" crossOrigin="anonymous" onLoad={onImageLoad} />
-                        </div>
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={150} height={60} className="object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
                     )}
                     <div className="space-y-0">
                         <h2 className="text-xl font-bold">{businessProfile?.businessName || 'Your Company Name'}</h2>
@@ -133,8 +131,8 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                         </>
                     )}
                 </div>
-                 <div className="p-4 flex flex-col justify-center" style={{ backgroundColor: themeColor, color: headerTextColor }}>
-                     <div className="space-y-1 text-right w-full text-xs">
+                <div className="p-4 flex flex-col justify-center" style={{ backgroundColor: themeColor, color: headerTextColor }}>
+                    <div className="space-y-1 text-right w-full text-xs">
                         <div className="flex justify-between">
                             <span>Subtotal</span>
                             <span>{currencySymbol}{invoice.subtotal.toFixed(2)}</span>

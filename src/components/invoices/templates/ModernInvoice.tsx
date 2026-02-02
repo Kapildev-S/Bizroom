@@ -6,28 +6,29 @@ import { colorOptions } from '@/lib/mockData';
 import { CardContent } from "@/components/ui/card";
 
 interface TemplateProps {
-  invoice: Invoice;
-  customer: Customer | null;
-  settings: AppSettings | null;
-  logoDataUri: string | null;
-  onImageLoad: () => void;
+    invoice: Invoice;
+    customer: Customer | null;
+    settings: AppSettings | null;
+    logoDataUri: string | null;
+    onImageLoad: () => void;
+    onImageError?: () => void;
 }
 
-export default function ModernInvoice({ invoice, customer, settings, logoDataUri, onImageLoad }: TemplateProps) {
+export default function ModernInvoice({ invoice, customer, settings, logoDataUri, onImageLoad, onImageError }: TemplateProps) {
     const currencySymbol = getCurrencySymbol(invoice.currency);
     const businessProfile = settings?.businessProfile;
     const invoiceSettings = settings?.invoiceSettings;
     const selectedColorName = settings?.customizationSettings?.themeColor || 'Default';
     const themeColor = colorOptions.find(c => c.name === selectedColorName)?.value || 'hsl(var(--primary))';
-    
+
     return (
         <CardContent className="p-8 font-sans text-gray-800">
             {/* Header Section */}
             <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-4">
-                     {(logoDataUri || businessProfile?.logoUrl) &&
+                    {(logoDataUri || businessProfile?.logoUrl) &&
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={120} height={120} className="rounded-md object-contain" crossOrigin="anonymous" onLoad={onImageLoad} />
+                        <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={80} height={80} className="rounded-full object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
                     }
                     <div className="space-y-0">
                         <h2 className="font-bold text-xl">{businessProfile?.businessName || 'Your Business Name'}</h2>
@@ -62,26 +63,26 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
 
             {/* Items Table */}
             <table className="w-full text-left text-sm">
-              <thead>
-                <tr style={{ color: themeColor }}>
-                  <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left">Descriptions</th>
-                  <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center">QTY</th>
-                  <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">UNIT PRICE</th>
-                  <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">TOTAL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.items.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-200">
-                    <td className="p-2 py-3">{item.productName}</td>
-                    <td className="p-2 py-3 text-center">{item.quantity} {item.unit || ''}</td>
-                    <td className="p-2 py-3 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                    <td className="p-2 py-3 text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
+                <thead>
+                    <tr style={{ color: themeColor }}>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left">Descriptions</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center">QTY</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">UNIT PRICE</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {invoice.items.map((item, index) => (
+                        <tr key={index} className="border-b border-gray-200">
+                            <td className="p-2 py-3">{item.productName}</td>
+                            <td className="p-2 py-3 text-center">{item.quantity} {item.unit || ''}</td>
+                            <td className="p-2 py-3 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
+                            <td className="p-2 py-3 text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
+                        </tr>
+                    ))}
+                </tbody>
             </table>
-            
+
             {/* Totals Section */}
             <div className="flex justify-end mt-6">
                 <div className="w-full max-w-xs space-y-2 text-sm">
@@ -106,9 +107,9 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                     </div>
                 </div>
             </div>
-            
+
             <div className="w-full border-t-2 border-black mt-12 pt-6">
-                 {(invoice.notes || invoiceSettings?.footerNote) && (
+                {(invoice.notes || invoiceSettings?.footerNote) && (
                     <div className="text-xs text-gray-600 space-y-3">
                         {invoice.notes && (
                             <div>

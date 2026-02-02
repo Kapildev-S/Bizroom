@@ -6,16 +6,16 @@ import { colorOptions } from '@/lib/mockData';
 import { CardContent } from "@/components/ui/card";
 
 interface TemplateProps {
-  invoice: Invoice;
-  customer: Customer | null;
-  settings: AppSettings | null;
-  logoDataUri: string | null;
-  onImageLoad: () => void;
+    invoice: Invoice;
+    customer: Customer | null;
+    settings: AppSettings | null;
+    logoDataUri: string | null;
+    onImageLoad: () => void;
 }
 
 const breakDetection = (text: string | undefined | null): string => {
-  if (!text) return '';
-  return text.split('').join('\u200B');
+    if (!text) return '';
+    return text.split('').join('\u200B');
 };
 
 // Helper to determine text color based on HSL background lightness
@@ -32,23 +32,23 @@ const getContrastingTextColor = (hslColor: string): string => {
     }
 }
 
-export default function StylishInvoice({ invoice, customer, settings, logoDataUri, onImageLoad }: TemplateProps) {
+export default function StylishInvoice({ invoice, customer, settings, logoDataUri, onImageLoad, onImageError }: TemplateProps) {
     const currencySymbol = getCurrencySymbol(invoice.currency);
     const businessProfile = settings?.businessProfile;
     const invoiceSettings = settings?.invoiceSettings;
     const selectedColorName = settings?.customizationSettings?.themeColor || 'Default';
     const themeColor = colorOptions.find(c => c.name === selectedColorName)?.value || 'hsl(var(--primary))';
-    
+
     const headerTextColor = getContrastingTextColor(themeColor);
 
     return (
         <CardContent className="p-0 font-sans">
             <div className="p-8" style={{ backgroundColor: themeColor, color: headerTextColor }}>
-                 <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start">
                     <div className="space-y-0">
                         {(logoDataUri || businessProfile?.logoUrl) &&
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={120} height={120} className="rounded-md object-contain mb-4 bg-white p-1" crossOrigin="anonymous" onLoad={onImageLoad} />
+                            <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={100} height={100} className="rounded-lg object-contain bg-white/10 p-2" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
                         }
                         <h1 className="text-3xl font-bold">{businessProfile?.businessName || 'Your Business Name'}</h1>
                         <p className="opacity-80">{businessProfile?.address || 'Your Business Address'}</p>
@@ -60,11 +60,11 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                         <p className="opacity-80">#{invoice.invoiceNumber}</p>
                     </div>
                 </div>
-                 <div className="grid grid-cols-2 gap-8 mt-10">
+                <div className="grid grid-cols-2 gap-8 mt-10">
                     <div>
                         <p className="font-bold opacity-80 text-sm">Bill To</p>
                         <p className="font-medium">{customer?.name || invoice.customerName}</p>
-                         {(customer?.phone || invoice.customerPhone) && <p className="font-medium no-underline">Phone: {breakDetection(customer?.phone || invoice.customerPhone)}</p>}
+                        {(customer?.phone || invoice.customerPhone) && <p className="font-medium no-underline">Phone: {breakDetection(customer?.phone || invoice.customerPhone)}</p>}
                     </div>
                     <div>
                         <p className="font-bold opacity-80 text-sm">Date Issued</p>
@@ -75,42 +75,42 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
 
             <div className="p-8">
                 <table className="w-full text-left">
-                  <thead>
-                    <tr>
-                      <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2">Descriptions</th>
-                      <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-center">QTY</th>
-                      <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">PRICE</th>
-                      <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">TOTAL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoice.items.map((item, index) => (
-                      <tr key={index}>
-                        <td className="p-3 border-b">{item.productName}</td>
-                        <td className="p-3 border-b text-center">{item.quantity} {item.unit || ''}</td>
-                        <td className="p-3 border-b text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                        <td className="p-3 border-b text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                    <thead>
+                        <tr>
+                            <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2">Descriptions</th>
+                            <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-center">QTY</th>
+                            <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">PRICE</th>
+                            <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {invoice.items.map((item, index) => (
+                            <tr key={index}>
+                                <td className="p-3 border-b">{item.productName}</td>
+                                <td className="p-3 border-b text-center">{item.quantity} {item.unit || ''}</td>
+                                <td className="p-3 border-b text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
+                                <td className="p-3 border-b text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
                 </table>
             </div>
-            
+
             <div className="flex justify-between items-start p-8">
-                 <div className="text-xs text-gray-500 max-w-xs space-y-4">
-                     {invoice.notes && (
+                <div className="text-xs text-gray-500 max-w-xs space-y-4">
+                    {invoice.notes && (
                         <div>
                             <h4 className="font-bold mb-1 uppercase">Notes</h4>
                             <p className="whitespace-pre-wrap">{invoice.notes}</p>
                         </div>
-                     )}
-                     {invoiceSettings?.footerNote && (
+                    )}
+                    {invoiceSettings?.footerNote && (
                         <div>
                             <h4 className="font-bold mb-1 uppercase">Terms & Conditions</h4>
                             <p className="whitespace-pre-wrap">{invoiceSettings.footerNote}</p>
                         </div>
                     )}
-                 </div>
+                </div>
                 <div className="w-full max-w-sm text-right space-y-2 ml-auto">
                     <div className="flex justify-between"><span className="text-gray-600">Subtotal:</span><span>{currencySymbol}{invoice.subtotal.toFixed(2)}</span></div>
                     {(invoice.discountAmount || 0) > 0 && <div className="flex justify-between"><span className="text-gray-600">Discount:</span><span>-{currencySymbol}{(invoice.discountAmount || 0).toFixed(2)}</span></div>}

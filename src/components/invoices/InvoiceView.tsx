@@ -55,20 +55,20 @@ const getStatusBadgeVariant = (status: Invoice['status']) => {
 export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, settings, logoDataUri, onUpdateStatus, onDelete, currentUser }) => {
   const { toast } = useToast();
   const invoiceContentRef = useRef<HTMLDivElement>(null);
-  
+
   // State management
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreparingShare, setIsPreparingShare] = useState(false);
   const [shareableFile, setShareableFile] = useState<File | null>(null);
-  
+
   // State for reliable generation
-  const [isLogoLoaded, setIsLogoLoaded] = useState(!logoDataUri); 
+  const [isLogoLoaded, setIsLogoLoaded] = useState(!logoDataUri);
   const [areFontsReady, setAreFontsReady] = useState(false);
-  
+
   const selectedColorName = settings?.customizationSettings?.themeColor || 'Default';
   const themeColor = colorOptions.find(c => c.name === selectedColorName)?.value || 'hsl(var(--primary))';
-  
+
   const handleLogoLoad = useCallback(() => {
     setIsLogoLoaded(true);
   }, []);
@@ -92,7 +92,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       toast({ variant: 'destructive', title: 'Error', description: 'Could not find invoice content to render.' });
       return null;
     }
-    
+
     // Add a small delay to ensure rendering is complete
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -105,18 +105,18 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         windowWidth: 1024, // Force a desktop-like width for consistent rendering
         ignoreElements: (element) => element.id === 'invoice-action-buttons',
       });
-      
+
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.95)); // Use PNG for better quality and compatibility
-      
+
       if (!blob) {
         throw new Error('Could not create image blob.');
       }
-      
+
       return new File([blob], `invoice-${invoice.invoiceNumber}.png`, { type: 'image/png' });
     } catch (error) {
-        console.error("Image generation failed:", error);
-        toast({ variant: 'destructive', title: 'Image Generation Failed', description: 'An error occurred while creating the image.' });
-        return null;
+      console.error("Image generation failed:", error);
+      toast({ variant: 'destructive', title: 'Image Generation Failed', description: 'An error occurred while creating the image.' });
+      return null;
     }
   };
 
@@ -124,7 +124,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     setIsDownloading(true);
     const file = await generateImageFile();
     setIsDownloading(false);
-    
+
     if (file) {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(file);
@@ -170,34 +170,46 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const handleDelete = async () => {
     if (!currentUser || !invoice) return;
     try {
-        await runTransaction(db, async (transaction) => {
-            for (const item of invoice.items) {
-                const productRef = doc(db, `users/${currentUser.uid}/products`, item.productId);
-                const productDoc = await transaction.get(productRef);
-                if (productDoc.exists()) {
-                    const productData = productDoc.data();
-                    if (productData.stock !== null) {
-                        transaction.update(productRef, { stock: productData.stock + item.quantity });
-                    }
-                }
+      await runTransaction(db, async (transaction) => {
+        for (const item of invoice.items) {
+          const productRef = doc(db, `users/${currentUser.uid}/products`, item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            if (productData.stock !== null) {
+              transaction.update(productRef, { stock: productData.stock + item.quantity });
             }
-            const invoiceDocRef = doc(db, `users/${currentUser.uid}/invoices`, invoice.id);
-            transaction.delete(invoiceDocRef);
-        });
-        toast({ title: "Invoice Deleted", description: "The invoice has been deleted and stock restored." });
-        onDelete();
+          }
+        }
+        const invoiceDocRef = doc(db, `users/${currentUser.uid}/invoices`, invoice.id);
+        transaction.delete(invoiceDocRef);
+      });
+      toast({ title: "Invoice Deleted", description: "The invoice has been deleted and stock restored." });
+      onDelete();
     } catch (error) {
-        console.error("Failed to delete invoice:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not delete the invoice." });
+      console.error("Failed to delete invoice:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not delete the invoice." });
     } finally {
-        setIsDeleteDialogOpen(false);
+      setIsDeleteDialogOpen(false);
     }
   };
-  
+
   const template = settings?.customizationSettings?.template || 'classic';
 
+  const handleLogoError = useCallback(() => {
+    console.warn("Logo failed to load");
+    setIsLogoLoaded(true); // Proceed anyway
+  }, []);
+
   const renderTemplate = () => {
-    const templateProps = { invoice, customer, settings, logoDataUri, onImageLoad: handleLogoLoad };
+    const templateProps = {
+      invoice,
+      customer,
+      settings,
+      logoDataUri,
+      onImageLoad: handleLogoLoad,
+      onImageError: handleLogoError
+    };
 
     switch (template) {
       case 'modern':
@@ -216,33 +228,33 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     <>
       <div id="invoice-content" className="max-w-4xl mx-auto font-sans">
         <Card ref={invoiceContentRef} id="invoice-content-render" className="shadow-xl bg-white text-gray-800 mx-auto w-full">
-            {renderTemplate()}
+          {renderTemplate()}
         </Card>
         <div id="invoice-action-buttons" className="p-6 flex flex-wrap justify-end gap-2 no-print bg-card border rounded-b-lg">
-            <div className="mr-auto">
-                <Badge variant={getStatusBadgeVariant(invoice.status)} className="text-base px-4 py-1 capitalize">
-                    Status: {invoice.status}
-                </Badge>
-            </div>
-            {invoice.status !== 'paid' && invoice.status !== 'void' && (
-                <Button variant="outline" onClick={() => onUpdateStatus('paid')} className="hover:bg-green-500/10 hover:text-green-600 hover:border-green-500">
-                    <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
-                </Button>
-            )}
-           
+          <div className="mr-auto">
+            <Badge variant={getStatusBadgeVariant(invoice.status)} className="text-base px-4 py-1 capitalize">
+              Status: {invoice.status}
+            </Badge>
+          </div>
+          {invoice.status !== 'paid' && invoice.status !== 'void' && (
+            <Button variant="outline" onClick={() => onUpdateStatus('paid')} className="hover:bg-green-500/10 hover:text-green-600 hover:border-green-500">
+              <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
+            </Button>
+          )}
+
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
 
           {shareableFile ? (
             <Button variant="outline" onClick={executeShare}>
-                <Share2 className="mr-2 h-4 w-4" />
-                Share Now
+              <Share2 className="mr-2 h-4 w-4" />
+              Share Now
             </Button>
-            ) : (
+          ) : (
             <Button variant="outline" onClick={prepareForShare} disabled={isPreparingShare || isDownloading || !isReady}>
-                {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
-                {isPreparingShare ? 'Preparing...' : 'Share as Image'}
+              {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+              {isPreparingShare ? 'Preparing...' : 'Share as Image'}
             </Button>
           )}
 
@@ -252,18 +264,18 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           </Button>
 
           {(invoice.status === 'draft' || invoice.status === 'sent') && (
-              <Button variant="default" asChild style={{ backgroundColor: themeColor }} className="text-primary-foreground">
-                  <Link href={`/invoices/${invoice.id}/edit`}>
-                      <Edit className="mr-2 h-4 w-4" /> Edit
-                  </Link>
-              </Button>
+            <Button variant="default" asChild style={{ backgroundColor: themeColor }} className="text-primary-foreground">
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </Link>
+            </Button>
           )}
           <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
             <Trash2 className="mr-2 h-4 w-4" /> Delete
           </Button>
         </div>
       </div>
-      
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
