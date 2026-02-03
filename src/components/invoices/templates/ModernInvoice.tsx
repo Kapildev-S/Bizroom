@@ -28,7 +28,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                 <div className="flex items-center gap-4">
                     {(logoDataUri || businessProfile?.logoUrl) &&
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={80} height={80} className="rounded-full object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
+                        <img src={logoDataUri || businessProfile?.logoUrl} alt="Business Logo" width={80} height={80} className="rounded-full object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
                     }
                     <div className="space-y-0">
                         <h2 className="font-bold text-xl">{businessProfile?.businessName || 'Your Business Name'}</h2>
@@ -48,8 +48,8 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
             <div className="grid grid-cols-2 gap-8 mb-8">
                 <div>
                     <p className="font-semibold text-gray-500 text-sm mb-1">Billed To</p>
-                    <p className="font-medium text-gray-900">{customer?.name || invoice.customerName}</p>
-                    {(customer?.phone || invoice.customerPhone) && <p className="text-gray-600 text-sm">Phone: {customer?.phone || invoice.customerPhone}</p>}
+                    <p className="font-medium text-gray-900">{invoice.customerName || customer?.name}</p>
+                    {(invoice.customerPhone || customer?.phone) && <p className="text-gray-600 text-sm">Phone: {invoice.customerPhone || customer?.phone}</p>}
                 </div>
                 <div className="text-right">
                     <div className="grid grid-cols-[auto,1fr] gap-x-2 text-left ml-auto text-sm">

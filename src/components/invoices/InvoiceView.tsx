@@ -47,9 +47,12 @@ const getStatusBadgeVariant = (status: Invoice['status']) => {
     case 'sent': return 'secondary';
     case 'overdue': return 'destructive';
     case 'draft': return 'outline';
-    case 'void': return 'outline';
-    default: return 'secondary';
   }
+};
+
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
 };
 
 export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, settings, logoDataUri, onUpdateStatus, onDelete, currentUser }) => {
@@ -90,10 +93,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       setAreFontsReady(true); // Proceed anyway on error
     });
 
-    // Fallback: set fonts as ready after 3 seconds anyway to not block the user forever
+    // Fallback: set fonts as ready after 1 second anyway to not block the user forever
     timeoutId = setTimeout(() => {
       setAreFontsReady(true);
-    }, 3000);
+    }, 1000);
 
     return () => clearTimeout(timeoutId);
   }, []);
@@ -112,19 +115,32 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       return null;
     }
 
-    // Add a small delay to ensure rendering is complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Add a slightly larger delay for mobile to ensure rendering is complete
+    await new Promise(resolve => setTimeout(resolve, isMobileDevice() ? 300 : 100));
 
     try {
       const isMobile = window.innerWidth <= 768;
       const scale = isMobile ? 1.5 : 2; // Reduce scale on mobile to prevent crashes
 
       const canvas = await html2canvas(input, {
-        scale: isMobile ? 1.5 : 2,
+        scale: isMobile ? 1.2 : 2, // Slightly lower scale for mobile stability
         useCORS: true,
         logging: false,
         windowWidth: 1024,
-        ignoreElements: (element) => element.id === 'invoice-action-buttons',
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('invoice-content-render');
+          if (el) {
+            el.style.transform = 'none';
+            el.style.margin = '0';
+            el.style.padding = '32px'; // Match p-8
+          }
+        }
       });
 
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.95)); // Use PNG for better quality and compatibility

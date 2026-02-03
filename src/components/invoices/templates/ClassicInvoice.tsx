@@ -32,7 +32,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
         <div className="flex items-start gap-4">
           {(logoDataUri || businessProfile?.logoUrl) &&
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={120} height={120} className="rounded-md object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
+            <img src={logoDataUri || businessProfile?.logoUrl} alt="Business Logo" width={120} height={120} className="rounded-md object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
           }
           <div className="space-y-0">
             <h2 className="font-bold text-xl">{businessProfile?.businessName || 'Your Business Name'}</h2>
@@ -52,9 +52,9 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
       <div className="flex justify-between items-start">
         <div className="w-1/2 pr-4">
           <p className="font-semibold text-gray-500 text-sm mb-1">Bill To:</p>
-          <p className="font-bold">{customer?.name || invoice.customerName}</p>
+          <p className="font-bold">{invoice.customerName || customer?.name}</p>
           {customer?.address && <p className="text-gray-600 text-sm">{customer.address}</p>}
-          {(customer?.phone || invoice.customerPhone) && <p className="text-gray-600 text-sm no-underline">Phone: {breakDetection(customer?.phone || invoice.customerPhone)}</p>}
+          {(invoice.customerPhone || customer?.phone) && <p className="text-gray-600 text-sm no-underline">Phone: {breakDetection(invoice.customerPhone || customer?.phone)}</p>}
         </div>
         <div className="w-1/2 pl-4 text-right">
           <div className="grid grid-cols-[auto,1fr] gap-x-4 text-left ml-auto max-w-xs text-sm">

@@ -11,6 +11,7 @@ interface TemplateProps {
     settings: AppSettings | null;
     logoDataUri: string | null;
     onImageLoad: () => void;
+    onImageError?: () => void;
 }
 
 const breakDetection = (text: string | undefined | null): string => {
@@ -51,7 +52,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                 <div className="flex items-center gap-4">
                     {(logoDataUri || businessProfile?.logoUrl) && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={150} height={60} className="object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
+                        <img src={logoDataUri || businessProfile?.logoUrl} alt="Business Logo" width={150} height={60} className="object-contain" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
                     )}
                     <div className="space-y-0">
                         <h2 className="text-xl font-bold">{businessProfile?.businessName || 'Your Company Name'}</h2>
@@ -70,9 +71,9 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                 <div className="grid grid-cols-2 gap-8 mb-8">
                     <div>
                         <p className="font-semibold text-gray-500 text-sm mb-1">BILL TO:</p>
-                        <p className="font-bold text-lg">{customer?.name || invoice.customerName}</p>
+                        <p className="font-bold text-lg">{invoice.customerName || customer?.name}</p>
                         {customer?.address && <p className="text-gray-600 text-sm">{customer.address}</p>}
-                        {(customer?.phone || invoice.customerPhone) && <p className="text-gray-600 text-sm no-underline">Phone: {breakDetection(customer?.phone || invoice.customerPhone)}</p>}
+                        {(invoice.customerPhone || customer?.phone) && <p className="text-gray-600 text-sm no-underline">Phone: {breakDetection(invoice.customerPhone || customer?.phone)}</p>}
                     </div>
                     <div className="text-right">
                         <div className="grid grid-cols-[auto,1fr] gap-x-4 text-left ml-auto text-sm">

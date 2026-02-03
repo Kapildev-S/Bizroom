@@ -11,6 +11,7 @@ interface TemplateProps {
     settings: AppSettings | null;
     logoDataUri: string | null;
     onImageLoad: () => void;
+    onImageError?: () => void;
 }
 
 const breakDetection = (text: string | undefined | null): string => {
@@ -48,7 +49,7 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                     <div className="space-y-0">
                         {(logoDataUri || businessProfile?.logoUrl) &&
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoDataUri || businessProfile.logoUrl} alt="Business Logo" width={100} height={100} className="rounded-lg object-contain bg-white/10 p-2" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
+                            <img src={logoDataUri || businessProfile?.logoUrl} alt="Business Logo" width={100} height={100} className="rounded-lg object-contain bg-white/10 p-2" crossOrigin="anonymous" onLoad={onImageLoad} onError={onImageError || onImageLoad} />
                         }
                         <h1 className="text-3xl font-bold">{businessProfile?.businessName || 'Your Business Name'}</h1>
                         <p className="opacity-80">{businessProfile?.address || 'Your Business Address'}</p>
@@ -63,8 +64,8 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                 <div className="grid grid-cols-2 gap-8 mt-10">
                     <div>
                         <p className="font-bold opacity-80 text-sm">Bill To</p>
-                        <p className="font-medium">{customer?.name || invoice.customerName}</p>
-                        {(customer?.phone || invoice.customerPhone) && <p className="font-medium no-underline">Phone: {breakDetection(customer?.phone || invoice.customerPhone)}</p>}
+                        <p className="font-medium">{invoice.customerName || customer?.name}</p>
+                        {(invoice.customerPhone || customer?.phone) && <p className="font-medium no-underline">Phone: {breakDetection(invoice.customerPhone || customer?.phone)}</p>}
                     </div>
                     <div>
                         <p className="font-bold opacity-80 text-sm">Date Issued</p>
