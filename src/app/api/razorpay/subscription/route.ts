@@ -3,7 +3,11 @@ import { razorpay } from "@/lib/razorpay";
 
 export async function POST(req: Request) {
     try {
-        const { planType } = await req.json();
+        const { planType, userId } = await req.json();
+
+        if (!userId) {
+            return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+        }
 
         let planId = "";
         let totalCount = 12; // default
@@ -46,9 +50,9 @@ export async function POST(req: Request) {
             plan_id: planId,
             customer_notify: 1,
             total_count: totalCount,
-            // quantity: 1, // Default is 1
-            // add_ons: [],
-            // notes: {}
+            notes: {
+                userId: userId
+            }
         });
 
         return NextResponse.json({

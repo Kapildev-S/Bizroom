@@ -120,28 +120,33 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
     try {
       const isMobile = window.innerWidth <= 768;
-      const scale = isMobile ? 1.5 : 2; // Reduce scale on mobile to prevent crashes
 
-      const canvas = await html2canvas(input, {
-        scale: isMobile ? 1.2 : 2, // Slightly lower scale for mobile stability
+      // Safety timeout: If html2canvas takes too long (e.g. 8s), we throw to avoid hanging UI
+      const canvasPromise = html2canvas(input, {
+        scale: isMobile ? 1.5 : 2, // Moderate scale for mobile
         useCORS: true,
-        logging: false,
+        logging: true, // Enable logging to see errors in console if connected
         windowWidth: 1024,
-        allowTaint: true,
+        allowTaint: false, // Changed to false to prevent tainted canvas errors on export
         backgroundColor: "#ffffff",
         scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0,
+        scrollY: -window.scrollY, // Fix scroll issue
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('invoice-content-render');
           if (el) {
             el.style.transform = 'none';
             el.style.margin = '0';
-            el.style.padding = '32px'; // Match p-8
+            el.style.padding = '32px';
+            // Ensure font loading in clone if possible, or just rely on main doc
           }
         }
       });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Generation timed out. Please try again.')), 8000)
+      );
+
+      const canvas = await Promise.race([canvasPromise, timeoutPromise]);
 
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.95)); // Use PNG for better quality and compatibility
 
@@ -150,9 +155,15 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       }
 
       return new File([blob], `invoice-${invoice.invoiceNumber}.png`, { type: 'image/png' });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Image generation failed:", error);
-      toast({ variant: 'destructive', title: 'Image Generation Failed', description: 'An error occurred while creating the image.' });
+      // Show the actual error message on mobile to help debug
+      alert(`Debug Error: ${error.message || error}`);
+      toast({
+        variant: 'destructive',
+        title: 'Image Generation Failed',
+        description: error.message || 'Unknown error occurred'
+      });
       return null;
     }
   };

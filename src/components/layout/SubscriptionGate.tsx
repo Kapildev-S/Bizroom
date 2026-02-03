@@ -30,26 +30,23 @@ export function SubscriptionGate({ children, user }: { children: React.ReactNode
           const appSettings = docSnap.data() as AppSettings;
           setSettings(appSettings);
 
-          const sub = appSettings.subscription;
-          if (sub?.status === 'active') {
+          const isPremium = appSettings.subscriptionStatus === 'premium';
+          const expiryDate = appSettings.premiumExpiry ? new Date(appSettings.premiumExpiry) : null;
+          const isExpired = expiryDate ? new Date() > expiryDate : true;
+
+          if (isPremium && !isExpired) {
             setIsSubscriptionActive(true);
-          } else if (sub?.status === 'trial') {
-            const trialEndDate = sub.endDate ? new Date(sub.endDate) : new Date(0);
-            if (trialEndDate > new Date()) {
-              setIsSubscriptionActive(true); // Trial is still active
-            } else {
-              setIsSubscriptionActive(false); // Trial expired
-              setModalMessage('Your free trial has expired. Please subscribe to continue.');
-            }
-          } else {
-            // Inactive or no subscription info
+          } else if (isPremium && isExpired) {
             setIsSubscriptionActive(false);
-            setModalMessage('Your subscription is inactive. Please subscribe to continue using all features.');
+            setModalMessage('Your premium subscription has expired. Please renew to continue.');
+          } else {
+            setIsSubscriptionActive(false);
+            setModalMessage('Your subscription is inactive. Please subscribe to continue.');
           }
         } else {
-          // No settings found, could be a new user, treat as active for now.
-          // The default settings creation will handle this.
-          setIsSubscriptionActive(true); 
+          // No settings found - New users are basic by default
+          setIsSubscriptionActive(false);
+          setModalMessage('Please subscribe to access premium features.');
         }
       } catch (error) {
         console.error("Error checking subscription status:", error);
@@ -92,6 +89,6 @@ export function SubscriptionGate({ children, user }: { children: React.ReactNode
       </div>
     );
   }
-  
+
   return <>{children}</>;
 }

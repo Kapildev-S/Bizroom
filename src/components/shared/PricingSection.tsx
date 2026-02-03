@@ -4,6 +4,8 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
 
 declare global {
     interface Window {
@@ -13,6 +15,7 @@ declare global {
 
 export function PricingSection({ titleOverride }: { titleOverride?: string }) {
     const [loading, setLoading] = useState<string | null>(null);
+    const router = useRouter();
 
     const plans = [
         {
@@ -55,6 +58,20 @@ export function PricingSection({ titleOverride }: { titleOverride?: string }) {
 
     const handleSubscribe = async (planName: string) => {
         setLoading(planName);
+
+        const user = auth.currentUser;
+        if (!user) {
+            // Map plan to specific page or default to 299
+            let redirectPath = "/pay-299";
+            if (planName === "3 Months") redirectPath = "/pay-799"; // Assuming these exist or will default
+            if (planName === "Yearly") redirectPath = "/pay-2499";
+
+            // Redirect to login with proper return path
+            router.push(`/auth/login?redirect=${encodeURIComponent(redirectPath)}`);
+            setLoading(null);
+            return;
+        }
+
         const res = await loadRazorpay();
 
         if (!res) {

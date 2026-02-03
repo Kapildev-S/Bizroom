@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,6 +25,8 @@ const formSchema = z.object({
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirectUrl = searchParams.get('redirect');
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
 
@@ -32,7 +34,7 @@ export default function LoginPage() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
-                router.replace("/dashboard");
+                router.replace(redirectUrl || "/dashboard");
             }
         });
         return () => unsubscribe();
@@ -54,7 +56,7 @@ export default function LoginPage() {
                 title: "Login Successful",
                 description: "Welcome back!",
             });
-            router.push("/dashboard");
+            router.push(redirectUrl || "/dashboard");
         } catch (error) {
             const authError = error as AuthError;
             console.error("Login error:", authError);
@@ -87,9 +89,10 @@ export default function LoginPage() {
             });
 
             if (isNewUser) {
-                router.push("/settings");
+                // New users might need onboarding, but if they came from pricing, send them to pay
+                router.push(redirectUrl || "/settings?onboarding=true");
             } else {
-                router.push("/dashboard");
+                router.push(redirectUrl || "/dashboard");
             }
         } catch (error) {
             const authError = error as AuthError;

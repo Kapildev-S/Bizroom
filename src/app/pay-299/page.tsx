@@ -9,6 +9,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import type { AppSettings } from "@/lib/mockData";
+import { upgradeUserToPremium } from "@/app/actions/userActions";
 
 declare global {
     interface Window {
@@ -68,7 +69,10 @@ export default function Pay299Page() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ planType: 'Monthly' }),
+                body: JSON.stringify({
+                    planType: 'Monthly',
+                    userId: auth.currentUser?.uid
+                }),
             });
 
             const data = await response.json();
@@ -82,10 +86,22 @@ export default function Pay299Page() {
                 subscription_id: data.subscriptionId,
                 name: "BizRoom Premium",
                 description: "Monthly Subscription - ₹299",
-                handler: function (response: any) {
-                    alert("Subscription Successful! Payment ID: " + response.razorpay_payment_id);
-                    // Redirect to dashboard after successful payment
-                    router.push("/dashboard");
+                handler: async function (response: any) {
+                    try {
+                        const user = auth.currentUser;
+                        if (user) {
+                            const result = await upgradeUserToPremium(user.uid);
+                            if (result.success) {
+                                alert("Subscription Successful! Enjoy Premium Features.");
+                                router.push("/dashboard");
+                            } else {
+                                throw new Error(result.error);
+                            }
+                        }
+                    } catch (error: any) {
+                        console.error("Success update error:", error);
+                        alert("Payment successful but failed to update status. Please contact support.");
+                    }
                 },
                 theme: {
                     color: "#6366f1"
