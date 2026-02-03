@@ -121,16 +121,20 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     try {
       const isMobile = window.innerWidth <= 768;
 
-      // Safety timeout: If html2canvas takes too long (e.g. 8s), we throw to avoid hanging UI
+      // Safety timeout: Longer for mobile devices (15s vs 8s)
+      const timeoutDuration = isMobile ? 15000 : 8000;
+
+      // Much lower scale for mobile to prevent timeout
       const canvasPromise = html2canvas(input, {
-        scale: isMobile ? 1.5 : 2, // Moderate scale for mobile
+        scale: isMobile ? 1.0 : 2,
         useCORS: true,
-        logging: true, // Enable logging to see errors in console if connected
-        windowWidth: 1024,
+        logging: false, // Disable for performance
+        windowWidth: isMobile ? window.innerWidth : 1024,
         allowTaint: false, // Changed to false to prevent tainted canvas errors on export
         backgroundColor: "#ffffff",
         scrollX: 0,
-        scrollY: -window.scrollY, // Fix scroll issue
+        scrollY: -window.scrollY,
+        imageTimeout: 0, // Don't wait for external images
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('invoice-content-render');
           if (el) {
@@ -143,7 +147,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       });
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Generation timed out. Please try again.')), 8000)
+        setTimeout(() => reject(new Error('Generation timed out. Please try again.')), timeoutDuration)
       );
 
       const canvas = await Promise.race([canvasPromise, timeoutPromise]);
