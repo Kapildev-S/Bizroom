@@ -138,16 +138,17 @@ export default function HomePage() {
           <Link href="#pricing" className="hover:text-primary transition-colors">Pricing</Link>
           <Link href="#contact" className="hover:text-primary transition-colors">Contact</Link>
         </nav>
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" asChild className="hidden md:flex gap-2 mr-2 border-primary/20 hover:bg-primary/5">
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" asChild className="flex gap-1.5 border-primary/20 hover:bg-primary/5 px-3 h-10">
             <Link href="/recharge">
-              <Smartphone className="w-4 h-4" /> Recharge
+              <Smartphone className="w-4 h-4" />
+              <span className="text-xs sm:text-sm">Recharge</span>
             </Link>
           </Button>
-          <Button variant="ghost" asChild className="text-foreground hover:text-primary">
-            <Link href="/auth/login">Login</Link>
+          <Button variant="ghost" asChild className="flex text-foreground hover:text-primary px-3 h-10">
+            <Link href="/auth/login" className="text-xs sm:text-sm">Login</Link>
           </Button>
-          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg rounded-md px-6">
+          <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg rounded-md px-6">
             <Link href="/auth/signup">Sign Up</Link>
           </Button>
         </div>

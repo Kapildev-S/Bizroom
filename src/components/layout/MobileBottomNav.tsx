@@ -11,7 +11,8 @@ import {
     Settings,
     Package,
     BarChart3,
-    Calendar
+    Calendar,
+    Smartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,9 +45,9 @@ const navItems: NavItem[] = [
         label: 'Customers',
     },
     {
-        href: '/settings',
-        icon: <Settings className="h-5 w-5" />,
-        label: 'Settings',
+        href: '/recharge',
+        icon: <Smartphone className="h-5 w-5" />,
+        label: 'Recharge',
     },
 ];
 

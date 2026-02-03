@@ -3,14 +3,16 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
 interface MobileHeaderProps {
     title?: string;
     showSearch?: boolean;
     showNotification?: boolean;
+    showSidebarTrigger?: boolean;
     rightAction?: React.ReactNode;
     className?: string;
 }
@@ -19,6 +21,7 @@ export function MobileHeader({
     title = "BizRoom",
     showSearch = false,
     showNotification = true,
+    showSidebarTrigger = true,
     rightAction,
     className
 }: MobileHeaderProps) {
@@ -32,6 +35,7 @@ export function MobileHeader({
         )}>
             {/* Left - Logo/Title */}
             <div className="flex items-center gap-2">
+                {showSidebarTrigger && <SidebarTrigger className="mr-1" />}
                 <Link href="/dashboard" className="flex items-center gap-2">
                     <Image
                         src="/bizroom-icon.png"

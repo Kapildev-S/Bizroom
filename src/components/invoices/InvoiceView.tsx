@@ -63,7 +63,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const [shareableFile, setShareableFile] = useState<File | null>(null);
 
   // State for reliable generation
-  const [isLogoLoaded, setIsLogoLoaded] = useState(!logoDataUri);
+  const [isLogoLoaded, setIsLogoLoaded] = useState(false);
   const [areFontsReady, setAreFontsReady] = useState(false);
 
   const selectedColorName = settings?.customizationSettings?.themeColor || 'Default';
@@ -74,9 +74,28 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   }, []);
 
   useEffect(() => {
+    if (!logoDataUri) {
+      setIsLogoLoaded(true);
+    } else {
+      setIsLogoLoaded(false);
+    }
+  }, [logoDataUri]);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     document.fonts.ready.then(() => {
       setAreFontsReady(true);
+    }).catch(() => {
+      setAreFontsReady(true); // Proceed anyway on error
     });
+
+    // Fallback: set fonts as ready after 3 seconds anyway to not block the user forever
+    timeoutId = setTimeout(() => {
+      setAreFontsReady(true);
+    }, 3000);
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const isReady = isLogoLoaded && areFontsReady;
@@ -97,12 +116,14 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
+      const isMobile = window.innerWidth <= 768;
+      const scale = isMobile ? 1.5 : 2; // Reduce scale on mobile to prevent crashes
+
       const canvas = await html2canvas(input, {
-        scale: 2, // Use a higher scale for better quality
-        useCORS: true, // Important for external images like logos
+        scale: isMobile ? 1.5 : 2,
+        useCORS: true,
         logging: false,
-        letterRendering: true,
-        windowWidth: 1024, // Force a desktop-like width for consistent rendering
+        windowWidth: 1024,
         ignoreElements: (element) => element.id === 'invoice-action-buttons',
       });
 
@@ -136,34 +157,29 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     }
   };
 
-  const prepareForShare = async () => {
+  const handleShare = async () => {
     setIsPreparingShare(true);
     const file = await generateImageFile();
     setIsPreparingShare(false);
 
     if (file) {
-      setShareableFile(file);
-    }
-  };
-
-  const executeShare = async () => {
-    if (!shareableFile) return;
-
-    try {
-      if (navigator.share && navigator.canShare({ files: [shareableFile] })) {
-        await navigator.share({
-          files: [shareableFile],
-          title: `Invoice ${invoice.invoiceNumber}`,
-        });
-      } else {
-        toast({ title: 'Cannot Share', description: 'Your browser does not support sharing files.' });
+      try {
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Invoice ${invoice.invoiceNumber}`,
+          });
+        } else {
+          toast({ title: 'Cannot Share', description: 'Your browser does not support sharing files.' });
+          // Fallback to download if share fails
+          handleDownloadImage();
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error("Sharing failed:", error);
+          toast({ variant: 'destructive', title: 'Sharing Failed', description: 'Could not share the image.' });
+        }
       }
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        toast({ variant: 'destructive', title: 'Sharing Failed', description: 'Could not share the image.' });
-      }
-    } finally {
-      setShareableFile(null); // Reset after sharing attempt
     }
   };
 
@@ -246,17 +262,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
 
-          {shareableFile ? (
-            <Button variant="outline" onClick={executeShare}>
-              <Share2 className="mr-2 h-4 w-4" />
-              Share Now
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={prepareForShare} disabled={isPreparingShare || isDownloading || !isReady}>
-              {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
-              {isPreparingShare ? 'Preparing...' : 'Share as Image'}
-            </Button>
-          )}
+          <Button variant="outline" onClick={handleShare} disabled={isPreparingShare || isDownloading || !isReady}>
+            {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+            {isPreparingShare ? 'Preparing...' : 'Share Image'}
+          </Button>
 
           <Button variant="outline" onClick={handleDownloadImage} disabled={isDownloading || isPreparingShare || !isReady}>
             {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileImage className="mr-2 h-4 w-4" />}

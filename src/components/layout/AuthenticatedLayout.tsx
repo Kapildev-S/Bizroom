@@ -76,7 +76,7 @@ export default function AuthenticatedLayout({
           {/* Mobile Header - Only visible on mobile */}
           {showMobileHeader && (
             <div className="md:hidden">
-              <MobileHeader title={pageTitle || "BizRoom"} />
+              <MobileHeader title={pageTitle || "BizRoom"} showSidebarTrigger={true} />
             </div>
           )}
 
