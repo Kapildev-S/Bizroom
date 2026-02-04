@@ -9,11 +9,23 @@ interface RechargeDetails {
 }
 
 export async function sendRechargeEmail(details: RechargeDetails) {
+  console.log('🔵 [RECHARGE EMAIL] Function called with details:', {
+    name: details.name,
+    mobileNumber: details.mobileNumber,
+    operator: details.operator,
+    amount: details.amount
+  });
+
   const apiKey = process.env.SENDGRID_API_KEY;
+  console.log('🔵 [RECHARGE EMAIL] API Key status:', {
+    exists: !!apiKey,
+    length: apiKey?.length || 0,
+    firstChars: apiKey?.substring(0, 10) || 'N/A'
+  });
 
   // Check if key is missing OR is the placeholder
   if (!apiKey || apiKey === 'your_sendgrid_api_key_here') {
-    console.warn('SENDGRID_API_KEY is missing or invalid. Running in DEMO MODE.');
+    console.warn('⚠️ [RECHARGE EMAIL] SENDGRID_API_KEY is missing or invalid. Running in DEMO MODE.');
     console.log('--- MOCK EMAIL START ---');
     console.log(`To: karubegins@gmail.com`);
     console.log(`Subject: New Recharge Request: ₹${details.amount} for ${details.mobileNumber}`);
@@ -23,6 +35,7 @@ export async function sendRechargeEmail(details: RechargeDetails) {
   }
 
   const recipients = ['karubegins@gmail.com'];
+  console.log('🔵 [RECHARGE EMAIL] Recipients:', recipients);
 
   const emailData = {
     personalizations: [
@@ -52,12 +65,19 @@ export async function sendRechargeEmail(details: RechargeDetails) {
     ],
   };
 
-  return sendEmail(emailData, apiKey);
+  console.log('🔵 [RECHARGE EMAIL] Email data prepared, calling sendEmail...');
+  const result = await sendEmail(emailData, apiKey);
+  console.log('🔵 [RECHARGE EMAIL] sendEmail result:', result);
+  return result;
 }
 
 // Helper to send email via SendGrid
 async function sendEmail(data: any, apiKey: string) {
+  console.log('📧 [SEND EMAIL] Starting email send process...');
+  console.log('📧 [SEND EMAIL] Request payload:', JSON.stringify(data, null, 2));
+
   try {
+    console.log('📧 [SEND EMAIL] Making fetch request to SendGrid API...');
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
@@ -67,17 +87,42 @@ async function sendEmail(data: any, apiKey: string) {
       body: JSON.stringify(data),
     });
 
+    console.log('📧 [SEND EMAIL] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
     if (response.ok) {
-      console.log('Email sent successfully via SendGrid API.');
+      console.log('✅ [SEND EMAIL] Email sent successfully via SendGrid API!');
       return { success: true };
     } else {
-      const errorBody = await response.json();
-      console.error('Error sending email with SendGrid API:', response.status, response.statusText, errorBody);
-      return { success: false, error: `An error occurred while communicating with the email service. Status: ${response.status}` };
+      let errorBody;
+      try {
+        errorBody = await response.json();
+      } catch (e) {
+        errorBody = await response.text();
+      }
+      console.error('❌ [SEND EMAIL] Error sending email with SendGrid API:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody
+      });
+      return {
+        success: false,
+        error: `SendGrid API Error (${response.status}): ${JSON.stringify(errorBody)}`
+      };
     }
   } catch (error: any) {
-    console.error('Network or other error sending email:', error);
-    return { success: false, error: 'A network error occurred while sending the email.' };
+    console.error('❌ [SEND EMAIL] Network or other error sending email:', {
+      message: error.message,
+      stack: error.stack,
+      error
+    });
+    return {
+      success: false,
+      error: `Network error: ${error.message}`
+    };
   }
 }
 
