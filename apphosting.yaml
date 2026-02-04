@@ -19,3 +19,5 @@ env:
     value: plan_S9jHBprusLvyEj0
   - variable: RAZORPAY_KEY_SECRET
     value: JrWHSiTtM6g2anHkgDbukLAI
+  - variable: SENDGRID_API_KEY
+    value: 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
