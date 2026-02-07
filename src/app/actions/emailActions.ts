@@ -187,3 +187,64 @@ export async function sendBookingEmail(details: BookingEmailDetails) {
 
   return sendEmail(emailData, apiKey);
 }
+
+export interface EvergreenInquiryDetails {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}
+
+export async function sendEvergreenInquiry(details: EvergreenInquiryDetails) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+
+  if (!apiKey || apiKey === 'your_sendgrid_api_key_here') {
+    console.warn('SENDGRID_API_KEY is missing or invalid. Running in DEMO MODE.');
+    console.log('--- MOCK INQUIRY EMAIL START ---');
+    console.log(`To: korattur.che@fr.dtdc.com`);
+    console.log(`Subject: New Inquiry from Website: ${details.name}`);
+    console.log(`From: ${details.email} (${details.phone})`);
+    console.log(`Message: ${details.message}`);
+    console.log('--- MOCK INQUIRY EMAIL END ---');
+    return { success: true };
+  }
+
+  const emailData = {
+    personalizations: [
+      {
+        to: [{ email: 'korattur.che@fr.dtdc.com' }],
+      }
+    ],
+    from: {
+      email: 'info@bizroom.in',
+      name: 'Evergreen Website Inquiry'
+    },
+    subject: `New Inquiry from Website: ${details.name}`,
+    content: [
+      {
+        type: 'text/html',
+        value: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #0d9488;">New Website Inquiry</h1>
+            <p>You have received a new message from the Evergreen Enterprises website contact form.</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Name:</strong> ${details.name}</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> ${details.email}</p>
+                <p style="margin: 5px 0;"><strong>Phone:</strong> ${details.phone}</p>
+                <hr style="border: 0; border-top: 1px solid #d1d5db; margin: 15px 0;">
+                <p style="margin: 5px 0;"><strong>Message:</strong></p>
+                <p style="white-space: pre-wrap;">${details.message}</p>
+            </div>
+
+            <p>Please reply directly to the customer at <a href="mailto:${details.email}">${details.email}</a> or call them at <a href="tel:${details.phone}">${details.phone}</a>.</p>
+          </div>
+        `,
+      },
+    ],
+  };
+
+  return sendEmail(emailData, apiKey);
+}
+
+
