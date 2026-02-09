@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Calendar, MapPin, Loader2, ArrowRight } from "lucide-react";
+import { Plus, Calendar, MapPin, Loader2, ArrowRight, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -56,6 +57,11 @@ export default function EventListingPage() {
                     </p>
                 </div>
                 <div className="flex items-center space-x-2">
+                    <Button variant="outline" asChild>
+                        <Link href="/dashboard/events/scanner">
+                            <QrCode className="mr-2 h-4 w-4" /> Scan Tickets
+                        </Link>
+                    </Button>
                     <Button asChild className="bg-primary hover:bg-primary/90">
                         <Link href="/dashboard/events/create">
                             <Plus className="mr-2 h-4 w-4" /> Create Event

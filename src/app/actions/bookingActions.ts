@@ -8,6 +8,9 @@ import {
     where,
     orderBy,
     serverTimestamp,
+    doc,
+    updateDoc,
+    getDoc,
     type DocumentData
 } from "firebase/firestore";
 import { sendBookingEmail } from "./emailActions";
@@ -37,6 +40,8 @@ export interface BookingData {
     eventTime: string;
     totalPrice: string;
     status: "confirmed" | "cancelled";
+    checkedIn?: boolean;
+    checkedInAt?: any;
     createdAt?: any;
 }
 
@@ -45,7 +50,7 @@ const generateBookingId = () => {
     return "TKT-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-export const createBooking = async (bookingData: Omit<BookingData, "id" | "bookingId" | "createdAt" | "status">) => {
+export const createBooking = async (bookingData: Omit<BookingData, "id" | "bookingId" | "createdAt" | "status" | "checkedIn" | "checkedInAt">) => {
     try {
         const newBookingId = generateBookingId();
 
@@ -53,6 +58,7 @@ export const createBooking = async (bookingData: Omit<BookingData, "id" | "booki
             ...bookingData,
             bookingId: newBookingId,
             status: "confirmed",
+            checkedIn: false,
             createdAt: serverTimestamp(),
         });
 
@@ -71,6 +77,53 @@ export const createBooking = async (bookingData: Omit<BookingData, "id" | "booki
     } catch (error) {
         console.error("Error creating booking: ", error);
         return { success: false, error };
+    }
+};
+
+export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) => {
+    try {
+        const q = query(
+            collection(db, "bookings"),
+            where("bookingId", "==", bookingId),
+            where("hostId", "==", hostId)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            return { success: false, message: "Ticket not found or unauthorized." };
+        }
+
+        const bookingDoc = querySnapshot.docs[0];
+        const data = bookingDoc.data() as BookingData;
+
+        if (data.status === "cancelled") {
+            return { success: false, message: "This ticket has been cancelled." };
+        }
+
+        if (data.checkedIn) {
+            return {
+                success: false,
+                message: "Ticket already checked in!",
+                userName: data.userName,
+                eventTitle: data.eventTitle
+            };
+        }
+
+        // Perform check-in
+        await updateDoc(doc(db, "bookings", bookingDoc.id), {
+            checkedIn: true,
+            checkedInAt: serverTimestamp(),
+        });
+
+        return {
+            success: true,
+            message: "Check-in successful!",
+            userName: data.userName,
+            eventTitle: data.eventTitle
+        };
+    } catch (error) {
+        console.error("Error checking in ticket:", error);
+        return { success: false, message: "System error during check-in." };
     }
 };
 

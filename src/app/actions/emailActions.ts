@@ -16,7 +16,7 @@ export async function sendRechargeEmail(details: RechargeDetails) {
     amount: details.amount
   });
 
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY;
   console.log('🔵 [RECHARGE EMAIL] API Key status:', {
     exists: !!apiKey,
     length: apiKey?.length || 0,
@@ -24,8 +24,8 @@ export async function sendRechargeEmail(details: RechargeDetails) {
   });
 
   // Check if key is missing OR is the placeholder
-  if (!apiKey || apiKey === 'your_sendgrid_api_key_here') {
-    console.warn('⚠️ [RECHARGE EMAIL] SENDGRID_API_KEY is missing or invalid. Running in DEMO MODE.');
+  if (!apiKey || apiKey === 're_your_key_here') {
+    console.warn('⚠️ [RECHARGE EMAIL] RESEND_API_KEY is missing or invalid. Running in DEMO MODE.');
     console.log('--- MOCK EMAIL START ---');
     console.log(`To: karubegins@gmail.com`);
     console.log(`Subject: New Recharge Request: ₹${details.amount} for ${details.mobileNumber}`);
@@ -38,31 +38,19 @@ export async function sendRechargeEmail(details: RechargeDetails) {
   console.log('🔵 [RECHARGE EMAIL] Recipients:', recipients);
 
   const emailData = {
-    personalizations: [
-      {
-        to: recipients.map(email => ({ email })),
-      }
-    ],
-    from: {
-      email: 'info@bizroom.in',
-      name: 'BizRoom Notifications'
-    },
+    from: 'BizRoom Notifications <info@bizroom.in>',
+    to: recipients,
     subject: `New Recharge Request: ₹${details.amount} for ${details.mobileNumber}`,
-    content: [
-      {
-        type: 'text/html',
-        value: `
-          <h1>New Recharge Request</h1>
-          <p>A new manual recharge request has been submitted. Please process it as soon as possible.</p>
-          <ul>
-            <li><strong>Name:</strong> ${details.name}</li>
-            <li><strong>Mobile Number:</strong> ${details.mobileNumber}</li>
-            <li><strong>Operator:</strong> ${details.operator}</li>
-            <li><strong>Amount:</strong> ₹${details.amount}</li>
-          </ul>
-        `,
-      },
-    ],
+    html: `
+      <h1>New Recharge Request</h1>
+      <p>A new manual recharge request has been submitted. Please process it as soon as possible.</p>
+      <ul>
+        <li><strong>Name:</strong> ${details.name}</li>
+        <li><strong>Mobile Number:</strong> ${details.mobileNumber}</li>
+        <li><strong>Operator:</strong> ${details.operator}</li>
+        <li><strong>Amount:</strong> ₹${details.amount}</li>
+      </ul>
+    `,
   };
 
   console.log('🔵 [RECHARGE EMAIL] Email data prepared, calling sendEmail...');
@@ -71,14 +59,14 @@ export async function sendRechargeEmail(details: RechargeDetails) {
   return result;
 }
 
-// Helper to send email via SendGrid
-async function sendEmail(data: any, apiKey: string) {
+// Helper to send email via Resend
+async function sendEmail(data: { from: string; to: string[]; subject: string; html: string }, apiKey: string) {
   console.log('📧 [SEND EMAIL] Starting email send process...');
   console.log('📧 [SEND EMAIL] Request payload:', JSON.stringify(data, null, 2));
 
   try {
-    console.log('📧 [SEND EMAIL] Making fetch request to SendGrid API...');
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    console.log('📧 [SEND EMAIL] Making fetch request to Resend API...');
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -94,7 +82,8 @@ async function sendEmail(data: any, apiKey: string) {
     });
 
     if (response.ok) {
-      console.log('✅ [SEND EMAIL] Email sent successfully via SendGrid API!');
+      const respData = await response.json();
+      console.log('✅ [SEND EMAIL] Email sent successfully via Resend API!', respData);
       return { success: true };
     } else {
       let errorBody;
@@ -103,14 +92,14 @@ async function sendEmail(data: any, apiKey: string) {
       } catch (e) {
         errorBody = await response.text();
       }
-      console.error('❌ [SEND EMAIL] Error sending email with SendGrid API:', {
+      console.error('❌ [SEND EMAIL] Error sending email with Resend API:', {
         status: response.status,
         statusText: response.statusText,
         errorBody
       });
       return {
         success: false,
-        error: `SendGrid API Error (${response.status}): ${JSON.stringify(errorBody)}`
+        error: `Resend API Error (${response.status}): ${JSON.stringify(errorBody)}`
       };
     }
   } catch (error: any) {
@@ -136,55 +125,55 @@ export interface BookingEmailDetails {
   totalPrice: string;
 }
 
-export async function sendBookingEmail(details: BookingEmailDetails) {
-  const apiKey = process.env.SENDGRID_API_KEY;
 
-  if (!apiKey || apiKey === 'your_sendgrid_api_key_here') {
-    console.warn('SENDGRID_API_KEY is missing or invalid. Running in DEMO MODE.');
-    console.log('--- MOCK BOOKING EMAIL START ---');
-    console.log(`To: ${details.userEmail}`);
-    console.log(`Subject: Booking Confirmed: ${details.eventTitle}`);
-    console.log(`Booking ID: ${details.bookingId}`);
-    console.log('--- MOCK BOOKING EMAIL END ---');
+export async function sendBookingEmail(details: BookingEmailDetails) {
+  console.log('📬 [BOOKING EMAIL] Function called for ID:', details.bookingId);
+  console.log('📬 [BOOKING EMAIL] Destination:', details.userEmail);
+
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey || apiKey === 're_your_key_here') {
+    console.warn('⚠️ [BOOKING EMAIL] RESEND_API_KEY is missing. Demo mode.');
     return { success: true };
   }
 
   const emailData = {
-    personalizations: [
-      {
-        to: [{ email: details.userEmail }],
-      }
-    ],
-    from: {
-      email: 'info@bizroom.in',
-      name: 'BizRoom Events'
-    },
-    subject: `Booking Confirmed: ${details.eventTitle}`,
-    content: [
-      {
-        type: 'text/html',
-        value: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #0d9488;">Booking Confirmed!</h1>
-            <p>Hi ${details.userName},</p>
-            <p>Thank you for booking your ticket for <strong>${details.eventTitle}</strong>.</p>
+    from: 'BizRoom Events <info@bizroom.in>',
+    to: [details.userEmail, 'karubegins@gmail.com'],
+    subject: `Booking Confirmed: ${details.eventTitle} [#${details.bookingId}]`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; color: #1f2937;">
+        <h1 style="color: #4f46e5; text-align: center;">Booking Confirmed!</h1>
+        <p>Hi ${details.userName},</p>
+        <p>Your ticket for <strong>${details.eventTitle}</strong> has been successfully booked. We've included your details below.</p>
+        
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 24px 0; border: 1px solid #f1f5f9;">
+            <p style="margin: 5px 0; color: #64748b; font-size: 0.875rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.05em;">Booking ID</p>
+            <p style="margin: 0; font-family: monospace; font-size: 1.5rem; color: #4f46e5; font-weight: bold;">${details.bookingId}</p>
             
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 5px 0;"><strong>Booking ID:</strong> <span style="font-family: monospace; font-size: 1.2em; color: #0d9488;">${details.bookingId}</span></p>
-                <hr style="border: 0; border-top: 1px solid #d1d5db; margin: 15px 0;">
-                <p style="margin: 5px 0;"><strong>Date:</strong> ${new Date(details.eventDate).toLocaleDateString()}</p>
-                 <p style="margin: 5px 0;"><strong>Venue:</strong> ${details.eventVenue}</p>
-                <p style="margin: 5px 0;"><strong>Price:</strong> ₹${details.totalPrice}</p>
-            </div>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+            
+            <p style="margin: 8px 0;"><strong>📅 Date:</strong> ${details.eventDate ? new Date(details.eventDate).toLocaleDateString() : 'N/A'}</p>
+            <p style="margin: 8px 0;"><strong>📍 Venue:</strong> ${details.eventVenue}</p>
+            <p style="margin: 8px 0;"><strong>💰 Paid:</strong> ₹${details.totalPrice}</p>
+        </div>
 
-            <p>Please present your Booking ID or this email at the venue entrance.</p>
-            <p>Best regards,<br>The BizRoom Team</p>
-          </div>
-        `,
-      },
-    ],
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="https://bizroom.in/dashboard/bookings" 
+               style="background-color: #4f46e5; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1.1rem; display: inline-block;">
+               View Ticket & QR Code
+            </a>
+        </div>
+
+        <p style="text-align: center; color: #64748b; font-size: 0.875rem;">
+            Please present the QR code from the link above at the venue entry.
+        </p>
+        <p style="margin-top: 32px; border-top: 1px solid #e5e7eb; padding-top: 16px; font-size: 0.875rem;">Best regards,<br>The BizRoom Team</p>
+      </div>
+    `,
   };
 
+  console.log('📬 [BOOKING EMAIL] Sending via Resend...');
   return sendEmail(emailData, apiKey);
 }
 
@@ -196,10 +185,10 @@ export interface EvergreenInquiryDetails {
 }
 
 export async function sendEvergreenInquiry(details: EvergreenInquiryDetails) {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey || apiKey === 'your_sendgrid_api_key_here') {
-    console.warn('SENDGRID_API_KEY is missing or invalid. Running in DEMO MODE.');
+  if (!apiKey || apiKey === 're_your_key_here') {
+    console.warn('RESEND_API_KEY is missing or invalid. Running in DEMO MODE.');
     console.log('--- MOCK INQUIRY EMAIL START ---');
     console.log(`To: korattur.che@fr.dtdc.com`);
     console.log(`Subject: New Inquiry from Website: ${details.name}`);
@@ -210,38 +199,26 @@ export async function sendEvergreenInquiry(details: EvergreenInquiryDetails) {
   }
 
   const emailData = {
-    personalizations: [
-      {
-        to: [{ email: 'korattur.che@fr.dtdc.com' }],
-      }
-    ],
-    from: {
-      email: 'info@bizroom.in',
-      name: 'Evergreen Website Inquiry'
-    },
+    from: 'Evergreen Website Inquiry <info@bizroom.in>',
+    to: ['korattur.che@fr.dtdc.com'],
     subject: `New Inquiry from Website: ${details.name}`,
-    content: [
-      {
-        type: 'text/html',
-        value: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #0d9488;">New Website Inquiry</h1>
-            <p>You have received a new message from the Evergreen Enterprises website contact form.</p>
-            
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 5px 0;"><strong>Name:</strong> ${details.name}</p>
-                <p style="margin: 5px 0;"><strong>Email:</strong> ${details.email}</p>
-                <p style="margin: 5px 0;"><strong>Phone:</strong> ${details.phone}</p>
-                <hr style="border: 0; border-top: 1px solid #d1d5db; margin: 15px 0;">
-                <p style="margin: 5px 0;"><strong>Message:</strong></p>
-                <p style="white-space: pre-wrap;">${details.message}</p>
-            </div>
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0d9488;">New Website Inquiry</h1>
+        <p>You have received a new message from the Evergreen Enterprises website contact form.</p>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Name:</strong> ${details.name}</p>
+            <p style="margin: 5px 0;"><strong>Email:</strong> ${details.email}</p>
+            <p style="margin: 5px 0;"><strong>Phone:</strong> ${details.phone}</p>
+            <hr style="border: 0; border-top: 1px solid #d1d5db; margin: 15px 0;">
+            <p style="margin: 5px 0;"><strong>Message:</strong></p>
+            <p style="white-space: pre-wrap;">${details.message}</p>
+        </div>
 
-            <p>Please reply directly to the customer at <a href="mailto:${details.email}">${details.email}</a> or call them at <a href="tel:${details.phone}">${details.phone}</a>.</p>
-          </div>
-        `,
-      },
-    ],
+        <p>Please reply directly to the customer at <a href="mailto:${details.email}">${details.email}</a> or call them at <a href="tel:${details.phone}">${details.phone}</a>.</p>
+      </div>
+    `,
   };
 
   return sendEmail(emailData, apiKey);
