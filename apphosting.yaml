@@ -19,12 +19,12 @@ env:
     value: plan_S9jHBprusLvyEj0
   - variable: RAZORPAY_KEY_SECRET
     value: JrWHSiTtM6g2anHkgDbukLAI
-  - variable: SENDGRID_API_KEY
-    value: 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
+  - variable: RESEND_API_KEY
+    value: re_fBwTV1pA_5nMxdZx7DBZ9GzCQY8L5LKpR
   - variable: GOOGLE_GENAI_API_KEY
     value: AIzaSyDqiCzJLyMgxt-MPAc4y8VpJ4sHOwptl_U
   - variable: RAZORPAY_WEBHOOK_SECRET
-    value: Kqp1Ldev@17D8
+    value: Kapildev@1708
   - variable: FIREBASE_CLIENT_EMAIL
     value: firebase-adminsdk-fbsvc@bill-7362b.iam.gserviceaccount.com
   - variable: FIREBASE_PRIVATE_KEY
