@@ -63,6 +63,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreparingShare, setIsPreparingShare] = useState(false);
+  const [isReadyToShare, setIsReadyToShare] = useState(false);
   const [shareableFile, setShareableFile] = useState<File | null>(null);
 
   // State for reliable generation
@@ -188,28 +189,36 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     }
   };
 
-  const handleShare = async () => {
+  const handlePrepareShare = async () => {
     setIsPreparingShare(true);
+    setIsReadyToShare(false);
     const file = await generateImageFile();
     setIsPreparingShare(false);
 
     if (file) {
-      try {
-        if (navigator.share && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Invoice ${invoice.invoiceNumber}`,
-          });
-        } else {
-          toast({ title: 'Cannot Share', description: 'Your browser does not support sharing files.' });
-          // Fallback to download if share fails
-          handleDownloadImage();
-        }
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error("Sharing failed:", error);
-          toast({ variant: 'destructive', title: 'Sharing Failed', description: 'Could not share the image.' });
-        }
+      setShareableFile(file);
+      setIsReadyToShare(true);
+      toast({ title: 'Invoice Prepared', description: 'Tap "Send Invoice" to finish sharing.' });
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (!shareableFile) return;
+    try {
+      if (navigator.share && navigator.canShare({ files: [shareableFile] })) {
+        await navigator.share({
+          files: [shareableFile],
+          title: `Invoice ${invoice.invoiceNumber}`,
+        });
+        setIsReadyToShare(false); // Reset after successful share
+      } else {
+        // Fallback to download
+        handleDownloadImage();
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error("Sharing failed:", error);
+        toast({ variant: 'destructive', title: 'Sharing Failed', description: 'Could not share the image.' });
       }
     }
   };
@@ -293,10 +302,16 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
 
-          <Button variant="outline" onClick={handleShare} disabled={isPreparingShare || isDownloading || !isReady}>
-            {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
-            {isPreparingShare ? 'Preparing...' : 'Share Image'}
-          </Button>
+          {isReadyToShare ? (
+            <Button variant="default" onClick={handleNativeShare} className="gap-2 bg-indigo-600 hover:bg-indigo-700 animate-bounce">
+              <Share2 className="h-4 w-4" /> Send Now
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={handlePrepareShare} disabled={isPreparingShare || isDownloading || !isReady}>
+              {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+              {isPreparingShare ? 'Preparing...' : 'Share Image'}
+            </Button>
+          )}
 
           <Button variant="outline" onClick={handleDownloadImage} disabled={isDownloading || isPreparingShare || !isReady}>
             {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileImage className="mr-2 h-4 w-4" />}

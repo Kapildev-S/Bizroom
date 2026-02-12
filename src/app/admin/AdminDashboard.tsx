@@ -66,9 +66,23 @@ export default function AdminDashboard() {
     const [search, setSearch] = useState("");
     const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
     const [reportType, setReportType] = useState<'weekly' | 'monthly' | 'overall'>('overall');
-    const [isSharing, setIsSharing] = useState(false);
+    const [loadTimeout, setLoadTimeout] = useState(false);
+    const [isImageReady, setIsImageReady] = useState(false);
+    const [capturedImage, setCapturedImage] = useState<File | null>(null);
 
     const isAdmin = currentUser?.uid === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (loading && !authLoading) {
+            timer = setTimeout(() => {
+                if (users.length === 0) {
+                    setLoadTimeout(true);
+                }
+            }, 15000); // 15s timeout
+        }
+        return () => clearTimeout(timer);
+    }, [loading, authLoading, users.length]);
 
     useEffect(() => {
         if (!authLoading && isAdmin) {
@@ -129,14 +143,16 @@ export default function AdminDashboard() {
         window.open(whatsappUrl, '_blank');
     };
 
-    const handleShareAsImage = async () => {
+    const prepareImageForSharing = async () => {
         const element = document.getElementById('report-content');
         if (!element || isSharing) return;
 
         setIsSharing(true);
+        setIsImageReady(false);
         try {
+            const isMobile = window.innerWidth <= 768;
             const canvas = await html2canvas(element, {
-                scale: 2,
+                scale: isMobile ? 1.0 : 2,
                 useCORS: true,
                 backgroundColor: '#ffffff',
                 logging: false,
@@ -145,7 +161,6 @@ export default function AdminDashboard() {
                     if (el) {
                         el.style.padding = '40px';
                         el.style.width = '800px';
-                        // Force styles for clone
                         const items = el.querySelectorAll('*');
                         items.forEach(item => {
                             if (item instanceof HTMLElement) {
@@ -160,34 +175,60 @@ export default function AdminDashboard() {
             if (!blob) throw new Error('Failed to create blob');
 
             const file = new File([blob], `${selectedUser?.businessName}-Report.png`, { type: 'image/png' });
-
-            if (navigator.share && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: `${selectedUser?.businessName} Report`,
-                    text: `Sharing the ${reportType} report for ${selectedUser?.businessName}`
-                });
-            } else {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${selectedUser?.businessName}-${reportType}-Report.png`;
-                a.click();
-                toast({ title: "Report Downloaded", description: "Sharing not supported, file has been downloaded." });
-            }
+            setCapturedImage(file);
+            setIsImageReady(true);
+            toast({ title: "Report Ready!", description: "Tap 'Send Now' to share." });
         } catch (error) {
             console.error(error);
-            toast({ variant: 'destructive', title: "Share Failed", description: "Could not generate report." });
+            toast({ variant: 'destructive', title: "Preparation Failed", description: "Could not generate report image." });
         } finally {
             setIsSharing(false);
         }
     };
 
+    const handleNativeShare = async () => {
+        if (!capturedImage) return;
+        try {
+            if (navigator.share && navigator.canShare({ files: [capturedImage] })) {
+                await navigator.share({
+                    files: [capturedImage],
+                    title: `${selectedUser?.businessName} Report`,
+                    text: `Sharing the ${reportType} report for ${selectedUser?.businessName}`
+                });
+            } else {
+                const url = URL.createObjectURL(capturedImage);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = capturedImage.name;
+                a.click();
+            }
+        } catch (error) {
+            console.error("Share failed", error);
+        }
+    };
+
     if (authLoading || (currentUser && loading && users.length === 0)) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-muted-foreground font-medium">Preparing Infrastructure Data...</p>
+            <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
+                {loadTimeout ? (
+                    <div className="text-center space-y-4 max-w-sm">
+                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-800">
+                            <h3 className="font-bold text-lg">Connection is Slow</h3>
+                            <p className="text-sm opacity-80">Fetching platform-wide insights is taking longer than expected on your current connection.</p>
+                        </div>
+                        <Button onClick={() => { setLoadTimeout(false); fetchUsers(); }} className="w-full h-12 rounded-xl font-bold">
+                            Retry Syncing Data
+                        </Button>
+                    </div>
+                ) : (
+                    <>
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                        <div className="text-center">
+                            <p className="text-xl font-black tracking-tight">Syncing Infrastructure...</p>
+                            <p className="text-muted-foreground font-medium mt-1">Downloading business intelligence data</p>
+                        </div>
+                    </>
+                )}
             </div>
         );
     }
@@ -279,10 +320,16 @@ export default function AdminDashboard() {
                         <Button onClick={() => window.print()} variant="outline" className="gap-2 border-primary/20">
                             <Printer className="w-4 h-4" /> Save PDF
                         </Button>
-                        <Button onClick={handleShareAsImage} disabled={isSharing} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg">
-                            {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share className="w-4 h-4" />}
-                            Share Report
-                        </Button>
+                        {isImageReady ? (
+                            <Button onClick={handleNativeShare} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg animate-bounce">
+                                <Share2 className="w-4 h-4" /> Send Now
+                            </Button>
+                        ) : (
+                            <Button onClick={prepareImageForSharing} disabled={isSharing} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg">
+                                {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share className="w-4 h-4" />}
+                                Share Report
+                            </Button>
+                        )}
                         <Button onClick={handleShareReport} className="gap-2 bg-green-600 hover:bg-green-700 shadow-lg text-white font-bold">
                             <Share2 className="w-4 h-4" /> WhatsApp
                         </Button>

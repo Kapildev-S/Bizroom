@@ -28,87 +28,100 @@ export async function GET(req: Request) {
         const userDocs = await usersRef.listDocuments();
 
         const userData = await Promise.all(userDocs.map(async (userRef) => {
-            const userId = userRef.id;
+            try {
+                const userId = userRef.id;
 
-            // Fetch settings
-            const settingsDoc = await userRef.collection('settings').doc('appSettings').get();
-            const settings = settingsDoc.exists ? settingsDoc.data() : {};
+                // Fetch settings
+                const settingsDoc = await userRef.collection('settings').doc('appSettings').get();
+                const settings = settingsDoc.exists ? settingsDoc.data() : {};
 
-            // Fetch invoice stats and product data
-            const invoicesSnap = await userRef.collection('invoices').get();
-            const totalInvoices = invoicesSnap.size;
+                // Organized fetch: only select fields we need
+                const invoicesSnap = await userRef.collection('invoices')
+                    .select('totalAmount', 'status', 'issueDate', 'items')
+                    .get();
 
-            const now = new Date();
-            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                const now = new Date();
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-            const calculateForItems = (docs: admin.firestore.QueryDocumentSnapshot[]) => {
-                let billValue = 0;
-                let count = 0;
-                const productStats: Record<string, { quantity: number; revenue: number }> = {};
-
-                docs.forEach(doc => {
-                    const data = doc.data();
-                    if (data.status !== 'void') {
-                        billValue += (data.totalAmount || 0);
-                        count++;
-                        if (data.items && Array.isArray(data.items)) {
-                            data.items.forEach((item: any) => {
-                                const name = item.productName || 'Unknown Product';
-                                if (!productStats[name]) {
-                                    productStats[name] = { quantity: 0, revenue: 0 };
-                                }
-                                productStats[name].quantity += (item.quantity || 0);
-                                productStats[name].revenue += (item.totalPrice || 0);
-                            });
-                        }
+                const parseDate = (issueDate: any) => {
+                    if (!issueDate) return null;
+                    if (issueDate instanceof admin.firestore.Timestamp) return issueDate.toDate();
+                    if (typeof issueDate === 'string') {
+                        const d = new Date(issueDate);
+                        return isNaN(d.getTime()) ? null : d;
                     }
+                    if (issueDate.seconds) return new Date(issueDate.seconds * 1000);
+                    return null;
+                };
+
+                const calculateForItems = (docs: admin.firestore.QueryDocumentSnapshot[]) => {
+                    let billValue = 0;
+                    let count = 0;
+                    const productStats: Record<string, { quantity: number; revenue: number }> = {};
+
+                    docs.forEach(doc => {
+                        const data = doc.data();
+                        if (data.status !== 'void') {
+                            billValue += (data.totalAmount || 0);
+                            count++;
+                            if (data.items && Array.isArray(data.items)) {
+                                data.items.forEach((item: any) => {
+                                    const name = item.productName || 'Unknown Product';
+                                    if (!productStats[name]) {
+                                        productStats[name] = { quantity: 0, revenue: 0 };
+                                    }
+                                    productStats[name].quantity += (item.quantity || 0);
+                                    productStats[name].revenue += (item.totalPrice || 0);
+                                });
+                            }
+                        }
+                    });
+
+                    const topProducts = Object.entries(productStats)
+                        .map(([name, stats]) => ({ name, ...stats }))
+                        .sort((a, b) => b.revenue - a.revenue)
+                        .slice(0, 5);
+
+                    return { billValue, count, topProducts };
+                };
+
+                const allDocs = invoicesSnap.docs;
+                const weeklyDocs = allDocs.filter(doc => {
+                    const date = parseDate(doc.data().issueDate);
+                    return date && date >= sevenDaysAgo;
+                });
+                const monthlyDocs = allDocs.filter(doc => {
+                    const date = parseDate(doc.data().issueDate);
+                    return date && date >= thirtyDaysAgo;
                 });
 
-                const topProducts = Object.entries(productStats)
-                    .map(([name, stats]) => ({ name, ...stats }))
-                    .sort((a, b) => b.revenue - a.revenue)
-                    .slice(0, 5);
+                const overall = calculateForItems(allDocs);
+                const weekly = calculateForItems(weeklyDocs);
+                const monthly = calculateForItems(monthlyDocs);
 
-                return { billValue, count, topProducts };
-            };
+                const business = settings?.businessProfile || {};
 
-            const allDocs = invoicesSnap.docs;
-            const weeklyDocs = allDocs.filter(doc => {
-                const issueDate = doc.data().issueDate;
-                if (!issueDate) return false;
-                const date = (issueDate as admin.firestore.Timestamp).toDate();
-                return date >= sevenDaysAgo;
-            });
-            const monthlyDocs = allDocs.filter(doc => {
-                const issueDate = doc.data().issueDate;
-                if (!issueDate) return false;
-                const date = (issueDate as admin.firestore.Timestamp).toDate();
-                return date >= thirtyDaysAgo;
-            });
-
-            const overall = calculateForItems(allDocs);
-            const weekly = calculateForItems(weeklyDocs);
-            const monthly = calculateForItems(monthlyDocs);
-
-            const business = settings?.businessProfile || {};
-
-            return {
-                userId,
-                businessName: business.businessName || 'Unnamed Business',
-                ownerEmail: business.email || 'N/A',
-                phone: business.phone || 'N/A',
-                subscriptionStatus: settings?.subscriptionStatus || 'basic',
-                currency: settings?.invoiceSettings?.currency || 'INR',
-                stats: {
-                    overall,
-                    weekly,
-                    monthly
-                }
-            };
+                return {
+                    userId,
+                    businessName: business.businessName || 'Unnamed Business',
+                    ownerEmail: business.email || 'N/A',
+                    phone: business.phone || 'N/A',
+                    subscriptionStatus: settings?.subscriptionStatus || 'premium', // Defaulting to premium for admin view visibility if needed
+                    currency: settings?.invoiceSettings?.currency || 'INR',
+                    stats: {
+                        overall,
+                        weekly,
+                        monthly
+                    }
+                };
+            } catch (err) {
+                console.error(`Error processing user ${userRef.id}:`, err);
+                return null;
+            }
         }));
 
-        return NextResponse.json({ users: userData });
+        return NextResponse.json({ users: userData.filter(Boolean) });
 
     } catch (error: any) {
         console.error('Error fetching admin data:', error);
