@@ -154,7 +154,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="flex-grow bg-background-light relative overflow-hidden">
+      <main className="flex-grow bg-background-light relative overflow-x-clip">
         {/* Background gradient decorative elements */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
