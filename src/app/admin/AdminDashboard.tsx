@@ -822,14 +822,22 @@ export default function AdminDashboard() {
                                                                     <span className="font-black">{RUPEE}{t.price * t.quantity}</span>
                                                                 </div>
                                                             ))}
-                                                            {(!selectedBooking.tickets || selectedBooking.tickets.length === 0) && (
-                                                                <div className="flex justify-between items-center text-sm bg-white/5 p-2 rounded-lg">
-                                                                    <span className="font-medium">Total Paid</span>
-                                                                    <span className="font-black">{RUPEE}{parseFloat(selectedBooking.totalPrice).toLocaleString()}</span>
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
+
+                                                    {selectedBooking.attendees && selectedBooking.attendees.length > 0 && (
+                                                        <div className="space-y-2">
+                                                            <p className="text-[10px] font-black uppercase text-violet-400 tracking-widest">Full Attendee List</p>
+                                                            <div className="grid gap-2">
+                                                                {selectedBooking.attendees.map((a, i) => (
+                                                                    <div key={i} className="flex justify-between items-center text-xs bg-white/5 p-2 rounded-lg border border-white/5">
+                                                                        <span className="font-bold text-white">{a.name}</span>
+                                                                        <span className="text-white/50">{a.mobile}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {(selectedBooking.orderId || selectedBooking.paymentId) && (
                                                         <div className="space-y-2 pt-2 border-t border-white/5 mt-4">

@@ -71,10 +71,9 @@ function TicketsPageContent() {
     const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
 
     const [bookingFormData, setBookingFormData] = useState({
-        name: "",
-        email: "",
-        mobile: ""
+        email: ""
     });
+    const [attendees, setAttendees] = useState<{ name: string; mobile: string }[]>([]);
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -88,10 +87,17 @@ function TicketsPageContent() {
             if (currentUser) {
                 setBookingFormData(prev => ({
                     ...prev,
-                    name: currentUser.displayName || "",
-                    // email: currentUser.email || ""  -- Removed as per requirement
                     email: ""
                 }));
+                // Update first attendee if already initialized
+                setAttendees(prev => {
+                    if (prev.length > 0 && !prev[0].name) {
+                        const next = [...prev];
+                        next[0] = { ...next[0], name: currentUser.displayName || "" };
+                        return next;
+                    }
+                    return prev;
+                });
             }
         });
 
@@ -118,9 +124,30 @@ function TicketsPageContent() {
         return () => unsubscribe();
     }, [searchParams]);
 
+    useEffect(() => {
+        if (!selectedEvent) return;
+        let totalQty = Object.values(selectedTickets).reduce((a, b) => a + b, 0);
+
+        // Handle legacy events where quantity is implicitly 1
+        if (totalQty === 0 && (!selectedEvent.ticketTypes || selectedEvent.ticketTypes.length === 0)) {
+            totalQty = 1;
+        }
+
+        setAttendees(prev => {
+            if (prev.length === totalQty) return prev;
+            if (prev.length < totalQty) {
+                const extra = Array.from({ length: totalQty - prev.length }, () => ({ name: "", mobile: "" }));
+                return [...prev, ...extra];
+            } else {
+                return prev.slice(0, totalQty);
+            }
+        });
+    }, [selectedTickets, selectedEvent]);
+
     const handleOpenBooking = (event: EventData) => {
         setSelectedEvent(event);
-        setSelectedTickets({}); // Reset selection
+        setSelectedTickets({});
+        setAttendees([{ name: user?.displayName || "", mobile: "" }]);
         setBookingFormOpen(true);
     };
 
@@ -192,20 +219,25 @@ function TicketsPageContent() {
             });
         }
 
-        if (bookedTickets.length === 0) {
-            toast({ title: "Select Tickets", description: "Please select at least one ticket.", variant: "destructive" });
-            return;
-        }
-
         // Mobile Number Validation
         const mobileRegex = /^\d{10}$/;
-        if (!mobileRegex.test(bookingFormData.mobile)) {
-            toast({
-                title: "Invalid Mobile Number",
-                description: "Please enter a valid 10-digit mobile number.",
-                variant: "destructive"
-            });
-            return;
+        for (let i = 0; i < attendees.length; i++) {
+            if (!attendees[i].name.trim()) {
+                toast({
+                    title: `Missing Name`,
+                    description: `Please enter the name for attendee ${i + 1}.`,
+                    variant: "destructive"
+                });
+                return;
+            }
+            if (!mobileRegex.test(attendees[i].mobile)) {
+                toast({
+                    title: `Invalid Mobile Number`,
+                    description: `Please enter a valid 10-digit mobile number for ${attendees[i].name || 'attendee ' + (i + 1)}.`,
+                    variant: "destructive"
+                });
+                return;
+            }
         }
 
         const totalAmount = calculateTotal();
@@ -219,9 +251,10 @@ function TicketsPageContent() {
                     hostId: currentEvent.hostId,
                     userId: user?.uid || null,
                     isGuest: !user,
-                    userName: bookingFormData.name,
+                    userName: attendees[0].name,
                     userEmail: bookingFormData.email,
-                    userMobile: bookingFormData.mobile,
+                    userMobile: attendees[0].mobile,
+                    attendees: attendees,
                     eventTitle: currentEvent.title,
                     eventDate: currentEvent.startDate || currentEvent.date || "",
                     eventTime: currentEvent.startTime || currentEvent.time || "",
@@ -262,8 +295,8 @@ function TicketsPageContent() {
                     amount: totalAmount,
                     bookingData: {
                         eventTitle: currentEvent.title,
-                        userName: bookingFormData.name,
-                        userMobile: bookingFormData.mobile
+                        userName: attendees[0].name,
+                        userMobile: attendees[0].mobile
                     }
                 }),
             });
@@ -280,9 +313,9 @@ function TicketsPageContent() {
                 description: `Ticket for ${currentEvent.title}`,
                 order_id: orderData.id,
                 prefill: {
-                    name: bookingFormData.name,
+                    name: attendees[0].name,
                     email: bookingFormData.email,
-                    contact: bookingFormData.mobile,
+                    contact: attendees[0].mobile,
                 },
                 theme: { color: "#1fb2a6" },
                 handler: async function (response: any) {
@@ -293,9 +326,10 @@ function TicketsPageContent() {
                             hostId: currentEvent.hostId,
                             userId: user?.uid || null,
                             isGuest: !user,
-                            userName: bookingFormData.name,
+                            userName: attendees[0].name,
                             userEmail: bookingFormData.email,
-                            userMobile: bookingFormData.mobile,
+                            userMobile: attendees[0].mobile,
+                            attendees: attendees,
                             eventTitle: currentEvent.title,
                             eventDate: currentEvent.startDate || currentEvent.date || "",
                             eventTime: currentEvent.startTime || currentEvent.time || "",
@@ -542,9 +576,9 @@ function TicketsPageContent() {
                                                             {ticket.type === "free" ? "Free" : `₹${ticket.price}`}
                                                         </Badge>
                                                     </div>
-                                                    <span className="text-xs text-muted-foreground mt-0.5">
-                                                        {ticket.quantity > 0 ? `${ticket.quantity} available` : "Sold Out"}
-                                                    </span>
+                                                    {ticket.quantity <= 0 && (
+                                                        <span className="text-xs text-destructive font-bold mt-0.5">Sold Out</span>
+                                                    )}
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
@@ -594,19 +628,11 @@ function TicketsPageContent() {
                             </div>
 
                             <div className="space-y-4 pt-4 border-t">
-                                <Label className="text-base font-semibold">Attendee Details</Label>
-                                <div className="space-y-2">
-                                    <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wider">Full Name <span className="text-red-500">*</span></Label>
-                                    <Input
-                                        id="name"
-                                        required
-                                        value={bookingFormData.name}
-                                        onChange={(e) => setBookingFormData(prev => ({ ...prev, name: e.target.value }))}
-                                        placeholder="John Doe"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-xs text-muted-foreground uppercase tracking-wider">Email Address <span className="text-red-500">*</span></Label>
+                                <Label className="text-base font-semibold">Contact & Attendee Details</Label>
+
+                                {/* Primary Email */}
+                                <div className="space-y-2 bg-primary/5 p-4 rounded-xl border border-primary/10">
+                                    <Label htmlFor="email" className="text-xs text-muted-foreground uppercase tracking-wider">Email Address (For Confirmation) <span className="text-red-500">*</span></Label>
                                     <Input
                                         id="email"
                                         type="email"
@@ -615,19 +641,50 @@ function TicketsPageContent() {
                                         onChange={(e) => setBookingFormData(prev => ({ ...prev, email: e.target.value }))}
                                         placeholder="john@example.com"
                                     />
+                                    <p className="text-[10px] text-muted-foreground italic">Important: Your ticket and QR code will be sent to this email.</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="mobile" className="text-xs text-muted-foreground uppercase tracking-wider">Mobile Number <span className="text-red-500">*</span></Label>
-                                    <Input
-                                        id="mobile"
-                                        type="tel"
-                                        required
-                                        value={bookingFormData.mobile}
-                                        onChange={(e) => setBookingFormData(prev => ({ ...prev, mobile: e.target.value }))}
-                                        placeholder="+91 98765 43210"
-                                        maxLength={10}
-                                        pattern="\d{10}"
-                                    />
+
+                                {/* Attendee List */}
+                                <div className="space-y-6 pt-2">
+                                    {attendees.map((attendee, index) => (
+                                        <div key={index} className="space-y-4 p-4 border rounded-xl bg-card relative">
+                                            <div className="absolute -top-3 left-3 bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-lg">
+                                                Attendee {index + 1}
+                                            </div>
+
+                                            <div className="space-y-2 mt-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Full Name <span className="text-red-500">*</span></Label>
+                                                <Input
+                                                    required
+                                                    value={attendee.name}
+                                                    onChange={(e) => {
+                                                        const next = [...attendees];
+                                                        next[index].name = e.target.value;
+                                                        setAttendees(next);
+                                                    }}
+                                                    placeholder={`Name of Attendee ${index + 1}`}
+                                                    className="h-10"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Mobile Number <span className="text-red-500">*</span></Label>
+                                                <Input
+                                                    type="tel"
+                                                    required
+                                                    value={attendee.mobile}
+                                                    onChange={(e) => {
+                                                        const next = [...attendees];
+                                                        next[index].mobile = e.target.value;
+                                                        setAttendees(next);
+                                                    }}
+                                                    placeholder="10-digit mobile number"
+                                                    maxLength={10}
+                                                    className="h-10"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 

@@ -33,6 +33,12 @@ export interface BookingData {
         price: number;
     }[];
 
+    // Attendee Details
+    attendees?: {
+        name: string;
+        mobile: string;
+    }[];
+
     isGuest?: boolean;
     eventTitle: string;
     eventDate: string;
@@ -40,11 +46,19 @@ export interface BookingData {
     eventTime: string;
     totalPrice: string;
     status: "confirmed" | "cancelled" | "pending";
+
+    // Check-in Details
+    checkedIn: boolean;
+    checkedInAt?: any;
+    checkedInCount?: number; // How many attendees have checked in
+    attendeeCheckIns?: {
+        attendeeIndex: number;
+        checkedInAt: any;
+    }[];
+
     paymentId?: string;
     orderId?: string;
     signature?: string;
-    checkedIn?: boolean;
-    checkedInAt?: any;
     createdAt?: any;
 }
 
@@ -61,6 +75,8 @@ export const createBooking = async (bookingData: Omit<BookingData, "id" | "booki
             ...bookingData,
             bookingId: newBookingId,
             checkedIn: false,
+            checkedInCount: 0,
+            attendeeCheckIns: [],
             createdAt: serverTimestamp(),
         });
 
@@ -82,11 +98,25 @@ export const createBooking = async (bookingData: Omit<BookingData, "id" | "booki
     }
 };
 
-export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) => {
+export const getBookingsByHost = async (hostId: string): Promise<BookingData[]> => {
+    try {
+        const q = query(
+            collection(db, "bookings"),
+            where("hostId", "==", hostId),
+            orderBy("createdAt", "desc")
+        );
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookingData));
+    } catch (error) {
+        console.error("Error getting bookings: ", error);
+        return [];
+    }
+};
+
+export const verifyAndCheckInAttendee = async (bookingId: string, attendeeIndex: number, hostId: string) => {
     try {
         const isAdmin = hostId === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
 
-        // If admin, they can see any booking. If not admin, they must be the host.
         const q = isAdmin
             ? query(collection(db, "bookings"), where("bookingId", "==", bookingId))
             : query(collection(db, "bookings"), where("bookingId", "==", bookingId), where("hostId", "==", hostId));
@@ -104,29 +134,38 @@ export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) 
             return { success: false, message: "This ticket has been cancelled." };
         }
 
-        if (data.checkedIn) {
+        const attendeeCheckIns = data.attendeeCheckIns || [];
+        const isAlreadyCheckedIn = attendeeCheckIns.some(ci => ci.attendeeIndex === attendeeIndex);
+
+        if (isAlreadyCheckedIn) {
             return {
                 success: false,
-                message: "Ticket already checked in!",
+                message: `${data.attendees?.[attendeeIndex]?.name || "Attendee"} already checked in!`,
                 userName: data.userName,
                 eventTitle: data.eventTitle
             };
         }
 
-        // Perform check-in
+        const newCheckIns = [...attendeeCheckIns, { attendeeIndex, checkedInAt: new Date().toISOString() }];
+        const totalAttendees = data.attendees?.length || 1;
+        const allCheckedIn = newCheckIns.length >= totalAttendees;
+
         await updateDoc(doc(db, "bookings", bookingDoc.id), {
-            checkedIn: true,
-            checkedInAt: serverTimestamp(),
+            attendeeCheckIns: newCheckIns,
+            checkedInCount: newCheckIns.length,
+            checkedIn: allCheckedIn,
+            checkedInAt: allCheckedIn ? serverTimestamp() : data.checkedInAt || null
         });
 
         return {
             success: true,
-            message: "Check-in successful!",
+            message: `${data.attendees?.[attendeeIndex]?.name || "Attendee"} check-in successful!`,
             userName: data.userName,
-            eventTitle: data.eventTitle
+            eventTitle: data.eventTitle,
+            allCheckedIn
         };
     } catch (error: any) {
-        console.error("Error checking in ticket:", error);
+        console.error("Error checking in attendee:", error);
         return {
             success: false,
             message: `System error: ${error.message || "Unknown error during check-in"}`
@@ -134,25 +173,67 @@ export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) 
     }
 };
 
-export const getUserBookings = async (userId: string): Promise<BookingData[]> => {
+export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) => {
+    try {
+        const isAdmin = hostId === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
+
+        const q = isAdmin
+            ? query(collection(db, "bookings"), where("bookingId", "==", bookingId))
+            : query(collection(db, "bookings"), where("bookingId", "==", bookingId), where("hostId", "==", hostId));
+
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            return { success: false, message: "Ticket not found or unauthorized." };
+        }
+
+        const bookingDoc = querySnapshot.docs[0];
+        const data = bookingDoc.data() as BookingData;
+
+        if (data.status === "cancelled") {
+            return { success: false, message: "This ticket has been cancelled." };
+        }
+
+        // For group tickets, return data to let the scanner choose attendees
+        return {
+            success: true,
+            requiresAction: true,
+            booking: { id: bookingDoc.id, ...data }
+        };
+
+    } catch (error: any) {
+        console.error("Error verifying ticket:", error);
+        return {
+            success: false,
+            message: `System error: ${error.message || "Unknown error during verification"}`
+        };
+    }
+};
+
+export const getEventBookings = async (eventId: string, hostId: string): Promise<BookingData[]> => {
+    try {
+        const isAdmin = hostId === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
+        const q = isAdmin
+            ? query(collection(db, "bookings"), where("eventId", "==", eventId), orderBy("createdAt", "desc"))
+            : query(collection(db, "bookings"), where("eventId", "==", eventId), where("hostId", "==", hostId), orderBy("createdAt", "desc"));
+
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookingData));
+    } catch (error) {
+        console.error("Error getting event bookings: ", error);
+        return [];
+    }
+};
+
+export const getBookingsByUser = async (userId: string): Promise<BookingData[]> => {
     try {
         const q = query(
             collection(db, "bookings"),
-            where("userId", "==", userId)
+            where("userId", "==", userId),
+            orderBy("createdAt", "desc")
         );
         const querySnapshot = await getDocs(q);
-
-        const bookings: BookingData[] = [];
-        querySnapshot.forEach((doc) => {
-            bookings.push({ id: doc.id, ...doc.data() } as BookingData);
-        });
-
-        // Sort by created time (descending) in memory
-        return bookings.sort((a, b) => {
-            const timeA = a.createdAt?.seconds || 0;
-            const timeB = b.createdAt?.seconds || 0;
-            return timeB - timeA;
-        });
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookingData));
     } catch (error) {
         console.error("Error getting user bookings: ", error);
         return [];
@@ -172,31 +253,5 @@ export const getBookingById = async (bookingId: string): Promise<BookingData | n
     } catch (error) {
         console.error("Error getting booking: ", error);
         return null;
-    }
-};
-
-export const getEventBookings = async (eventId: string, hostId: string): Promise<BookingData[]> => {
-    try {
-        const isAdmin = hostId === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
-        const q = isAdmin
-            ? query(collection(db, "bookings"), where("eventId", "==", eventId))
-            : query(collection(db, "bookings"), where("eventId", "==", eventId), where("hostId", "==", hostId));
-
-        const querySnapshot = await getDocs(q);
-
-        const bookings: BookingData[] = [];
-        querySnapshot.forEach((doc) => {
-            bookings.push({ id: doc.id, ...doc.data() } as BookingData);
-        });
-
-        // Sort by created time (descending) in memory
-        return bookings.sort((a, b) => {
-            const timeA = a.createdAt?.seconds || 0;
-            const timeB = b.createdAt?.seconds || 0;
-            return timeB - timeA;
-        });
-    } catch (error) {
-        console.error("Error getting event bookings: ", error);
-        return [];
     }
 };

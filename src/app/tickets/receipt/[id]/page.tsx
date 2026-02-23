@@ -141,6 +141,21 @@ export default function TicketReceiptPage() {
                             <p className="text-xl font-mono font-bold text-primary tracking-widest">{booking.bookingId}</p>
                         </div>
 
+                        {/* Attendee Details */}
+                        {booking.attendees && booking.attendees.length > 0 && (
+                            <div className="space-y-3">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Attendees</p>
+                                <div className="grid gap-2">
+                                    {booking.attendees.map((attendee, idx) => (
+                                        <div key={idx} className="flex flex-col p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <span className="text-sm font-bold text-slate-900">{attendee.name}</span>
+                                            <span className="text-xs text-slate-500 font-medium">{attendee.mobile}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Ticket Breakdown */}
                         <div className="space-y-3">
                             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Order Summary</p>

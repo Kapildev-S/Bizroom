@@ -12,7 +12,8 @@ import {
     Users,
     ArrowLeft,
     Share2,
-    ExternalLink
+    ExternalLink,
+    Download
 } from "lucide-react";
 
 function EventImage({ imageUrl, title }: { imageUrl?: string; title: string }) {
@@ -137,6 +138,83 @@ export default function EventDetailsPage() {
         }
     };
 
+    const handleExportCSV = () => {
+        if (!bookings.length || !event) return;
+
+        // Header
+        const headers = [
+            "Booking ID",
+            "Booked By",
+            "Contact Email",
+            "Contact Mobile",
+            "Attendee Name",
+            "Attendee Mobile",
+            "Ticket Selection",
+            "Booking Date",
+            "Payment Status",
+            "Payment ID",
+            "Admission Status"
+        ];
+
+        const rows: string[][] = [];
+
+        bookings.forEach(booking => {
+            const ticketSummary = booking.tickets.map(t => `${t.quantity}x ${t.ticketTypeName}`).join(" | ");
+            const bookedDate = booking.createdAt?.seconds
+                ? new Date(booking.createdAt.seconds * 1000).toLocaleDateString()
+                : "N/A";
+
+            if (booking.attendees && booking.attendees.length > 0) {
+                booking.attendees.forEach((att, idx) => {
+                    const isAdmitted = booking.attendeeCheckIns?.some(ci => ci.attendeeIndex === idx);
+                    rows.push([
+                        booking.bookingId,
+                        booking.userName,
+                        booking.userEmail,
+                        booking.userMobile || "N/A",
+                        att.name,
+                        att.mobile,
+                        ticketSummary,
+                        bookedDate,
+                        booking.status,
+                        booking.paymentId || "N/A",
+                        isAdmitted ? "ADMITTED" : "WAITING"
+                    ]);
+                });
+            } else {
+                // Legacy or single attendee
+                rows.push([
+                    booking.bookingId,
+                    booking.userName,
+                    booking.userEmail,
+                    booking.userMobile || "N/A",
+                    booking.userName,
+                    booking.userMobile || "N/A",
+                    ticketSummary,
+                    bookedDate,
+                    booking.status,
+                    booking.paymentId || "N/A",
+                    booking.checkedIn ? "ADMITTED" : "WAITING"
+                ]);
+            }
+        });
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(cell => `"${(cell || "").toString().replace(/"/g, '""')}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${event.title.replace(/\s+/g, '_')}_Attendees.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -233,14 +311,24 @@ export default function EventDetailsPage() {
                 {/* Bookings List */}
                 <div className="md:col-span-2">
                     <Card className="h-full">
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0">
                             <div>
                                 <CardTitle>Attendee List</CardTitle>
                                 <CardDescription>
-                                    Total Bookings: {bookings.length} • Checked In: {bookings.filter(b => b.checkedIn).length}
+                                    Total Bookings: {bookings.length} • Checked In: {bookings.reduce((acc, b) => acc + (b.checkedInCount || (b.checkedIn ? 1 : 0)), 0)}
                                 </CardDescription>
                             </div>
-                            <Users className="h-5 w-5 text-muted-foreground" />
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleExportCSV}
+                                    className="bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 font-bold"
+                                >
+                                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                                </Button>
+                                <Users className="h-5 w-5 text-muted-foreground" />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             {bookings.length === 0 ? (
@@ -265,8 +353,16 @@ export default function EventDetailsPage() {
                                         {bookings.map((booking) => (
                                             <TableRow key={booking.id}>
                                                 <TableCell className="font-medium">
-                                                    {booking.userName}
-                                                    {booking.isGuest && <Badge variant="secondary" className="ml-2 text-xs">Guest</Badge>}
+                                                    <div className="flex flex-col gap-1">
+                                                        {booking.attendees && booking.attendees.length > 0 ? (
+                                                            booking.attendees.map((a, i) => (
+                                                                <span key={i} className="block">{a.name}</span>
+                                                            ))
+                                                        ) : (
+                                                            <span>{booking.userName}</span>
+                                                        )}
+                                                        {booking.isGuest && <Badge variant="secondary" className="w-fit text-[10px] mt-1">Guest Entry</Badge>}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col text-xs">
@@ -278,13 +374,13 @@ export default function EventDetailsPage() {
                                                     {booking.tickets && booking.tickets.length > 0 ? (
                                                         <div className="flex flex-col gap-1">
                                                             {booking.tickets.map((t, i) => (
-                                                                <Badge key={i} variant="outline" className="w-fit">
+                                                                <Badge key={i} variant="outline" className="w-fit text-[10px]">
                                                                     {t.quantity}x {t.ticketTypeName}
                                                                 </Badge>
                                                             ))}
                                                         </div>
                                                     ) : (
-                                                        <Badge variant="outline">{booking.ticketTypeName || "Standard"}</Badge>
+                                                        <Badge variant="outline">{(booking as any).ticketTypeName || booking.tickets?.[0]?.ticketTypeName || "Standard"}</Badge>
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="font-mono text-xs">
@@ -295,18 +391,29 @@ export default function EventDetailsPage() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col gap-1">
-                                                        <Badge variant={booking.status === "confirmed" ? "outline" : "destructive"} className="capitalize w-fit">
+                                                        <Badge variant={booking.status === "confirmed" ? "outline" : "destructive"} className="capitalize w-fit text-[10px]">
                                                             {booking.status}
                                                         </Badge>
                                                         {booking.paymentId && <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[80px]">{booking.paymentId}</span>}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {booking.checkedIn ? (
-                                                        <Badge className="bg-emerald-500 font-bold">CHECKED IN</Badge>
-                                                    ) : (
-                                                        <Badge variant="outline" className="text-muted-foreground">WAITING</Badge>
-                                                    )}
+                                                    <div className="flex flex-col gap-2">
+                                                        {booking.attendees && booking.attendees.length > 0 ? (
+                                                            booking.attendees.map((_, i) => {
+                                                                const isAdmitted = booking.attendeeCheckIns?.some(ci => ci.attendeeIndex === i);
+                                                                return (
+                                                                    <Badge key={i} className={`text-[9px] font-black uppercase tracking-tighter w-fit ${isAdmitted ? 'bg-emerald-500 hover:bg-emerald-600 border-none' : 'bg-slate-100 text-slate-400 hover:bg-slate-100 border-slate-200'}`}>
+                                                                        {isAdmitted ? "Admitted" : "Waiting"}
+                                                                    </Badge>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <Badge className={`text-[9px] font-black uppercase tracking-tighter w-fit ${booking.checkedIn ? 'bg-emerald-500 hover:bg-emerald-600 border-none' : 'bg-slate-100 text-slate-400 hover:bg-slate-100 border-slate-200'}`}>
+                                                                {booking.checkedIn ? "Admitted" : "Waiting"}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-1">
