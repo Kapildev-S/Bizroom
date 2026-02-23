@@ -12,6 +12,27 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getUserEvents, type EventData } from "@/app/actions/eventActions";
 
+function EventImage({ imageUrl, title }: { imageUrl?: string; title: string }) {
+    const [error, setError] = useState(false);
+
+    if (imageUrl && !error) {
+        return (
+            <img
+                src={imageUrl}
+                alt={title}
+                onError={() => setError(true)}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            />
+        );
+    }
+
+    return (
+        <div className="w-full h-full flex items-center justify-center bg-primary/5">
+            <Calendar className="h-12 w-12 text-primary/40" />
+        </div>
+    );
+}
+
 export default function EventListingPage() {
     const [events, setEvents] = useState<EventData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -89,17 +110,7 @@ export default function EventListingPage() {
                     {events.map((event) => (
                         <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 border-primary/20 group">
                             <div className="aspect-video w-full overflow-hidden bg-muted relative">
-                                {event.imageUrl ? (
-                                    <img
-                                        src={event.imageUrl}
-                                        alt={event.title}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                                        <Calendar className="h-12 w-12 text-primary/40" />
-                                    </div>
-                                )}
+                                <EventImage imageUrl={event.imageUrl} title={event.title} />
                                 <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded backdrop-blur-sm">
                                     {event.category}
                                 </div>
@@ -108,7 +119,7 @@ export default function EventListingPage() {
                                 <CardTitle className="line-clamp-1 text-lg group-hover:text-primary transition-colors">{event.title}</CardTitle>
                                 <CardDescription className="flex items-center mt-1">
                                     <Calendar className="mr-1 h-3.5 w-3.5" />
-                                    {new Date(event.date).toLocaleDateString()} • {event.time}
+                                    {new Date(event.startDate || event.date || "").toLocaleDateString()} • {event.startTime || event.time}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>

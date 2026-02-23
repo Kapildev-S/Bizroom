@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,27 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { getEvents, type EventData, type TicketType } from "@/app/actions/eventActions";
 import { createBooking } from "@/app/actions/bookingActions";
+
+function EventImage({ imageUrl, title }: { imageUrl?: string; title: string }) {
+    const [error, setError] = useState(false);
+
+    if (imageUrl && !error) {
+        return (
+            <img
+                src={imageUrl}
+                alt={title}
+                onError={() => setError(true)}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            />
+        );
+    }
+
+    return (
+        <div className="w-full h-full flex items-center justify-center bg-primary/5">
+            <Calendar className="h-12 w-12 text-primary/40" />
+        </div>
+    );
+}
 
 // Wrapper component to handle Suspense boundary for useSearchParams
 export default function TicketsPage() {
@@ -125,16 +147,31 @@ function TicketsPageContent() {
         return total;
     };
 
+    const loadRazorpay = () => {
+        return new Promise((resolve) => {
+            if ((window as any).Razorpay) {
+                resolve(true);
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
+
     const handleBookingSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!selectedEvent) return;
+        const currentEvent = selectedEvent;
 
         // Prepare ticket data
         const bookedTickets: { ticketTypeId: string; ticketTypeName: string; quantity: number; price: number }[] = [];
 
-        if (selectedEvent.ticketTypes && selectedEvent.ticketTypes.length > 0) {
-            selectedEvent.ticketTypes.forEach(t => {
+        if (currentEvent.ticketTypes && currentEvent.ticketTypes.length > 0) {
+            currentEvent.ticketTypes.forEach(t => {
                 const qty = selectedTickets[t.id] || 0;
                 if (qty > 0) {
                     bookedTickets.push({
@@ -151,7 +188,7 @@ function TicketsPageContent() {
                 ticketTypeId: "legacy",
                 ticketTypeName: "Standard Entry",
                 quantity: 1,
-                price: Number(selectedEvent.price || 0)
+                price: Number(currentEvent.price || 0)
             });
         }
 
@@ -171,44 +208,134 @@ function TicketsPageContent() {
             return;
         }
 
+        const totalAmount = calculateTotal();
+
+        // If it's a free event, skip Razorpay
+        if (totalAmount === 0) {
+            setBookingLoading(true);
+            try {
+                const result = await createBooking({
+                    eventId: currentEvent.id!,
+                    hostId: currentEvent.hostId,
+                    userId: user?.uid || null,
+                    isGuest: !user,
+                    userName: bookingFormData.name,
+                    userEmail: bookingFormData.email,
+                    userMobile: bookingFormData.mobile,
+                    eventTitle: currentEvent.title,
+                    eventDate: currentEvent.startDate || currentEvent.date || "",
+                    eventTime: currentEvent.startTime || currentEvent.time || "",
+                    eventVenue: currentEvent.locationType === "physical" ? (currentEvent.venueName || currentEvent.venue || "TBD") : "Online Event",
+                    tickets: bookedTickets,
+                    totalPrice: "0",
+                    status: "confirmed",
+                });
+
+                if (result.success && result.bookingId) {
+                    setSuccessData({ id: result.bookingId, event: currentEvent.title });
+                    setBookingFormOpen(false);
+                }
+            } catch (error) {
+                toast({ title: "Booking Failed", description: "Unable to process your booking.", variant: "destructive" });
+            } finally {
+                setBookingLoading(false);
+            }
+            return;
+        }
+
+        // Paid booking - Razorpay flow
         setBookingLoading(true);
 
         try {
-            const result = await createBooking({
-                eventId: selectedEvent.id!,
-                hostId: selectedEvent.hostId,
-                userId: user?.uid,
-                isGuest: !user,
-                userName: bookingFormData.name,
-                userEmail: bookingFormData.email,
-                userMobile: bookingFormData.mobile,
-                eventTitle: selectedEvent.title,
-                eventDate: selectedEvent.startDate || selectedEvent.date, // Fallback
-                eventTime: selectedEvent.startTime || selectedEvent.time, // Fallback
-                eventVenue: selectedEvent.locationType === "physical" ? selectedEvent.venueName! : "Online Event",
+            const res = await loadRazorpay();
+            if (!res) {
+                toast({ title: "Error", description: "Razorpay SDK failed to load. Check your connection.", variant: "destructive" });
+                setBookingLoading(false);
+                return;
+            }
 
-                tickets: bookedTickets,
-                totalPrice: String(calculateTotal()),
-                status: "confirmed",
+            // 1. Create Order
+            const orderRes = await fetch('/api/razorpay/order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: totalAmount,
+                    bookingData: {
+                        eventTitle: currentEvent.title,
+                        userName: bookingFormData.name,
+                        userMobile: bookingFormData.mobile
+                    }
+                }),
             });
 
-            if (result.success && result.bookingId) {
-                setSuccessData({
-                    id: result.bookingId,
-                    event: selectedEvent.title
-                });
-                setBookingFormOpen(false);
-            } else {
-                throw new Error("Booking failed");
-            }
+            const orderData = await orderRes.json();
+            if (!orderRes.ok) throw new Error(orderData.error || "Order creation failed");
+
+            // 2. Open Checkout
+            const options = {
+                key: orderData.keyId,
+                amount: orderData.amount,
+                currency: orderData.currency,
+                name: "BizRoom Events",
+                description: `Ticket for ${currentEvent.title}`,
+                order_id: orderData.id,
+                prefill: {
+                    name: bookingFormData.name,
+                    email: bookingFormData.email,
+                    contact: bookingFormData.mobile,
+                },
+                theme: { color: "#1fb2a6" },
+                handler: async function (response: any) {
+                    try {
+                        // 3. Complete Booking
+                        const result = await createBooking({
+                            eventId: currentEvent.id!,
+                            hostId: currentEvent.hostId,
+                            userId: user?.uid || null,
+                            isGuest: !user,
+                            userName: bookingFormData.name,
+                            userEmail: bookingFormData.email,
+                            userMobile: bookingFormData.mobile,
+                            eventTitle: currentEvent.title,
+                            eventDate: currentEvent.startDate || currentEvent.date || "",
+                            eventTime: currentEvent.startTime || currentEvent.time || "",
+                            eventVenue: currentEvent.locationType === "physical" ? (currentEvent.venueName || currentEvent.venue || "TBD") : "Online Event",
+                            tickets: bookedTickets,
+                            totalPrice: String(totalAmount),
+                            status: "confirmed",
+                            paymentId: response.razorpay_payment_id,
+                            orderId: response.razorpay_order_id,
+                            signature: response.razorpay_signature
+                        });
+
+                        if (result.success && result.bookingId) {
+                            setSuccessData({ id: result.bookingId, event: currentEvent.title });
+                            setBookingFormOpen(false);
+                        } else {
+                            throw new Error("Failed to save booking");
+                        }
+                    } catch (error: any) {
+                        console.error(error);
+                        toast({ title: "Payment Successful but Booking Failed", description: "Please contact support with payment ID: " + response.razorpay_payment_id, variant: "destructive" });
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        setBookingLoading(false);
+                    }
+                }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.open();
+
         } catch (error: any) {
             console.error(error);
             toast({
-                title: "Booking Failed",
-                description: "Unable to process your booking. Please try again.",
+                title: "Payment Error",
+                description: error.message || "Unable to start payment process.",
                 variant: "destructive"
             });
-        } finally {
             setBookingLoading(false);
         }
     };
@@ -224,7 +351,7 @@ function TicketsPageContent() {
                 await navigator.share({
                     title: 'Ticket Booked!',
                     text: shareText,
-                    url: window.location.href,
+                    url: `${window.location.origin}/tickets/receipt/${successData.id}`,
                 });
             } catch (err) {
                 console.log('Error sharing:', err);
@@ -329,17 +456,7 @@ function TicketsPageContent() {
                             >
                                 <Card className="h-full border-none shadow-lg overflow-hidden group hover:shadow-2xl transition-all hover:-translate-y-1 bg-white flex flex-col">
                                     <div className="relative h-48 overflow-hidden bg-muted shrink-0">
-                                        {event.imageUrl ? (
-                                            <img
-                                                src={event.imageUrl}
-                                                alt={event.title}
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                                                <Calendar className="h-12 w-12 text-primary/40" />
-                                            </div>
-                                        )}
+                                        <EventImage imageUrl={event.imageUrl} title={event.title} />
                                         <div className="absolute top-4 left-4">
                                             <Badge className="bg-white/90 text-foreground hover:bg-white backdrop-blur-sm font-bold">
                                                 {event.category}
@@ -357,10 +474,10 @@ function TicketsPageContent() {
                                     <CardContent className="space-y-4 pb-4 flex-grow">
                                         <div className="flex items-center text-muted-foreground text-sm">
                                             <Calendar className="h-4 w-4 mr-2 text-primary" />
-                                            <span>{formatDate(event.startDate || event.date)}</span>
+                                            <span>{formatDate(event.startDate || event.date || "")}</span>
                                             <span className="mx-2">•</span>
                                             <Clock className="h-4 w-4 mr-1 text-primary" />
-                                            <span>{event.startTime || event.time}</span>
+                                            <span>{event.startTime || event.time || ""}</span>
                                         </div>
                                         <div className="flex items-start text-muted-foreground text-sm">
                                             {event.locationType === "online" || event.isOnline ? (
@@ -545,10 +662,13 @@ function TicketsPageContent() {
                         <span className="text-sm text-muted-foreground mb-1 uppercase tracking-wider">Booking ID</span>
                         <span className="text-3xl font-mono font-bold text-primary tracking-widest">{successData?.id}</span>
                     </div>
-                    <DialogFooter className="sm:justify-between gap-2">
-                        <Button variant="outline" onClick={() => setSuccessData(null)}>Close</Button>
-                        <Button onClick={handleShare} className="gap-2 w-full sm:w-auto">
-                            <Share2 className="h-4 w-4" /> Share Now
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setSuccessData(null)} className="flex-1">Close</Button>
+                        <Button asChild className="flex-1">
+                            <Link href={`/tickets/receipt/${successData?.id}`}>View & Save Ticket</Link>
+                        </Button>
+                        <Button onClick={handleShare} variant="secondary" className="gap-2 shrink-0">
+                            <Share2 className="h-4 w-4" /> Share
                         </Button>
                     </DialogFooter>
                 </DialogContent>

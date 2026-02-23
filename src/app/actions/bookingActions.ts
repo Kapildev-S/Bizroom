@@ -20,7 +20,7 @@ export interface BookingData {
     bookingId: string; // Readable ID like TKT-12345
     eventId: string;
     hostId: string; // Required for security rules
-    userId?: string;
+    userId?: string | null;
     userName: string;
     userEmail: string;
     userMobile?: string;
@@ -39,7 +39,10 @@ export interface BookingData {
     eventVenue: string;
     eventTime: string;
     totalPrice: string;
-    status: "confirmed" | "cancelled";
+    status: "confirmed" | "cancelled" | "pending";
+    paymentId?: string;
+    orderId?: string;
+    signature?: string;
     checkedIn?: boolean;
     checkedInAt?: any;
     createdAt?: any;
@@ -50,14 +53,13 @@ const generateBookingId = () => {
     return "TKT-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-export const createBooking = async (bookingData: Omit<BookingData, "id" | "bookingId" | "createdAt" | "status" | "checkedIn" | "checkedInAt">) => {
+export const createBooking = async (bookingData: Omit<BookingData, "id" | "bookingId" | "createdAt" | "checkedIn" | "checkedInAt">) => {
     try {
         const newBookingId = generateBookingId();
 
         const docRef = await addDoc(collection(db, "bookings"), {
             ...bookingData,
             bookingId: newBookingId,
-            status: "confirmed",
             checkedIn: false,
             createdAt: serverTimestamp(),
         });
@@ -82,11 +84,13 @@ export const createBooking = async (bookingData: Omit<BookingData, "id" | "booki
 
 export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) => {
     try {
-        const q = query(
-            collection(db, "bookings"),
-            where("bookingId", "==", bookingId),
-            where("hostId", "==", hostId)
-        );
+        const isAdmin = hostId === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
+
+        // If admin, they can see any booking. If not admin, they must be the host.
+        const q = isAdmin
+            ? query(collection(db, "bookings"), where("bookingId", "==", bookingId))
+            : query(collection(db, "bookings"), where("bookingId", "==", bookingId), where("hostId", "==", hostId));
+
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
@@ -121,9 +125,12 @@ export const verifyAndCheckInTicket = async (bookingId: string, hostId: string) 
             userName: data.userName,
             eventTitle: data.eventTitle
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error checking in ticket:", error);
-        return { success: false, message: "System error during check-in." };
+        return {
+            success: false,
+            message: `System error: ${error.message || "Unknown error during check-in"}`
+        };
     }
 };
 
@@ -152,13 +159,29 @@ export const getUserBookings = async (userId: string): Promise<BookingData[]> =>
     }
 };
 
-export const getEventBookings = async (eventId: string, hostId: string): Promise<BookingData[]> => {
+export const getBookingById = async (bookingId: string): Promise<BookingData | null> => {
     try {
         const q = query(
             collection(db, "bookings"),
-            where("eventId", "==", eventId),
-            where("hostId", "==", hostId)
+            where("bookingId", "==", bookingId)
         );
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) return null;
+        const doc = querySnapshot.docs[0];
+        return { id: doc.id, ...doc.data() } as BookingData;
+    } catch (error) {
+        console.error("Error getting booking: ", error);
+        return null;
+    }
+};
+
+export const getEventBookings = async (eventId: string, hostId: string): Promise<BookingData[]> => {
+    try {
+        const isAdmin = hostId === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
+        const q = isAdmin
+            ? query(collection(db, "bookings"), where("eventId", "==", eventId))
+            : query(collection(db, "bookings"), where("eventId", "==", eventId), where("hostId", "==", hostId));
+
         const querySnapshot = await getDocs(q);
 
         const bookings: BookingData[] = [];

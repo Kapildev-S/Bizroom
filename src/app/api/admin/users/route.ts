@@ -107,7 +107,7 @@ export async function GET(req: Request) {
                     businessName: business.businessName || 'Unnamed Business',
                     ownerEmail: business.email || 'N/A',
                     phone: business.phone || 'N/A',
-                    subscriptionStatus: settings?.subscriptionStatus || 'premium', // Defaulting to premium for admin view visibility if needed
+                    subscriptionStatus: settings?.subscriptionStatus || 'basic',
                     currency: settings?.invoiceSettings?.currency || 'INR',
                     stats: {
                         overall,

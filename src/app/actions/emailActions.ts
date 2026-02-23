@@ -159,7 +159,7 @@ export async function sendBookingEmail(details: BookingEmailDetails) {
         </div>
 
         <div style="text-align: center; margin: 32px 0;">
-            <a href="https://bizroom.in/dashboard/bookings" 
+            <a href="https://bizroom.in/tickets/receipt/${details.bookingId}" 
                style="background-color: #4f46e5; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1.1rem; display: inline-block;">
                View Ticket & QR Code
             </a>

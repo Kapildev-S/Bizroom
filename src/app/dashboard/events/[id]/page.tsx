@@ -14,6 +14,28 @@ import {
     Share2,
     ExternalLink
 } from "lucide-react";
+
+function EventImage({ imageUrl, title }: { imageUrl?: string; title: string }) {
+    const [error, setError] = useState(false);
+
+    if (imageUrl && !error) {
+        return (
+            <img
+                src={imageUrl}
+                alt={title}
+                onError={() => setError(true)}
+                className="w-full h-full object-cover rounded-xl"
+            />
+        );
+    }
+
+    return (
+        <div className="w-full h-48 flex items-center justify-center bg-primary/5 rounded-xl border-2 border-dashed border-primary/20">
+            <Calendar className="h-12 w-12 text-primary/40" />
+        </div>
+    );
+}
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -53,7 +75,9 @@ export default function EventDetailsPage() {
                     // Or parallel, assuming currentUser is host.
                     const fetchedEvent = await getEventById(eventId);
 
-                    if (fetchedEvent && fetchedEvent.hostId !== currentUser.uid) {
+                    const isAdmin = currentUser.uid === '3l2SpTceF9Qany7x5IRHdHBPU9J3';
+
+                    if (fetchedEvent && fetchedEvent.hostId !== currentUser.uid && !isAdmin) {
                         toast({
                             title: "Unauthorized",
                             description: "You do not have permission to view this event.",
@@ -147,7 +171,7 @@ export default function EventDetailsPage() {
                     <h2 className="text-3xl font-bold tracking-tight font-headline text-foreground">{event.title}</h2>
                     <p className="text-muted-foreground flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        {new Date(event.date).toLocaleDateString()} • {event.time}
+                        {new Date(event.startDate || event.date || "").toLocaleDateString()} • {event.startTime || event.time}
                     </p>
                 </div>
             </div>
@@ -158,8 +182,9 @@ export default function EventDetailsPage() {
                 {/* Event Overview & Share */}
                 <div className="md:col-span-1 space-y-6">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Share Event</CardTitle>
+                        <CardHeader className="pb-2">
+                            <EventImage imageUrl={event.imageUrl} title={event.title} />
+                            <CardTitle className="mt-4">Share Event</CardTitle>
                             <CardDescription>Share this link to sell tickets.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -212,7 +237,7 @@ export default function EventDetailsPage() {
                             <div>
                                 <CardTitle>Attendee List</CardTitle>
                                 <CardDescription>
-                                    Total Bookings: {bookings.length}
+                                    Total Bookings: {bookings.length} • Checked In: {bookings.filter(b => b.checkedIn).length}
                                 </CardDescription>
                             </div>
                             <Users className="h-5 w-5 text-muted-foreground" />
@@ -231,7 +256,8 @@ export default function EventDetailsPage() {
                                             <TableHead>Ticket Type</TableHead>
                                             <TableHead>Booking ID</TableHead>
                                             <TableHead>Booked On</TableHead>
-                                            <TableHead>Status</TableHead>
+                                            <TableHead>Payment</TableHead>
+                                            <TableHead>Entry Status</TableHead>
                                             <TableHead>Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -268,14 +294,31 @@ export default function EventDetailsPage() {
                                                     {booking.createdAt?.seconds ? new Date(booking.createdAt.seconds * 1000).toLocaleDateString() : "-"}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant={booking.status === "confirmed" ? "outline" : "destructive"} className="capitalize">
-                                                        {booking.status}
-                                                    </Badge>
+                                                    <div className="flex flex-col gap-1">
+                                                        <Badge variant={booking.status === "confirmed" ? "outline" : "destructive"} className="capitalize w-fit">
+                                                            {booking.status}
+                                                        </Badge>
+                                                        {booking.paymentId && <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[80px]">{booking.paymentId}</span>}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleShareTicket(booking)} title="Share Ticket">
-                                                        <Share2 className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                                    </Button>
+                                                    {booking.checkedIn ? (
+                                                        <Badge className="bg-emerald-500 font-bold">CHECKED IN</Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="text-muted-foreground">WAITING</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleShareTicket(booking)} title="Share Ticket">
+                                                            <Share2 className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" asChild title="Scan Verification">
+                                                            <Link href="/dashboard/events/scanner">
+                                                                <ExternalLink className="h-4 w-4 text-primary opacity-50 hover:opacity-100" />
+                                                            </Link>
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

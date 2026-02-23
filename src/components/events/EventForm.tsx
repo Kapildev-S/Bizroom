@@ -154,6 +154,20 @@ export default function EventForm({ initialData, onSubmit, loading, isEditing = 
                         <div className="grid gap-2">
                             <Label>Event Image URL</Label>
                             <Input {...form.register("imageUrl")} placeholder="https://..." />
+                            {form.watch("imageUrl") && (
+                                <div className="mt-2 aspect-video rounded-lg overflow-hidden border bg-muted relative">
+                                    <img
+                                        src={form.watch("imageUrl")}
+                                        alt="Preview"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = "";
+                                            // Optional: show some indicator that it's broken
+                                        }}
+                                    />
+                                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-1 rounded">Image Preview</div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
