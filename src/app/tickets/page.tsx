@@ -73,7 +73,7 @@ function TicketsPageContent() {
     const [bookingFormData, setBookingFormData] = useState({
         email: ""
     });
-    const [attendees, setAttendees] = useState<{ name: string; mobile: string }[]>([]);
+    const [attendees, setAttendees] = useState<{ name: string; mobile: string; place: string }[]>([]);
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -136,7 +136,7 @@ function TicketsPageContent() {
         setAttendees(prev => {
             if (prev.length === totalQty) return prev;
             if (prev.length < totalQty) {
-                const extra = Array.from({ length: totalQty - prev.length }, () => ({ name: "", mobile: "" }));
+                const extra = Array.from({ length: totalQty - prev.length }, () => ({ name: "", mobile: "", place: "" }));
                 return [...prev, ...extra];
             } else {
                 return prev.slice(0, totalQty);
@@ -147,7 +147,7 @@ function TicketsPageContent() {
     const handleOpenBooking = (event: EventData) => {
         setSelectedEvent(event);
         setSelectedTickets({});
-        setAttendees([{ name: user?.displayName || "", mobile: "" }]);
+        setAttendees([{ name: user?.displayName || "", mobile: "", place: "" }]);
         setBookingFormOpen(true);
     };
 
@@ -226,6 +226,14 @@ function TicketsPageContent() {
                 toast({
                     title: `Missing Name`,
                     description: `Please enter the name for attendee ${i + 1}.`,
+                    variant: "destructive"
+                });
+                return;
+            }
+            if (!attendees[i].place?.trim()) {
+                toast({
+                    title: `Missing Location`,
+                    description: `Please enter the place/city for attendee ${i + 1}.`,
                     variant: "destructive"
                 });
                 return;
@@ -680,6 +688,21 @@ function TicketsPageContent() {
                                                     }}
                                                     placeholder="10-digit mobile number"
                                                     maxLength={10}
+                                                    className="h-10"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Place / City <span className="text-red-500">*</span></Label>
+                                                <Input
+                                                    required
+                                                    value={attendee.place}
+                                                    onChange={(e) => {
+                                                        const next = [...attendees];
+                                                        next[index].place = e.target.value;
+                                                        setAttendees(next);
+                                                    }}
+                                                    placeholder="e.g. Chennai, Bangalore"
                                                     className="h-10"
                                                 />
                                             </div>

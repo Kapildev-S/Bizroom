@@ -37,6 +37,7 @@ export interface BookingData {
     attendees?: {
         name: string;
         mobile: string;
+        place?: string;
     }[];
 
     isGuest?: boolean;
@@ -240,16 +241,29 @@ export const getBookingsByUser = async (userId: string): Promise<BookingData[]> 
     }
 };
 
-export const getBookingById = async (bookingId: string): Promise<BookingData | null> => {
+export const getBookingById = async (id: string): Promise<BookingData | null> => {
     try {
+        // First try by bookingId (human readable)
         const q = query(
             collection(db, "bookings"),
-            where("bookingId", "==", bookingId)
+            where("bookingId", "==", id)
         );
         const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) return null;
-        const doc = querySnapshot.docs[0];
-        return { id: doc.id, ...doc.data() } as BookingData;
+
+        if (!querySnapshot.empty) {
+            const docSnap = querySnapshot.docs[0];
+            return { id: docSnap.id, ...docSnap.data() } as BookingData;
+        }
+
+        // If not found, try by document ID
+        const docRef = doc(db, "bookings", id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() } as BookingData;
+        }
+
+        return null;
     } catch (error) {
         console.error("Error getting booking: ", error);
         return null;

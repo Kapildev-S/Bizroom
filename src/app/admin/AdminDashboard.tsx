@@ -831,7 +831,10 @@ export default function AdminDashboard() {
                                                             <div className="grid gap-2">
                                                                 {selectedBooking.attendees.map((a, i) => (
                                                                     <div key={i} className="flex justify-between items-center text-xs bg-white/5 p-2 rounded-lg border border-white/5">
-                                                                        <span className="font-bold text-white">{a.name}</span>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-bold text-white">{a.name}</span>
+                                                                            {a.place && <span className="text-[10px] text-violet-400 font-bold uppercase">{a.place}</span>}
+                                                                        </div>
                                                                         <span className="text-white/50">{a.mobile}</span>
                                                                     </div>
                                                                 ))}
