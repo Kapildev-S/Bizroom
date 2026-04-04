@@ -22,6 +22,7 @@ const invoiceSettingsSchema = z.object({
   currency: z.string().min(1, "Currency is required.").default('INR'),
   defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
   defaultDueDateDays: z.coerce.number().int().min(0).optional(),
+  nextInvoiceSequence: z.coerce.number().int().min(1).optional(),
   enableAdvancedInvoiceSystem: z.boolean().default(false),
 });
 
@@ -113,6 +114,18 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
                     <FormLabel>Default Due Period</FormLabel>
                     <FormControl><Input type="number" placeholder="e.g. 7" {...field} /></FormControl>
                      <FormDescription>Due in X days from issue date.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="nextInvoiceSequence"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Next Invoice Sequence No.</FormLabel>
+                    <FormControl><Input type="number" placeholder="e.g. 284" {...field} value={field.value || ''} /></FormControl>
+                     <FormDescription>Leave blank to auto-continue.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

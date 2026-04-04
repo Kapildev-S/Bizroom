@@ -69,6 +69,8 @@ export default function EditInvoicePage() {
               price: data.price,
               stock: data.stock === null ? Infinity : data.stock,
               unit: data.unit || '',
+              hsnCode: data.hsnCode || '',
+              gstRate: data.gstRate || 0,
             } as Product;
           }));
 

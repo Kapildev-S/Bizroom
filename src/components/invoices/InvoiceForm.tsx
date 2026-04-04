@@ -136,7 +136,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
     taxAmount: 0,
     invoiceType: 'Retail' as const,
     gstType: undefined,
-    placeOfSupply: settings?.businessProfile?.state || '',
+    placeOfSupply: settings?.businessProfile?.state || 'Tamil Nadu',
     customerGstin: '',
     reverseCharge: false,
     isTaxInclusive: settings?.invoiceSettings?.defaultInvoiceType === 'gst' ? true : false, // Default to true if GST is enabled usually

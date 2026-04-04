@@ -28,6 +28,15 @@ export default function NewInvoicePage() {
       if (user) {
         setCurrentUser(user);
         try {
+          // Fetch settings FIRST so we can use manual sequence override
+          const settingsDocRef = doc(db, `users/${user.uid}/settings`, 'appSettings');
+          const settingsSnap = await getDoc(settingsDocRef);
+          let fetchedSettings = null;
+          if (settingsSnap.exists()) {
+            fetchedSettings = settingsSnap.data() as AppSettings;
+            setSettings(fetchedSettings);
+          }
+
           const invoicesCollectionRef = collection(db, `users/${user.uid}/invoices`);
           const invoiceSnapshot = await getDocs(query(invoicesCollectionRef));
           let maxCount = 0;
@@ -43,7 +52,14 @@ export default function NewInvoicePage() {
                 }
              }
           });
-          setInvoiceCount(Math.max(maxCount, totalDocCount));
+          
+          let computedCount = Math.max(maxCount, totalDocCount);
+          // If the user manually specified the NEXT invoice sequence (e.g. 284),
+          // Since the form does `invoiceCount + 1`, we must set invoiceCount to nextInvoiceSequence - 1
+          if (fetchedSettings?.invoiceSettings?.nextInvoiceSequence) {
+             computedCount = Math.max(computedCount, fetchedSettings.invoiceSettings.nextInvoiceSequence - 1);
+          }
+          setInvoiceCount(computedCount);
             
           // Fetch customers
           const customersCollectionRef = collection(db, `users/${user.uid}/customers`);
@@ -63,16 +79,12 @@ export default function NewInvoicePage() {
               price: data.price,
               stock: data.stock === null ? Infinity : data.stock,
               unit: data.unit || '',
+              hsnCode: data.hsnCode || '',
+              gstRate: data.gstRate || 0,
             } as Product
           });
           setProducts(fetchedProducts);
 
-          // Fetch settings
-          const settingsDocRef = doc(db, `users/${user.uid}/settings`, 'appSettings');
-          const settingsSnap = await getDoc(settingsDocRef);
-          if (settingsSnap.exists()) {
-            setSettings(settingsSnap.data() as AppSettings);
-          }
 
         } catch (error) {
           console.error("Failed to fetch form data:", error);

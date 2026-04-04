@@ -123,17 +123,16 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     try {
       const isMobile = window.innerWidth <= 768;
 
-      // Safety timeout: Longer for mobile devices (20s vs 10s)
-      const timeoutDuration = isMobile ? 20000 : 10000;
+      // Safety timeout: Longer for mobile devices (30s vs 15s)
+      const timeoutDuration = isMobile ? 30000 : 15000;
 
       const canvasPromise = html2canvas(input, {
         scale: isMobile ? 1.5 : 2, // Slight increase for mobile quality but stay safe
         useCORS: true,
         logging: false,
-        windowWidth: isMobile ? 1024 : 1024, // Use a consistent width for rendering
         allowTaint: true,
         backgroundColor: "#ffffff",
-        imageTimeout: 15000, // Give it time to load the logo
+        imageTimeout: 15000,
         removeContainer: true,
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('invoice-content-render');

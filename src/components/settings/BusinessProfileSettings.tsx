@@ -52,7 +52,7 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
       phone: settings.phone || '',
       logoUrl: settings.logoUrl || '',
       invoicePrefix: settings.invoicePrefix || '',
-      state: settings.state || '',
+      state: settings.state || 'Tamil Nadu',
     },
   });
 
@@ -65,7 +65,7 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
       phone: settings.phone || '',
       logoUrl: settings.logoUrl || '',
       invoicePrefix: settings.invoicePrefix || '',
-      state: settings.state || '',
+      state: settings.state || 'Tamil Nadu',
     });
   }, [settings, form]);
 

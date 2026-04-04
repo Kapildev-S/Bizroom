@@ -100,6 +100,7 @@ export type InvoiceSettings = {
   currency?: string;
   defaultTaxRate?: number;
   defaultDueDateDays?: number;
+  nextInvoiceSequence?: number;
   enableAdvancedInvoiceSystem?: boolean;
 };
 
