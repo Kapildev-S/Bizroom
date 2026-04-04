@@ -79,6 +79,8 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
           price: data.price,
           stock: data.stock === null ? Infinity : data.stock,
           unit: data.unit || "",
+          hsnCode: data.hsnCode || "",
+          gstRate: data.gstRate || 0,
         };
       });
       setProducts(userProducts);
@@ -141,7 +143,7 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
   };
   
   const handleViewDetails = (product: Product) => {
-    alert(`Details for ${product.name}:\nPrice: ${currencySymbol}${product.price}\nStock: ${product.stock === Infinity ? 'N/A' : product.stock}\nUnit: ${product.unit || 'N/A'}`);
+    alert(`Details for ${product.name}:\nPrice: ${currencySymbol}${product.price}\nStock: ${product.stock === Infinity ? 'N/A' : product.stock}\nUnit: ${product.unit || 'N/A'}${product.hsnCode ? `\nHSN: ${product.hsnCode}` : ''}\nGST: ${product.gstRate || 0}%`);
   };
 
   const filteredProducts = useMemo(() => products.filter(product =>
@@ -216,6 +218,7 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
+            // Exit variants not needed here as it's the main container
         >
             <motion.div variants={itemVariants}>
                 <Card>
@@ -283,6 +286,10 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
                             <CardContent>
                                 <div className="flex items-end justify-between">
                                   <span className="text-lg font-bold text-primary">{currencySymbol}{product.price.toFixed(2)}</span>
+                                  <div className="text-right text-xs space-y-1">
+                                    {product.hsnCode && <div>HSN: {product.hsnCode}</div>}
+                                    <div>GST: {product.gstRate || 0}%</div>
+                                  </div>
                                 </div>
                                  <p className="text-xs text-muted-foreground mt-2">
                                   Stock: <span className="font-semibold">{product.stock === Infinity ? 'Unlimited' : product.stock}</span> | Unit: <span className="font-semibold">{product.unit || 'N/A'}</span>
@@ -304,6 +311,8 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>HSN Code</TableHead>
+                        <TableHead>GST %</TableHead>
                         <TableHead>Price</TableHead>
                         <TableHead>Unit</TableHead>
                         <TableHead>Stock</TableHead>
@@ -316,10 +325,12 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
                           key={product.id}
                           variants={itemVariants}
                           layout
-                          whileHover={{ scale: 1.02, backgroundColor: "hsl(var(--muted))" }}
+                          whileHover={{ scale: 1.01, backgroundColor: "hsl(var(--muted))" }}
                           className="cursor-pointer"
                         >
                           <TableCell className="font-medium" onClick={() => handleViewDetails(product)}>{product.name}</TableCell>
+                          <TableCell onClick={() => handleViewDetails(product)}>{product.hsnCode || '-'}</TableCell>
+                          <TableCell onClick={() => handleViewDetails(product)}>{product.gstRate || 0}%</TableCell>
                           <TableCell onClick={() => handleViewDetails(product)}>{currencySymbol}{product.price.toFixed(2)}</TableCell>
                           <TableCell onClick={() => handleViewDetails(product)}>{product.unit || 'N/A'}</TableCell>
                           <TableCell onClick={() => handleViewDetails(product)}>{product.stock === Infinity ? 'N/A' : product.stock}</TableCell>

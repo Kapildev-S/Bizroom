@@ -108,10 +108,10 @@ export default function SettingsPage() {
                 businessName: '',
                 logoUrl: '',
               },
-              invoiceSettings: { currency: 'INR', defaultTaxRate: 18, defaultDueDateDays: 7, enableDiscounts: true, defaultInvoiceType: 'gst' },
+              invoiceSettings: { currency: 'INR', defaultTaxRate: 18, defaultDueDateDays: 7, enableDiscounts: true, defaultInvoiceType: 'gst', enableAdvancedInvoiceSystem: false },
               notificationSettings: { email: false, paymentReminders: false, dailySummary: false },
               appearanceSettings: { theme: 'system' },
-              customizationSettings: { themeColor: 'Default', template: 'classic', showPartyBalance: false },
+              customizationSettings: { themeColor: 'Default', template: 'classic', showPartyBalance: false, paperSize: 'A4', customWidth: 4, customHeight: 3, unit: 'in' },
             };
             setDoc(settingsDocRef, defaultSettings).then(() => {
               toast({ variant: 'default', title: 'Settings Initialized', description: 'Default settings have been created for your account.' });

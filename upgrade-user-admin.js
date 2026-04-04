@@ -45,5 +45,5 @@ async function makeUserPremium(userId) {
 }
 
 // Run the script
-const userId = 'PQXlARHlvffPUByd1X45po0jY4H3';
+const userId = 'vfWYfOZZOLeSs3VmIZrgpoDbl3u1';
 makeUserPremium(userId);

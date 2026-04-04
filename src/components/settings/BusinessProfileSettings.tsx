@@ -5,17 +5,18 @@ import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import type { AppSettings, BusinessProfile } from '@/lib/mockData';
+import { AppSettings, BusinessProfile, INDIAN_STATES } from '@/lib/mockData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, Building2, Camera } from 'lucide-react';
+import { Loader2, Upload, Building2, Camera, MapPin } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const businessProfileSchema = z.object({
   businessName: z.string().min(2, "Business name is required.").optional(),
@@ -25,6 +26,7 @@ const businessProfileSchema = z.object({
   phone: z.string().optional(),
   logoUrl: z.string().optional().or(z.literal('')),
   invoicePrefix: z.string().optional(),
+  state: z.string().optional(),
 });
 
 interface BusinessProfileSettingsProps {
@@ -50,6 +52,7 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
       phone: settings.phone || '',
       logoUrl: settings.logoUrl || '',
       invoicePrefix: settings.invoicePrefix || '',
+      state: settings.state || '',
     },
   });
 
@@ -62,6 +65,7 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
       phone: settings.phone || '',
       logoUrl: settings.logoUrl || '',
       invoicePrefix: settings.invoicePrefix || '',
+      state: settings.state || '',
     });
   }, [settings, form]);
 
@@ -327,6 +331,30 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
                   <FormItem>
                     <FormLabel>Invoice Prefix</FormLabel>
                     <FormControl><Input placeholder="INV-" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Business State (for GST)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {INDIAN_STATES.map((state) => (
+                          <SelectItem key={state.code} value={state.name}>
+                            {state.code} - {state.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

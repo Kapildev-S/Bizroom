@@ -33,6 +33,8 @@ const productFormSchema = z.object({
   price: z.coerce.number().min(0, "Price cannot be negative."),
   stock: z.coerce.number().min(0, "Stock cannot be negative.").optional().nullable(),
   unit: z.string().optional(),
+  hsnCode: z.string().optional(),
+  gstRate: z.coerce.number().min(0).max(100).optional().default(0),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -60,12 +62,16 @@ export function ProductForm({ initialData }: ProductFormProps) {
       ...initialData,
       stock: initialData.stock === Infinity ? null : initialData.stock,
       unit: initialData.unit || "",
+      hsnCode: initialData.hsnCode || "",
+      gstRate: initialData.gstRate || 0,
     } : {
       name: "",
       description: "",
       price: 0,
       stock: null,
       unit: "",
+      hsnCode: "",
+      gstRate: 0,
     },
   });
 
@@ -82,6 +88,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
       price: values.price,
       stock: values.stock ?? null,
       unit: values.unit || '',
+      hsnCode: values.hsnCode || '',
+      gstRate: values.gstRate ?? 0,
     };
 
     try {
@@ -144,51 +152,93 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Price</FormLabel>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Price</FormLabel>
+                    <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                        <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} className="pl-7" />
+                        </FormControl>
+                    </div>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="unit"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Unit of Measurement (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a unit (e.g. pcs, kg)" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        <SelectItem value="pcs">PCS</SelectItem>
+                        <SelectItem value="unt">UNT</SelectItem>
+                        <SelectItem value="kg">KG</SelectItem>
+                        <SelectItem value="g">G</SelectItem>
+                        <SelectItem value="l">L</SelectItem>
+                        <SelectItem value="ml">ML</SelectItem>
+                        <SelectItem value="m">M</SelectItem>
+                        <SelectItem value="box">BOX</SelectItem>
+                        <SelectItem value="set">SET</SelectItem>
+                        <SelectItem value="dz">DZ</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="hsnCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HSN/SAC Code (Optional)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="0.00" {...field} className="pl-7" />
+                      <Input placeholder="e.g. 9983" {...field} />
                     </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="unit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Unit of Measurement (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a unit (e.g. pcs, kg)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="pcs">PCS</SelectItem>
-                      <SelectItem value="unt">UNT</SelectItem>
-                      <SelectItem value="kg">KG</SelectItem>
-                      <SelectItem value="g">G</SelectItem>
-                      <SelectItem value="l">L</SelectItem>
-                      <SelectItem value="ml">ML</SelectItem>
-                      <SelectItem value="m">M</SelectItem>
-                      <SelectItem value="box">BOX</SelectItem>
-                      <SelectItem value="set">SET</SelectItem>
-                      <SelectItem value="dz">DZ</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="gstRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default GST % (Optional)</FormLabel>
+                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString() || "0"}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select GST %" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">0%</SelectItem>
+                        <SelectItem value="5">5%</SelectItem>
+                        <SelectItem value="12">12%</SelectItem>
+                        <SelectItem value="18">18%</SelectItem>
+                        <SelectItem value="28">28%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
              <FormField
               control={form.control}
               name="stock"

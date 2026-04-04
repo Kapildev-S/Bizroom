@@ -5,6 +5,7 @@ export type Customer = {
   email: string;
   phone: string;
   address: string;
+  gstin?: string;
   createdAt: string; // Stored as ISO string
 };
 
@@ -15,6 +16,8 @@ export type Product = {
   price: number;
   stock: number; // Infinity for services/unlimited
   unit?: string;
+  hsnCode?: string;
+  gstRate?: number;
 };
 
 export type InvoiceItem = {
@@ -24,6 +27,15 @@ export type InvoiceItem = {
   unitPrice: number;
   totalPrice: number;
   unit?: string;
+  hsnCode?: string;
+  gstRate?: number; // Added combined GST rate (e.g. 18)
+  taxAmount?: number; // Added combined tax amount
+  cgstRate?: number;
+  cgstAmount?: number;
+  sgstRate?: number;
+  sgstAmount?: number;
+  igstRate?: number;
+  igstAmount?: number;
 };
 
 export type Invoice = {
@@ -34,6 +46,11 @@ export type Invoice = {
   customerPhone?: string; // Replaced email with phone
   issueDate: string; // Stored as ISO string
   dueDate: string; // Stored as ISO string
+  invoiceType: "Retail" | "Wholesale";
+  gstType?: 'CGST_SGST' | 'IGST';
+  placeOfSupply?: string;
+  customerGstin?: string;
+  reverseCharge?: boolean;
   items: InvoiceItem[];
   subtotal: number;
   discountType?: 'percentage' | 'fixed';
@@ -41,10 +58,17 @@ export type Invoice = {
   discountAmount?: number;
   taxRate: number; // Stored as decimal, e.g., 0.08 for 8%
   taxAmount: number;
+  cgstRate?: number;
+  cgstAmount?: number;
+  sgstRate?: number;
+  sgstAmount?: number;
+  igstRate?: number;
+  igstAmount?: number;
   totalAmount: number;
   status: "draft" | "sent" | "paid" | "overdue" | "void";
   notes?: string;
   currency: string; // e.g., 'USD', 'INR'
+  isTaxInclusive?: boolean;
 };
 
 export type SmsCampaign = {
@@ -66,6 +90,7 @@ export type BusinessProfile = {
   phone?: string;
   logoUrl?: string;
   invoicePrefix?: string;
+  state?: string;
 };
 
 export type InvoiceSettings = {
@@ -75,6 +100,7 @@ export type InvoiceSettings = {
   currency?: string;
   defaultTaxRate?: number;
   defaultDueDateDays?: number;
+  enableAdvancedInvoiceSystem?: boolean;
 };
 
 export type NotificationSettings = {
@@ -91,6 +117,10 @@ export type InvoiceCustomizationSettings = {
   themeColor?: string;
   template?: string;
   showPartyBalance?: boolean;
+  paperSize?: string;
+  customWidth?: number;
+  customHeight?: number;
+  unit?: 'mm' | 'in';
 };
 
 export type PaymentSettings = {
@@ -126,6 +156,45 @@ export const colorOptions: ColorOption[] = [
   { name: 'Indigo', value: 'hsl(240 5.9% 10%)' },
   { name: 'Gold', value: 'hsl(47.9 95.8% 53.1%)' },
   { name: 'Brown', value: 'hsl(25 95% 53.1%)' },
+];
+
+export const INDIAN_STATES = [
+  { code: "35", name: "Andaman and Nicobar Islands" },
+  { code: "37", name: "Andhra Pradesh" },
+  { code: "12", name: "Arunachal Pradesh" },
+  { code: "18", name: "Assam" },
+  { code: "10", name: "Bihar" },
+  { code: "04", name: "Chandigarh" },
+  { code: "22", name: "Chhattisgarh" },
+  { code: "26", name: "Dadra and Nagar Haveli and Daman and Diu" },
+  { code: "07", name: "Delhi" },
+  { code: "30", name: "Goa" },
+  { code: "24", name: "Gujarat" },
+  { code: "06", name: "Haryana" },
+  { code: "02", name: "Himachal Pradesh" },
+  { code: "01", name: "Jammu and Kashmir" },
+  { code: "20", name: "Jharkhand" },
+  { code: "29", name: "Karnataka" },
+  { code: "32", name: "Kerala" },
+  { code: "38", name: "Ladakh" },
+  { code: "31", name: "Lakshadweep" },
+  { code: "23", name: "Madhya Pradesh" },
+  { code: "27", name: "Maharashtra" },
+  { code: "14", name: "Manipur" },
+  { code: "17", name: "Meghalaya" },
+  { code: "15", name: "Mizoram" },
+  { code: "13", name: "Nagaland" },
+  { code: "21", name: "Odisha" },
+  { code: "34", name: "Puducherry" },
+  { code: "03", name: "Punjab" },
+  { code: "08", name: "Rajasthan" },
+  { code: "11", name: "Sikkim" },
+  { code: "33", name: "Tamil Nadu" },
+  { code: "36", name: "Telangana" },
+  { code: "16", name: "Tripura" },
+  { code: "09", name: "Uttar Pradesh" },
+  { code: "05", name: "Uttarakhand" },
+  { code: "19", name: "West Bengal" }
 ];
 
 

@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import type { Customer, Product, AppSettings } from "@/lib/mockData";
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, getDocs, doc, getDoc,getCountFromServer } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -29,8 +29,21 @@ export default function NewInvoicePage() {
         setCurrentUser(user);
         try {
           const invoicesCollectionRef = collection(db, `users/${user.uid}/invoices`);
-          const snapshot = await getCountFromServer(invoicesCollectionRef);
-          setInvoiceCount(snapshot.data().count);
+          const invoiceSnapshot = await getDocs(query(invoicesCollectionRef));
+          let maxCount = 0;
+          let totalDocCount = 0;
+          invoiceSnapshot.forEach(docSnapshot => {
+             totalDocCount++;
+             const invNum = docSnapshot.data().invoiceNumber;
+             if (invNum) {
+                const match = invNum.match(/\d+$/);
+                if (match) {
+                   const num = parseInt(match[0], 10);
+                   if (num > maxCount) maxCount = num;
+                }
+             }
+          });
+          setInvoiceCount(Math.max(maxCount, totalDocCount));
             
           // Fetch customers
           const customersCollectionRef = collection(db, `users/${user.uid}/customers`);

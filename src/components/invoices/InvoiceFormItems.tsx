@@ -27,9 +27,11 @@ import { cn } from "@/lib/utils";
 interface InvoiceFormItemsProps {
   products: Product[];
   currencySymbol: string;
+  enableAdvancedInvoiceSystem?: boolean;
+  isTaxInclusive?: boolean;
 }
 
-export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsProps) {
+export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoiceSystem, isTaxInclusive }: InvoiceFormItemsProps) {
   const { control, watch, setValue, formState: { errors } } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -47,7 +49,10 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
       setValue(`items.${itemIndex}.productName`, product.name);
       setValue(`items.${itemIndex}.unitPrice`, product.price);
       setValue(`items.${itemIndex}.unit`, product.unit || '', { shouldValidate: true });
+      setValue(`items.${itemIndex}.hsnCode`, product.hsnCode || '', { shouldValidate: true });
+      setValue(`items.${itemIndex}.gstRate`, product.gstRate || 0, { shouldValidate: true });
       setValue(`items.${itemIndex}.totalPrice`, product.price * quantity);
+      calculateItemTax(itemIndex, product.price * quantity, product.gstRate || 0);
     }
   };
 
@@ -59,6 +64,28 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
   const handleUnitPriceChange = (itemIndex: number, unitPrice: number) => {
     const quantity = watchedItems[itemIndex]?.quantity || 0;
     setValue(`items.${itemIndex}.totalPrice`, unitPrice * quantity);
+    calculateItemTax(itemIndex, unitPrice * quantity);
+  };
+
+  const handleGstRateChange = (itemIndex: number, gstRate: number) => {
+    const totalPrice = watchedItems[itemIndex]?.totalPrice || 0;
+    calculateItemTax(itemIndex, totalPrice, gstRate);
+  };
+
+  const calculateItemTax = (itemIndex: number, totalPrice: number, rate?: number) => {
+    if (!enableAdvancedInvoiceSystem) return;
+    const gstRate = rate !== undefined ? rate : (watchedItems[itemIndex]?.gstRate || 0);
+    
+    let taxAmount = 0;
+    if (isTaxInclusive) {
+        // Tax is already in totalPrice
+        taxAmount = totalPrice - (totalPrice / (1 + gstRate / 100));
+    } else {
+        // Tax is added on top of totalPrice
+        taxAmount = (totalPrice * gstRate) / 100;
+    }
+    
+    setValue(`items.${itemIndex}.taxAmount`, taxAmount);
   };
 
   return (
@@ -140,6 +167,22 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
                 </FormItem>
 
                 <div className="grid grid-cols-2 gap-4">
+                  {enableAdvancedInvoiceSystem && (
+                    <FormItem>
+                        <Label>HSN/SAC Code</Label>
+                        <Controller
+                            control={control}
+                            name={`items.${index}.hsnCode`}
+                            render={({ field: controllerField }) => (
+                            <Input
+                                placeholder="e.g. 9983"
+                                {...controllerField}
+                                value={controllerField.value || ""}
+                            />
+                            )}
+                        />
+                    </FormItem>
+                  )}
                   <FormItem>
                     <Label>Quantity</Label>
                      <Controller
@@ -191,6 +234,37 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
                         )}
                     />
                   </FormItem>
+                  {enableAdvancedInvoiceSystem && (
+                    <FormItem>
+                      <Label>GST %</Label>
+                      <Controller
+                        control={control}
+                        name={`items.${index}.gstRate`}
+                        defaultValue={0}
+                        render={({ field: controllerField }) => (
+                          <Select
+                            onValueChange={(val) => {
+                              const numVal = parseInt(val);
+                              controllerField.onChange(numVal);
+                              handleGstRateChange(index, numVal);
+                            }}
+                            value={controllerField.value?.toString() || "0"}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="GST %" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">0%</SelectItem>
+                              <SelectItem value="5">5%</SelectItem>
+                              <SelectItem value="12">12%</SelectItem>
+                              <SelectItem value="18">18%</SelectItem>
+                              <SelectItem value="28">28%</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </FormItem>
+                  )}
                 </div>
 
                 <FormItem>
@@ -241,12 +315,14 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[25%]">Product/Service</TableHead>
+                <TableHead className={enableAdvancedInvoiceSystem ? "w-[15%]" : "w-[25%]"}>Product/Service</TableHead>
+                {enableAdvancedInvoiceSystem && <TableHead className="w-[8%]">HSN</TableHead>}
                 <TableHead className="w-[10%]">Quantity</TableHead>
-                <TableHead className="w-[15%]">Unit</TableHead>
-                <TableHead className="w-[15%]">Unit Price ({currencySymbol})</TableHead>
-                <TableHead className="w-[20%]">Total Price ({currencySymbol})</TableHead>
-                <TableHead className="w-[15%] text-right">Action</TableHead>
+                <TableHead className="w-[12%]">Unit</TableHead>
+                <TableHead className="w-[12%]">Unit Price ({currencySymbol})</TableHead>
+                {enableAdvancedInvoiceSystem && <TableHead className="w-[10%]">GST %</TableHead>}
+                <TableHead className={enableAdvancedInvoiceSystem ? "w-[12%]" : "w-[20%]"}>Total ({currencySymbol})</TableHead>
+                <TableHead className={cn(enableAdvancedInvoiceSystem ? "w-[8%]" : "w-[15%]", "text-right")}>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,7 +338,7 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between"
+                              className="w-full justify-between overflow-hidden"
                             >
                               {controllerField.value
                                 ? products.find((p) => p.id === controllerField.value)?.name
@@ -305,6 +381,21 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
                     />
                    <FormMessage>{(errors.items as any)?.[index]?.productId?.message}</FormMessage>
                   </TableCell>
+                  {enableAdvancedInvoiceSystem && (
+                    <TableCell>
+                        <Controller
+                        control={control}
+                        name={`items.${index}.hsnCode`}
+                        render={({ field: controllerField }) => (
+                            <Input
+                            placeholder="HSN"
+                            {...controllerField}
+                            value={controllerField.value || ""}
+                            />
+                        )}
+                        />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Controller
                       control={control}
@@ -374,6 +465,36 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
                     />
                   <FormMessage>{(errors.items as any)?.[index]?.unitPrice?.message}</FormMessage>
                   </TableCell>
+                  {enableAdvancedInvoiceSystem && (
+                    <TableCell>
+                      <Controller
+                        control={control}
+                        name={`items.${index}.gstRate`}
+                        defaultValue={0}
+                        render={({ field: controllerField }) => (
+                          <Select
+                            onValueChange={(val) => {
+                              const numVal = parseInt(val);
+                              controllerField.onChange(numVal);
+                              handleGstRateChange(index, numVal);
+                            }}
+                            value={controllerField.value?.toString() || "0"}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="GST %" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">0%</SelectItem>
+                              <SelectItem value="5">5%</SelectItem>
+                              <SelectItem value="12">12%</SelectItem>
+                              <SelectItem value="18">18%</SelectItem>
+                              <SelectItem value="28">28%</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Controller
                       control={control}
@@ -412,7 +533,7 @@ export function InvoiceFormItems({ products, currencySymbol }: InvoiceFormItemsP
       <Button
         type="button"
         variant="outline"
-        onClick={() => append({ productId: "", productName: "", quantity: 1, unitPrice: 0, totalPrice: 0, unit: "" })}
+        onClick={() => append({ productId: "", productName: "", quantity: 1, unitPrice: 0, totalPrice: 0, unit: "", hsnCode: "", gstRate: 0, taxAmount: 0 })}
         className="text-primary border-primary hover:bg-primary/10"
       >
         <PlusCircle className="mr-2 h-4 w-4" /> Add Item

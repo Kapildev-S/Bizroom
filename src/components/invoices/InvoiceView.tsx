@@ -28,6 +28,7 @@ import ClassicInvoice from './templates/ClassicInvoice';
 import ModernInvoice from './templates/ModernInvoice';
 import StylishInvoice from './templates/StylishInvoice';
 import ProfessionalInvoice from './templates/ProfessionalInvoice';
+import GstTaxInvoice from './templates/GstTaxInvoice';
 import { getCurrencySymbol } from '@/lib/utils';
 
 
@@ -122,27 +123,26 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     try {
       const isMobile = window.innerWidth <= 768;
 
-      // Safety timeout: Longer for mobile devices (15s vs 8s)
-      const timeoutDuration = isMobile ? 15000 : 8000;
+      // Safety timeout: Longer for mobile devices (20s vs 10s)
+      const timeoutDuration = isMobile ? 20000 : 10000;
 
-      // Much lower scale for mobile to prevent timeout
       const canvasPromise = html2canvas(input, {
-        scale: isMobile ? 1.0 : 2,
+        scale: isMobile ? 1.5 : 2, // Slight increase for mobile quality but stay safe
         useCORS: true,
-        logging: false, // Disable for performance
-        windowWidth: isMobile ? window.innerWidth : 1024,
-        allowTaint: false, // Changed to false to prevent tainted canvas errors on export
+        logging: false,
+        windowWidth: isMobile ? 1024 : 1024, // Use a consistent width for rendering
+        allowTaint: true,
         backgroundColor: "#ffffff",
-        scrollX: 0,
-        scrollY: -window.scrollY,
-        imageTimeout: 0, // Don't wait for external images
+        imageTimeout: 15000, // Give it time to load the logo
+        removeContainer: true,
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('invoice-content-render');
           if (el) {
             el.style.transform = 'none';
-            el.style.margin = '0';
+            el.style.margin = '0 auto';
             el.style.padding = '32px';
-            // Ensure font loading in clone if possible, or just rely on main doc
+            el.style.boxShadow = 'none';
+            el.style.borderRadius = '0';
           }
         }
       });
@@ -153,7 +153,22 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
       const canvas = await Promise.race([canvasPromise, timeoutPromise]);
 
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.95)); // Use PNG for better quality and compatibility
+      // Use toDataURL as a fallback/alternative for iOS if toBlob fails
+      let blob: Blob | null = null;
+      try {
+        blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.9));
+        if (!blob) {
+          // Fallback for older Safari or if toBlob fails
+          const dataUrl = canvas.toDataURL('image/png');
+          const res = await fetch(dataUrl);
+          blob = await res.blob();
+        }
+      } catch (blobError) {
+        console.warn("toBlob failed, trying toDataURL fallback", blobError);
+        const dataUrl = canvas.toDataURL('image/png');
+        const res = await fetch(dataUrl);
+        blob = await res.blob();
+      }
 
       if (!blob) {
         throw new Error('Could not create image blob.');
@@ -205,7 +220,8 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const handleNativeShare = async () => {
     if (!shareableFile) return;
     try {
-      if (navigator.share && navigator.canShare({ files: [shareableFile] })) {
+      const canShare = navigator.canShare ? navigator.canShare({ files: [shareableFile] }) : true;
+      if (navigator.share && canShare) {
         await navigator.share({
           files: [shareableFile],
           title: `Invoice ${invoice.invoiceNumber}`,
@@ -227,13 +243,20 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     if (!currentUser || !invoice) return;
     try {
       await runTransaction(db, async (transaction) => {
-        for (const item of invoice.items) {
-          const productRef = doc(db, `users/${currentUser.uid}/products`, item.productId);
-          const productDoc = await transaction.get(productRef);
+        // --- 1. All READS first ---
+        const productRefs = invoice.items.map(item => doc(db, `users/${currentUser.uid}/products`, item.productId));
+        const productDocSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+
+        // --- 2. All WRITES last ---
+        for (let i = 0; i < invoice.items.length; i++) {
+          const item = invoice.items[i];
+          const productRef = productRefs[i];
+          const productDoc = productDocSnaps[i];
+
           if (productDoc.exists()) {
             const productData = productDoc.data();
             if (productData.stock !== null) {
-              transaction.update(productRef, { stock: productData.stock + item.quantity });
+              transaction.update(productRef, { stock: (productData.stock || 0) + item.quantity });
             }
           }
         }
@@ -251,6 +274,26 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   };
 
   const template = settings?.customizationSettings?.template || 'classic';
+  const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+
+  const getPaperSizeStyle = () => {
+    if (paperSize === 'custom' && settings?.customizationSettings?.customWidth) {
+      const width = settings.customizationSettings.customWidth;
+      const height = settings.customizationSettings.customHeight;
+      const unit = settings.customizationSettings.unit || 'in';
+      return { 
+        width: `${width}${unit}`, 
+        minHeight: height ? `${height}${unit}` : 'auto' 
+      };
+    }
+    switch (paperSize) {
+      case 'Thermal80': return { width: '80mm', minHeight: '80mm' };
+      case 'Thermal58': return { width: '58mm', minHeight: '58mm' };
+      case '4x3': return { width: '4in', minHeight: '3in' };
+      case '4x6': return { width: '4in', minHeight: '6in' };
+      default: return { width: '100%', maxWidth: '800px' };
+    }
+  };
 
   const handleLogoError = useCallback(() => {
     console.warn("Logo failed to load");
@@ -274,6 +317,8 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         return <StylishInvoice {...templateProps} />;
       case 'professional':
         return <ProfessionalInvoice {...templateProps} />;
+      case 'gst':
+        return <GstTaxInvoice {...templateProps} />;
       case 'classic':
       default:
         return <ClassicInvoice {...templateProps} />;
@@ -282,11 +327,17 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
   return (
     <>
-      <div id="invoice-content" className="max-w-4xl mx-auto font-sans">
-        <Card ref={invoiceContentRef} id="invoice-content-render" className="shadow-xl bg-white text-gray-800 mx-auto w-full">
+      <div id="invoice-content" className="max-w-4xl mx-auto font-sans flex flex-col items-center gap-6 p-4">
+        <Card 
+          ref={invoiceContentRef} 
+          id="invoice-content-render" 
+          className="shadow-2xl bg-white text-gray-800"
+          style={getPaperSizeStyle()}
+        >
           {renderTemplate()}
         </Card>
-        <div id="invoice-action-buttons" className="p-6 flex flex-wrap justify-end gap-2 no-print bg-card border rounded-b-lg">
+        
+        <div id="invoice-action-buttons" className="w-full max-w-[800px] p-6 flex flex-wrap items-center justify-end gap-3 no-print bg-card border rounded-xl shadow-lg">
           <div className="mr-auto">
             <Badge variant={getStatusBadgeVariant(invoice.status)} className="text-base px-4 py-1 capitalize">
               Status: {invoice.status}
@@ -325,8 +376,8 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
               </Link>
             </Button>
           )}
-          <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} className="gap-2">
+            <Trash2 className="h-4 w-4" /> Delete
           </Button>
         </div>
       </div>

@@ -49,6 +49,7 @@ export default function ReportsPage() {
     to: new Date(),
   });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -92,7 +93,8 @@ export default function ReportsPage() {
       const isAfterFrom = !dateRange?.from || issueDate >= dateRange.from;
       const isBeforeTo = !dateRange?.to || issueDate <= dateRange.to;
       const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-      return isAfterFrom && isBeforeTo && matchesStatus;
+      const matchesType = typeFilter === 'all' || invoice.invoiceType === typeFilter;
+      return isAfterFrom && isBeforeTo && matchesStatus && matchesType;
     });
   }, [invoices, dateRange, statusFilter]);
 
@@ -138,6 +140,7 @@ export default function ReportsPage() {
 
   const currencySymbol = getCurrencySymbol(settings?.invoiceSettings?.currency);
   const chartConfig = { sales: { label: "Sales", color: "hsl(var(--primary))" } };
+  const enableAdvancedInvoiceSystem = settings?.invoiceSettings?.enableAdvancedInvoiceSystem;
 
   if (loading) {
     return (
@@ -199,6 +202,19 @@ export default function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
+            {enableAdvancedInvoiceSystem && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Invoice Type</label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger><SelectValue placeholder="All Types" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="Retail">Retail</SelectItem>
+                    <SelectItem value="Wholesale">Wholesale</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -310,6 +326,7 @@ export default function ReportsPage() {
                             <TableHead>Invoice #</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead>Issue Date</TableHead>
+                            {enableAdvancedInvoiceSystem && <TableHead>Type</TableHead>}
                             <TableHead>Total</TableHead>
                             <TableHead>Status</TableHead>
                         </TableRow>
@@ -320,6 +337,11 @@ export default function ReportsPage() {
                             <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                             <TableCell>{invoice.customerName}</TableCell>
                             <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
+                            {enableAdvancedInvoiceSystem && (
+                                <TableCell>
+                                    <Badge variant="outline" className="font-normal">{invoice.invoiceType}</Badge>
+                                </TableCell>
+                            )}
                             <TableCell>{getCurrencySymbol(invoice.currency)}{invoice.totalAmount.toFixed(2)}</TableCell>
                             <TableCell>
                                 <Badge variant={getStatusBadgeVariant(invoice.status)} className="capitalize">{invoice.status}</Badge>

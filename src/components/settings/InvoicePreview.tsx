@@ -7,10 +7,34 @@ import { Card, CardContent } from '@/components/ui/card';
 interface InvoicePreviewProps {
   themeColor: string;
   template?: string;
+  paperSize?: string;
+  customWidth?: number;
+  customHeight?: number;
+  unit?: string;
 }
 
-export default function InvoicePreview({ themeColor, template = 'classic' }: InvoicePreviewProps) {
+export default function InvoicePreview({ 
+  themeColor, 
+  template = 'classic', 
+  paperSize = 'A4',
+  customWidth,
+  customHeight,
+  unit = 'in'
+}: InvoicePreviewProps) {
   const accentStyle = { color: themeColor };
+  
+  const getContainerStyle = () => {
+    if (paperSize === 'custom' && customWidth) {
+      return { width: `${customWidth}${unit}`, margin: '0 auto' };
+    }
+    switch (paperSize) {
+      case 'Thermal80': return { width: '80mm', margin: '0 auto' };
+      case 'Thermal58': return { width: '58mm', margin: '0 auto' };
+      case '4x3': return { width: '4in', margin: '0 auto' };
+      case '4x6': return { width: '4in', margin: '0 auto' };
+      default: return { width: '100%' };
+    }
+  };
 
   const ClassicPreview = () => (
     <>
@@ -235,10 +259,12 @@ export default function InvoicePreview({ themeColor, template = 'classic' }: Inv
   }
 
   return (
-    <Card className="shadow-md h-full overflow-hidden">
-      <CardContent className="p-4 text-xs text-gray-800 bg-white">
-        {renderPreview()}
-      </CardContent>
+    <Card className="shadow-md h-full overflow-hidden bg-gray-50 flex justify-center items-center p-4">
+      <div style={getContainerStyle()} className="bg-white shadow">
+        <CardContent className="p-4 text-xs text-gray-800">
+          {renderPreview()}
+        </CardContent>
+      </div>
     </Card>
   );
 }

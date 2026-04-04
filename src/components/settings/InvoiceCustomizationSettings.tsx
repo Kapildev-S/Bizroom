@@ -20,6 +20,10 @@ const customizationSchema = z.object({
   themeColor: z.string().optional(),
   template: z.string().optional(),
   showPartyBalance: z.boolean().default(false),
+  paperSize: z.string().optional(),
+  customWidth: z.coerce.number().optional(),
+  customHeight: z.coerce.number().optional(),
+  unit: z.enum(['mm', 'in']).default('in').optional(),
 });
 
 interface InvoiceCustomizationSettingsProps {
@@ -30,11 +34,27 @@ interface InvoiceCustomizationSettingsProps {
 export default function InvoiceCustomizationSettings({ settings, onSave }: InvoiceCustomizationSettingsProps) {
   const form = useForm<z.infer<typeof customizationSchema>>({
     resolver: zodResolver(customizationSchema),
-    defaultValues: settings || { themeColor: 'Default', template: 'classic', showPartyBalance: false },
+    defaultValues: {
+      themeColor: settings?.themeColor || 'Default',
+      template: settings?.template || 'classic',
+      showPartyBalance: settings?.showPartyBalance || false,
+      paperSize: settings?.paperSize || 'A4',
+      customWidth: settings?.customWidth ?? 4,
+      customHeight: settings?.customHeight ?? 3,
+      unit: settings?.unit || 'in',
+    },
   });
 
   React.useEffect(() => {
-    form.reset(settings || { themeColor: 'Default', template: 'classic', showPartyBalance: false });
+    form.reset({
+      themeColor: settings?.themeColor || 'Default',
+      template: settings?.template || 'classic',
+      showPartyBalance: settings?.showPartyBalance || false,
+      paperSize: settings?.paperSize || 'A4',
+      customWidth: settings?.customWidth ?? 4,
+      customHeight: settings?.customHeight ?? 3,
+      unit: settings?.unit || 'in',
+    });
   }, [settings, form]);
 
   const onSubmit = async (values: z.infer<typeof customizationSchema>) => {
@@ -43,6 +63,10 @@ export default function InvoiceCustomizationSettings({ settings, onSave }: Invoi
 
   const watchedThemeColor = form.watch('themeColor');
   const watchedTemplate = form.watch('template');
+  const watchedPaperSize = form.watch('paperSize');
+  const watchedCustomWidth = form.watch('customWidth');
+  const watchedCustomHeight = form.watch('customHeight');
+  const watchedUnit = form.watch('unit');
   const colorValue = colorOptions.find(c => c.name === watchedThemeColor)?.value || 'hsl(var(--primary))';
 
 
@@ -149,6 +173,16 @@ export default function InvoiceCustomizationSettings({ settings, onSave }: Invoi
                               </div>
                             </FormLabel>
                           </FormItem>
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl>
+                                <RadioGroupItem value="gst" className="sr-only" />
+                              </FormControl>
+                              <div className="rounded-md p-3 h-16 flex items-center justify-center border border-primary bg-primary/5 transition-all hover:shadow-lg">
+                                <span className="text-center text-xs font-bold text-primary">Proper GST</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
                         </RadioGroup>
                         <FormMessage />
                       </FormItem>
@@ -184,6 +218,126 @@ export default function InvoiceCustomizationSettings({ settings, onSave }: Invoi
                   />
                 </div>
                 <div>
+                  <FormLabel>Paper Size</FormLabel>
+                  <FormField
+                    control={form.control}
+                    name="paperSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="grid grid-cols-2 gap-3 mt-2"
+                        >
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl><RadioGroupItem value="A4" className="sr-only" /></FormControl>
+                              <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary">
+                                <span className="text-xs font-medium">Standard (A4)</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl><RadioGroupItem value="Thermal80" className="sr-only" /></FormControl>
+                              <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary">
+                                <span className="text-xs font-medium">Thermal (80mm)</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl><RadioGroupItem value="4x3" className="sr-only" /></FormControl>
+                              <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary">
+                                <span className="text-xs font-medium">Small (4x3 in)</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl><RadioGroupItem value="4x6" className="sr-only" /></FormControl>
+                              <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary">
+                                <span className="text-xs font-medium">Medium (4x6 in)</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl><RadioGroupItem value="custom" className="sr-only" /></FormControl>
+                              <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary">
+                                <span className="text-xs font-medium">Custom Size</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {watchedPaperSize === 'custom' && (
+                    <div className="grid grid-cols-3 gap-4 mt-4 animate-in fade-in slide-in-from-top-2">
+                      <FormField
+                        control={form.control}
+                        name="customWidth"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Width</FormLabel>
+                            <FormControl>
+                              <input 
+                                type="number" 
+                                {...field} 
+                                value={field.value ?? ''}
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="4"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="customHeight"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Height</FormLabel>
+                            <FormControl>
+                              <input 
+                                type="number" 
+                                {...field} 
+                                value={field.value ?? ''}
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="3"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="unit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Unit</FormLabel>
+                            <FormControl>
+                              <select 
+                                {...field} 
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <option value="in">Inch</option>
+                                <option value="mm">mm</option>
+                              </select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div>
                   <FormLabel>Theme Settings</FormLabel>
                   <FormField
                     control={form.control}
@@ -205,7 +359,14 @@ export default function InvoiceCustomizationSettings({ settings, onSave }: Invoi
                 </div>
               </div>
               <div className="lg:order-1">
-                <InvoicePreview themeColor={colorValue} template={watchedTemplate} />
+                <InvoicePreview 
+                  themeColor={colorValue} 
+                  template={watchedTemplate} 
+                  paperSize={watchedPaperSize} 
+                  customWidth={watchedCustomWidth}
+                  customHeight={watchedCustomHeight}
+                  unit={watchedUnit}
+                />
               </div>
             </div>
           </CardContent>

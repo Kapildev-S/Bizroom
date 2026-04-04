@@ -22,6 +22,7 @@ const invoiceSettingsSchema = z.object({
   currency: z.string().min(1, "Currency is required.").default('INR'),
   defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
   defaultDueDateDays: z.coerce.number().int().min(0).optional(),
+  enableAdvancedInvoiceSystem: z.boolean().default(false),
 });
 
 interface InvoiceSettingsProps {
@@ -137,6 +138,26 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
                     <FormLabel className="text-base">Enable Discount Fields</FormLabel>
                     <FormDescription>
                       Show fields for adding discounts on invoices.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="enableAdvancedInvoiceSystem"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Advanced Invoicing System</FormLabel>
+                    <FormDescription>
+                      Enable INV-0001 sequence, Retail/Wholesale types, and HSN codes.
                     </FormDescription>
                   </div>
                   <FormControl>

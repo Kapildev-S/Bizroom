@@ -21,10 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Switch } from "@/components/ui/switch";
 import { CalendarIcon, Hash, User, FileText, Percent, StickyNote, Loader2, Phone, ChevronsUpDown, Check, Banknote } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn, getCurrencySymbol } from "@/lib/utils";
-import type { Customer, Product, Invoice, AppSettings } from "@/lib/mockData";
+import { Customer, Product, Invoice, AppSettings, INDIAN_STATES } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceFormItems } from "./InvoiceFormItems";
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -47,6 +48,9 @@ const invoiceItemSchema = z.object({
   unitPrice: z.coerce.number().min(0, "Unit price cannot be negative."),
   totalPrice: z.coerce.number(),
   unit: z.string().optional(),
+  hsnCode: z.string().optional(),
+  gstRate: z.coerce.number().optional(),
+  taxAmount: z.coerce.number().optional(),
 });
 
 const invoiceFormSchema = z.object({
@@ -65,6 +69,12 @@ const invoiceFormSchema = z.object({
   discountAmount: z.coerce.number().default(0), // Calculated discount amount
   taxRate: z.coerce.number().min(0).max(100).default(0), // Now 0-100
   taxAmount: z.coerce.number().default(0),
+  invoiceType: z.enum(['Retail', 'Wholesale']).default('Retail'),
+  gstType: z.enum(['CGST_SGST', 'IGST']).optional(),
+  placeOfSupply: z.string().optional(),
+  customerGstin: z.string().optional(),
+  reverseCharge: z.boolean().default(false),
+  isTaxInclusive: z.boolean().default(false),
   totalAmount: z.coerce.number().default(0),
 }).refine(data => data.dueDate >= data.issueDate, {
   message: "Due date cannot be earlier than issue date.",
@@ -92,6 +102,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
   const defaultDueDateDays = settings?.invoiceSettings?.defaultDueDateDays ?? 30;
   const defaultTaxRate = settings?.invoiceSettings?.defaultTaxRate ?? 8;
   const defaultCurrency = settings?.invoiceSettings?.currency ?? 'USD';
+  const enableAdvancedInvoiceSystem = settings?.invoiceSettings?.enableAdvancedInvoiceSystem;
 
   const defaultValues = initialData ? {
     ...initialData,
@@ -99,25 +110,36 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
     dueDate: new Date(initialData.dueDate),
     taxRate: initialData.taxRate * 100, // convert back to percentage for input
     customerPhone: initialData.customerPhone || '',
-    discountType: initialData.discountType || 'fixed',
+    discountType: (initialData.discountType || 'fixed') as 'percentage' | 'fixed',
     discountValue: initialData.discountValue,
     discountAmount: initialData.discountAmount || 0,
+    invoiceType: (initialData.invoiceType || 'Retail') as 'Retail' | 'Wholesale',
+    gstType: initialData.gstType,
+    placeOfSupply: initialData.placeOfSupply || '',
+    customerGstin: initialData.customerGstin || '',
+    reverseCharge: initialData.reverseCharge || false,
   } : {
-    invoiceNumber: `${settings?.businessProfile?.invoicePrefix || 'INV-'}${(invoiceCount! + 1).toString().padStart(5, '0')}`,
+    invoiceNumber: `${settings?.businessProfile?.invoicePrefix || 'INV-'}${(invoiceCount! + 1).toString().padStart(4, '0')}`,
     customerId: "",
     customerName: "",
     customerPhone: "",
     issueDate: new Date(),
     dueDate: addDays(new Date(), defaultDueDateDays),
-    items: [{ productId: "", productName: "", quantity: 1, unitPrice: 0, totalPrice: 0, unit: "" }],
+    items: [{ productId: "", productName: "", quantity: 1, unitPrice: 0, totalPrice: 0, unit: "", gstRate: 0, taxAmount: 0 }],
     notes: "",
     currency: defaultCurrency,
     subtotal: 0,
-    discountType: 'fixed',
+    discountType: 'fixed' as const,
     discountValue: undefined,
     discountAmount: 0,
     taxRate: defaultTaxRate,
     taxAmount: 0,
+    invoiceType: 'Retail' as const,
+    gstType: undefined,
+    placeOfSupply: settings?.businessProfile?.state || '',
+    customerGstin: '',
+    reverseCharge: false,
+    isTaxInclusive: settings?.invoiceSettings?.defaultInvoiceType === 'gst' ? true : false, // Default to true if GST is enabled usually
     totalAmount: 0,
   };
 
@@ -165,6 +187,21 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
       let finalInvoiceId = initialData?.id;
 
       await runTransaction(db, async (transaction) => {
+        // --- 1. Counter Logic (READ counter) ---
+        let nextInvoiceNumber = values.invoiceNumber;
+        let counterUpdate: { ref: any, newId: number } | null = null;
+        if (!initialData && enableAdvancedInvoiceSystem) {
+          const counterDocRef = doc(db, `users/${currentUser.uid}/counters`, 'invoices');
+          const counterSnap = await transaction.get(counterDocRef);
+          let lastId = 0;
+          if (counterSnap.exists()) {
+            lastId = counterSnap.data().lastId || 0;
+          }
+          const newId = lastId + 1;
+          nextInvoiceNumber = `${settings?.businessProfile?.invoicePrefix || 'INV-'}${newId.toString().padStart(4, '0')}`;
+          counterUpdate = { ref: counterDocRef, newId };
+        }
+
         const productMap = new Map<string, { ref: any, oldQty: number, newQty: number, name: string }>();
 
         // Consolidate old items being returned to stock
@@ -188,13 +225,13 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
           }
         }
 
-        // --- 1. All READS first ---
+        // --- 2. All READS first ---
         const productRefsToRead = Array.from(productMap.values()).map(p => p.ref);
         const productDocs = productRefsToRead.length > 0 ? await Promise.all(productRefsToRead.map(ref => transaction.get(ref))) : [];
 
         const stockUpdates: { ref: any, newStock: number }[] = [];
 
-        // --- 2. All calculations and validations second ---
+        // --- 3. All calculations and validations second ---
         for (let i = 0; i < productDocs.length; i++) {
           const productDoc = productDocs[i];
           const productInfo = Array.from(productMap.values())[i];
@@ -203,7 +240,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
             throw new Error(`Product "${productInfo.name}" not found.`);
           }
 
-          const productData = productDoc.data();
+          const productData = productDoc.data() as Product;
           if (productData.stock !== null) { // Only track stock if it's not unlimited
             const currentStock = productData.stock;
             const stockChange = productInfo.oldQty - productInfo.newQty;
@@ -216,13 +253,18 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
           }
         }
 
-        // --- 3. All WRITES last ---
+        // --- 4. All WRITES last ---
+        if (counterUpdate) {
+          transaction.set(counterUpdate.ref, { lastId: counterUpdate.newId }, { merge: true });
+        }
+
         for (const update of stockUpdates) {
           transaction.update(update.ref, { stock: update.newStock });
         }
 
         const dataToSubmit = {
           ...values,
+          invoiceNumber: nextInvoiceNumber,
           discountValue: values.discountValue || 0,
           discountAmount: values.discountAmount || 0,
           issueDate: Timestamp.fromDate(values.issueDate),
@@ -230,21 +272,49 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
           taxRate: values.taxRate / 100,
           items: values.items.map(item => {
             const product = products.find(p => p.id === item.productId);
-            return { ...item, productName: product ? product.name : 'Unknown Product' };
+            const { hsnCode, ...rest } = item;
+            return { 
+              ...rest, 
+              productName: product ? product.name : 'Unknown Product',
+              ...(enableAdvancedInvoiceSystem && { hsnCode })
+            };
           }),
           customerId: customerId,
           status: initialData?.status || 'sent',
           userId: currentUser.uid,
+          ...(enableAdvancedInvoiceSystem && { 
+            invoiceType: values.invoiceType,
+            gstType: values.gstType,
+            placeOfSupply: values.placeOfSupply,
+            customerGstin: values.customerGstin,
+            reverseCharge: values.reverseCharge,
+          }),
         };
 
-        delete (dataToSubmit as any).id; // Make sure we don't try to write the id field
+        // Clean data for Firestore (remove undefined values recursively)
+        const cleanFirestoreData = (obj: any): any => {
+          if (Array.isArray(obj)) return obj.map(cleanFirestoreData);
+          if (obj !== null && typeof obj === 'object' && !obj.seconds && !obj.nanoseconds) {
+            const newObj: any = {};
+            for (const key in obj) {
+              if (obj[key] !== undefined) {
+                newObj[key] = cleanFirestoreData(obj[key]);
+              }
+            }
+            return newObj;
+          }
+          return obj;
+        };
+
+        const cleanData = cleanFirestoreData(dataToSubmit);
+        delete cleanData.id;
 
         if (initialData?.id) {
           const invoiceDocRef = doc(db, `users/${currentUser.uid}/invoices`, initialData.id);
-          transaction.update(invoiceDocRef, dataToSubmit);
+          transaction.update(invoiceDocRef, cleanData);
         } else {
           const newInvoiceRef = doc(collection(db, `users/${currentUser.uid}/invoices`));
-          transaction.set(newInvoiceRef, { ...dataToSubmit, createdAt: Timestamp.now() });
+          transaction.set(newInvoiceRef, { ...cleanData, createdAt: Timestamp.now() });
           finalInvoiceId = newInvoiceRef.id;
         }
       });
@@ -281,37 +351,113 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
   const watchedTaxRate = watch("taxRate");
   const watchedDiscountType = watch("discountType");
   const watchedDiscountValue = watch("discountValue");
+  const watchedPlaceOfSupply = watch("placeOfSupply");
+
+  // Auto-detect GST Type
+  React.useEffect(() => {
+    if (enableAdvancedInvoiceSystem && watchedPlaceOfSupply) {
+      const businessState = settings?.businessProfile?.state;
+      if (businessState && watchedPlaceOfSupply === businessState) {
+        setValue('gstType', 'CGST_SGST');
+      } else if (businessState) {
+        setValue('gstType', 'IGST');
+      }
+    }
+  }, [enableAdvancedInvoiceSystem, watchedPlaceOfSupply, settings?.businessProfile?.state, setValue]);
+
+  const watchedIsTaxInclusive = watch("isTaxInclusive");
 
   React.useEffect(() => {
-    let subtotal = 0;
-    watchedItems.forEach(item => {
-      subtotal += item.totalPrice || 0;
-    });
-    setValue("subtotal", subtotal);
+    let totalAmount = 0;
+    let totalTaxableValue = 0;
+    let totalTax = 0;
 
+    watchedItems.forEach((item, index) => {
+      const itemQuantity = item.quantity || 0;
+      const itemUnitPrice = item.unitPrice || 0;
+      const itemGstRate = item.gstRate || 0;
+      const itemTotal = itemQuantity * itemUnitPrice;
+
+      if (watchedIsTaxInclusive) {
+        // Inclusive: Rate includes Tax
+        // Taxable Value = Total / (1 + Rate/100)
+        const taxableValue = itemTotal / (1 + itemGstRate / 100);
+        const taxAmount = itemTotal - taxableValue;
+        
+        totalAmount += itemTotal;
+        totalTaxableValue += taxableValue;
+        totalTax += taxAmount;
+
+        // Update individual item tax if needed for the template
+        if (watchedItems[index].taxAmount !== taxAmount) {
+            setValue(`items.${index}.taxAmount`, taxAmount);
+        }
+      } else {
+        // Exclusive: Rate is base price
+        const taxAmount = (itemTotal * itemGstRate) / 100;
+        
+        totalAmount += itemTotal + taxAmount;
+        totalTaxableValue += itemTotal;
+        totalTax += taxAmount;
+
+        if (watchedItems[index].taxAmount !== taxAmount) {
+            setValue(`items.${index}.taxAmount`, taxAmount);
+        }
+      }
+    });
+
+    // Apply Discount
     let calculatedDiscount = 0;
     if (watchedDiscountType === 'percentage') {
-      calculatedDiscount = subtotal * ((watchedDiscountValue || 0) / 100);
-    } else { // 'fixed'
+      calculatedDiscount = totalTaxableValue * ((watchedDiscountValue || 0) / 100);
+    } else {
       calculatedDiscount = watchedDiscountValue || 0;
     }
 
-    if (calculatedDiscount > subtotal) {
-      calculatedDiscount = subtotal;
+    if (calculatedDiscount > totalTaxableValue) {
+      calculatedDiscount = totalTaxableValue;
     }
 
     setValue("discountAmount", calculatedDiscount);
-
-    const subtotalAfterDiscount = subtotal - calculatedDiscount;
-
-    const taxAmount = subtotalAfterDiscount > 0 ? subtotalAfterDiscount * (watchedTaxRate / 100 || 0) : 0;
-    setValue("taxAmount", taxAmount);
-    setValue("totalAmount", subtotalAfterDiscount + taxAmount);
+    
+    // Subtotal in our app means "Taxable Value"
+    setValue("subtotal", totalTaxableValue);
+    
+    // Re-calculate tax if discount changed the taxable value? 
+    // Usually GST is on (Taxable Value - Discount).
+    const finalTaxableValue = totalTaxableValue - calculatedDiscount;
+    
+    // If inclusive, we need to adjust the total too
+    if (watchedIsTaxInclusive) {
+        // In inclusive mode, discount reduces the total directly? 
+        // Or it reduces taxable value? 
+        // Let's keep it simple: Total = Taxable + Tax.
+        // If we discount, we reduce both proportionally.
+        const discountFactor = totalTaxableValue > 0 ? (finalTaxableValue / totalTaxableValue) : 1;
+        const finalTax = totalTax * discountFactor;
+        const finalTotal = finalTaxableValue + finalTax;
+        
+        setValue("taxAmount", finalTax);
+        setValue("totalAmount", finalTotal);
+    } else {
+        // Exclusive: Total = (Taxable - Discount) + Tax
+        // Note: Currently tax is calculated on the subtotal after discount in the previous code.
+        const finalTax = finalTaxableValue * (watchedTaxRate / 100 || 0); // This uses global tax rate if set, but we use per-item GST.
+        
+        // If items have individual GST, we should sum them.
+        // For now, let's stick to the per-item tax sum.
+        const itemTaxSum = totalTax * (totalTaxableValue > 0 ? (finalTaxableValue / totalTaxableValue) : 1);
+        
+        setValue("taxAmount", itemTaxSum);
+        setValue("totalAmount", finalTaxableValue + itemTaxSum);
+    }
   }, [
-    JSON.stringify(watchedItems), // This ensures the effect runs on deep changes to items
+    JSON.stringify(watchedItems.map(i => ({ q: i.quantity, p: i.unitPrice, g: i.gstRate }))), // Watch only relevant fields to prevent loop
+    watchedIsTaxInclusive,
     watchedTaxRate,
     watchedDiscountType,
     watchedDiscountValue,
+    watch("gstType"),
     setValue
   ]);
 
@@ -392,6 +538,9 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                                     field.onChange(customer.id);
                                     setValue('customerName', customer.name, { shouldValidate: true });
                                     setValue('customerPhone', customer.phone, { shouldValidate: true });
+                                    if (enableAdvancedInvoiceSystem && customer.gstin) {
+                                      setValue('customerGstin', customer.gstin, { shouldValidate: true });
+                                    }
                                     setOpenCustomerCombobox(false);
                                   }}
                                 >
@@ -415,6 +564,112 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                   </FormItem>
                 )}
               />
+              {enableAdvancedInvoiceSystem && (
+                <>
+                  <FormField
+                    control={control}
+                    name="invoiceType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invoice Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Retail">Retail</SelectItem>
+                            <SelectItem value="Wholesale">Wholesale</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={control}
+                    name="placeOfSupply"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Place of Supply (State)</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {INDIAN_STATES.map((state) => (
+                              <SelectItem key={state.code} value={state.name}>
+                                {state.code} - {state.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={control}
+                    name="customerGstin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer GSTIN</FormLabel>
+                        <FormControl><Input placeholder="Buyer's GSTIN" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+              {enableAdvancedInvoiceSystem && (
+                <>
+                  <FormField
+                    control={control}
+                    name="reverseCharge"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Tax Payable on Reverse Charge</FormLabel>
+                          <FormDescription>
+                            Select if the recipient is liable to pay tax.
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={control}
+                    name="isTaxInclusive"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-primary/5 border-primary/20">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-primary font-bold">Prices include GST</FormLabel>
+                          <FormDescription>
+                            When ON, the total for an item is Qty × Rate. GST is calculated backwards.
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
               <FormField
                 control={control}
                 name="customerName"
@@ -499,7 +754,12 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
               />
             </div>
 
-            <InvoiceFormItems products={products} currencySymbol={currencySymbol} />
+            <InvoiceFormItems 
+              products={products} 
+              currencySymbol={currencySymbol} 
+              enableAdvancedInvoiceSystem={enableAdvancedInvoiceSystem} 
+              isTaxInclusive={watchedIsTaxInclusive}
+            />
 
             <div className="grid md:grid-cols-2 gap-6 pt-6 border-t">
               {enableDiscounts && (
@@ -586,7 +846,10 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                     <span>-{currencySymbol}{(watch("discountAmount") || 0).toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between"><span>Tax ({watch("taxRate")}%):</span><span>{currencySymbol}{watch("taxAmount").toFixed(2)}</span></div>
+                <div className="flex justify-between">
+                  <span>{enableAdvancedInvoiceSystem ? "Total Tax (GST):" : `Tax (${watch("taxRate")}%):`}</span>
+                  <span>{currencySymbol}{watch("taxAmount").toFixed(2)}</span>
+                </div>
                 <div className="flex justify-between font-bold text-lg text-primary"><span>Total Amount:</span><span>{currencySymbol}{watch("totalAmount").toFixed(2)}</span></div>
               </CardContent>
             </Card>

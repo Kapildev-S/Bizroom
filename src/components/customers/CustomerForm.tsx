@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Customer } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
-import { User as UserIcon, Mail, Phone, Home, Loader2 } from "lucide-react";
+import { User as UserIcon, Mail, Phone, Home, Loader2, Hash } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import type { User } from "firebase/auth";
 import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestore";
@@ -30,6 +30,7 @@ const customerFormSchema = z.object({
   email: z.string().email("Invalid email address."),
   phone: z.string().optional(),
   address: z.string().optional(),
+  gstin: z.string().optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerFormSchema>;
@@ -53,11 +54,18 @@ export function CustomerForm({ initialData }: CustomerFormProps) {
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      name: initialData.name,
+      email: initialData.email,
+      phone: initialData.phone || "",
+      address: initialData.address || "",
+      gstin: initialData.gstin || "",
+    } : {
       name: "",
       email: "",
       phone: "",
       address: "",
+      gstin: "",
     },
   });
 
@@ -73,6 +81,7 @@ export function CustomerForm({ initialData }: CustomerFormProps) {
       email: values.email,
       phone: values.phone || '',
       address: values.address || '',
+      gstin: values.gstin || '',
     };
 
     try {
@@ -177,6 +186,22 @@ export function CustomerForm({ initialData }: CustomerFormProps) {
                      <Home className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                     <FormControl>
                       <Textarea placeholder="e.g. 123 Main St, Anytown, USA" {...field} className="pl-10" />
+                    </FormControl>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="gstin"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>GSTIN (Optional)</FormLabel>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <FormControl>
+                      <Input placeholder="e.g. 22AAAAA0000A1Z5" {...field} className="pl-10" />
                     </FormControl>
                   </div>
                   <FormMessage />

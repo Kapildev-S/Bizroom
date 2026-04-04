@@ -54,8 +54,10 @@ export function InvoiceList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const isMobile = useIsMobile();
+  const enableAdvancedInvoiceSystem = settings?.invoiceSettings?.enableAdvancedInvoiceSystem;
 
   const fetchInvoicesAndSettings = useCallback(async (userId: string) => {
     setLoading(true);
@@ -154,8 +156,35 @@ export function InvoiceList() {
   const filteredInvoices = invoices.filter(invoice =>
     (invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
      invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (statusFilter === 'all' || invoice.status === statusFilter)
+    (statusFilter === 'all' || invoice.status === statusFilter) &&
+    (!enableAdvancedInvoiceSystem || typeFilter === 'all' || invoice.invoiceType === typeFilter)
   );
+
+  const totalRetailSales = invoices
+    .filter(inv => inv.invoiceType === 'Retail' && inv.status !== 'void')
+    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  const totalWholesaleSales = invoices
+    .filter(inv => inv.invoiceType === 'Wholesale' && inv.status !== 'void')
+    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  const totalAllSales = invoices
+    .filter(inv => inv.status !== 'void')
+    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  const gstSummary = filteredInvoices
+    .filter(inv => inv.status !== 'void')
+    .reduce((acc, inv) => {
+        const type = inv.gstType || 'CGST_SGST';
+        if (type === 'CGST_SGST') {
+            acc.cgst += (inv.taxAmount || 0) / 2;
+            acc.sgst += (inv.taxAmount || 0) / 2;
+        } else if (type === 'IGST') {
+            acc.igst += (inv.taxAmount || 0);
+        }
+        return acc;
+    }, { cgst: 0, sgst: 0, igst: 0 });
+
 
   if (loading) {
     return (
@@ -225,26 +254,112 @@ export function InvoiceList() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Input
-            placeholder="Search by invoice # or customer..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="sent">Sent</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="void">Void</SelectItem>
-            </SelectContent>
-          </Select>
+        {enableAdvancedInvoiceSystem && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="bg-primary/5 border-primary/20">
+                <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Sales (All)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold text-primary">{getCurrencySymbol(settings?.invoiceSettings?.currency || 'INR')}{totalAllSales.toFixed(2)}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+                <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Retail Sales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold text-primary">{getCurrencySymbol(settings?.invoiceSettings?.currency || 'INR')}{totalRetailSales.toFixed(2)}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+                <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Wholesale Sales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold text-primary">{getCurrencySymbol(settings?.invoiceSettings?.currency || 'INR')}{totalWholesaleSales.toFixed(2)}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-indigo-50 border-indigo-200 md:col-span-3">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-bold text-indigo-700 uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                        GST Tax Summary
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground font-semibold">TOTAL CGST</p>
+                            <p className="text-lg font-bold text-indigo-900">{getCurrencySymbol(settings?.invoiceSettings?.currency || 'INR')}{gstSummary.cgst.toFixed(2)}</p>
+                        </div>
+                        <div className="space-y-1 border-x px-4 border-indigo-100">
+                            <p className="text-[10px] text-muted-foreground font-semibold">TOTAL SGST</p>
+                            <p className="text-lg font-bold text-indigo-900">{getCurrencySymbol(settings?.invoiceSettings?.currency || 'INR')}{gstSummary.sgst.toFixed(2)}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground font-semibold">TOTAL IGST</p>
+                            <p className="text-lg font-bold text-indigo-900">{getCurrencySymbol(settings?.invoiceSettings?.currency || 'INR')}{gstSummary.igst.toFixed(2)}</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+            </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          {enableAdvancedInvoiceSystem ? (
+            <div className="flex bg-muted p-1 rounded-lg">
+                <Button 
+                variant={typeFilter === 'all' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                onClick={() => setTypeFilter('all')}
+                className={typeFilter === 'all' ? 'bg-background shadow-sm' : ''}
+                >
+                All
+                </Button>
+                <Button 
+                variant={typeFilter === 'Retail' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                onClick={() => setTypeFilter('Retail')}
+                className={typeFilter === 'Retail' ? 'bg-background shadow-sm' : ''}
+                >
+                Retail
+                </Button>
+                <Button 
+                variant={typeFilter === 'Wholesale' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                onClick={() => setTypeFilter('Wholesale')}
+                className={typeFilter === 'Wholesale' ? 'bg-background shadow-sm' : ''}
+                >
+                Wholesale
+                </Button>
+            </div>
+          ) : (
+             <div />
+          )}
+          
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <Input
+              placeholder="Search invoices..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="void">Void</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {filteredInvoices.length > 0 ? (
@@ -278,6 +393,7 @@ export function InvoiceList() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Due Date</TableHead>
+                    {enableAdvancedInvoiceSystem && <TableHead>Type</TableHead>}
                     <TableHead>Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -290,6 +406,11 @@ export function InvoiceList() {
                       <TableCell>{invoice.customerName}</TableCell>
                       <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
                       <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                      {enableAdvancedInvoiceSystem && (
+                        <TableCell>
+                            <Badge variant="outline" className="font-normal">{invoice.invoiceType}</Badge>
+                        </TableCell>
+                      )}
                       <TableCell>{getCurrencySymbol(invoice.currency)}{invoice.totalAmount.toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(invoice.status)} className="capitalize">{invoice.status}</Badge>
