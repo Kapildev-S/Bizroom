@@ -20,9 +20,9 @@ const invoiceSettingsSchema = z.object({
   footerNote: z.string().optional(),
   enableDiscounts: z.boolean().default(true),
   currency: z.string().min(1, "Currency is required.").default('INR'),
-  defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
-  defaultDueDateDays: z.coerce.number().int().min(0).optional(),
-  nextInvoiceSequence: z.coerce.number().int().min(1).optional(),
+  defaultTaxRate: z.preprocess((val) => val === '' ? undefined : val, z.coerce.number().min(0).max(100).optional()),
+  defaultDueDateDays: z.preprocess((val) => val === '' ? undefined : val, z.coerce.number().int().min(0).optional()),
+  nextInvoiceSequence: z.preprocess((val) => val === '' ? undefined : val, z.coerce.number().int().min(1).optional()),
   enableAdvancedInvoiceSystem: z.boolean().default(false),
 });
 
@@ -101,7 +101,7 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Default Tax Rate (%)</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g. 18" {...field} /></FormControl>
+                    <FormControl><Input type="number" placeholder="e.g. 18" {...field} value={field.value ?? ''} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -112,7 +112,7 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Default Due Period</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g. 7" {...field} /></FormControl>
+                    <FormControl><Input type="number" placeholder="e.g. 7" {...field} value={field.value ?? ''} /></FormControl>
                      <FormDescription>Due in X days from issue date.</FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -124,7 +124,7 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Next Invoice Sequence No.</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g. 284" {...field} value={field.value || ''} /></FormControl>
+                    <FormControl><Input type="number" placeholder="e.g. 284" {...field} value={field.value ?? ''} /></FormControl>
                      <FormDescription>Leave blank to auto-continue.</FormDescription>
                     <FormMessage />
                   </FormItem>
