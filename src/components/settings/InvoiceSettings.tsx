@@ -20,9 +20,9 @@ const invoiceSettingsSchema = z.object({
   footerNote: z.string().optional(),
   enableDiscounts: z.boolean().default(true),
   currency: z.string().min(1, "Currency is required.").default('INR'),
-  defaultTaxRate: z.preprocess((val) => val === '' ? undefined : val, z.coerce.number().min(0).max(100).optional()),
-  defaultDueDateDays: z.preprocess((val) => val === '' ? undefined : val, z.coerce.number().int().min(0).optional()),
-  nextInvoiceSequence: z.preprocess((val) => val === '' ? undefined : val, z.coerce.number().int().min(1).optional()),
+  defaultTaxRate: z.preprocess((val) => val === '' || val === null ? undefined : val, z.coerce.number().min(0).max(100).optional()),
+  defaultDueDateDays: z.preprocess((val) => val === '' || val === null ? undefined : val, z.coerce.number().int().min(0).optional()),
+  nextInvoiceSequence: z.preprocess((val) => val === '' || val === null ? undefined : val, z.coerce.number().int().min(1).optional()),
   enableAdvancedInvoiceSystem: z.boolean().default(false),
 });
 
@@ -47,7 +47,14 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
         ...values,
         footerNote: values.footerNote || '',
     };
-    await onSave({ invoiceSettings: dataToSave });
+    
+    // Firestore does not support undefined values.
+    // Convert any undefined values to null to clear them out safely.
+    const sanitizedDataToSave = Object.fromEntries(
+      Object.entries(dataToSave).map(([k, v]) => [k, v === undefined ? null : v])
+    ) as InvoiceSettings;
+
+    await onSave({ invoiceSettings: sanitizedDataToSave });
   };
 
   return (
