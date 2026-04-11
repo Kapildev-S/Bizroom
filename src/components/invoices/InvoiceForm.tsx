@@ -46,6 +46,7 @@ const invoiceItemSchema = z.object({
   productName: z.string(),
   quantity: z.coerce.number().positive("Quantity must be greater than 0."),
   unitPrice: z.coerce.number().min(0, "Unit price cannot be negative."),
+  mrp: z.coerce.number().min(0).optional().default(0), // Display only — no calculation role
   totalPrice: z.coerce.number(),
   unit: z.string().optional(),
   hsnCode: z.string().optional(),
@@ -125,7 +126,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
     customerPhone: "",
     issueDate: new Date(),
     dueDate: addDays(new Date(), defaultDueDateDays),
-    items: [{ productId: "", productName: "", quantity: 1, unitPrice: 0, totalPrice: 0, unit: "", gstRate: 0, taxAmount: 0 }],
+    items: [{ productId: "", productName: "", quantity: 1, unitPrice: 0, mrp: 0, totalPrice: 0, unit: "", gstRate: 0, taxAmount: 0 }],
     notes: "",
     currency: defaultCurrency,
     subtotal: 0,
@@ -185,10 +186,11 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
 
     try {
       let finalInvoiceId = initialData?.id;
+      // Declared in outer scope so it's accessible in the toast after the transaction commits
+      let nextInvoiceNumber = values.invoiceNumber;
 
       await runTransaction(db, async (transaction) => {
         // --- 1. Counter Logic (READ counter) ---
-        let nextInvoiceNumber = values.invoiceNumber;
         let counterUpdate: { ref: any, newId: number } | null = null;
         if (!initialData && enableAdvancedInvoiceSystem) {
           const counterDocRef = doc(db, `users/${currentUser.uid}/counters`, 'invoices');
@@ -196,6 +198,12 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
           let lastId = 0;
           if (counterSnap.exists()) {
             lastId = counterSnap.data().lastId || 0;
+          } else {
+            // Counter doc doesn't exist yet — bootstrap from the highest existing invoice number
+            // to avoid duplicate numbers when advanced mode is first turned on.
+            // Note: We can't do getDocs inside a transaction, so we rely on invoiceCount
+            // passed from the parent page, which already computed the max.
+            lastId = invoiceCount ?? 0;
           }
           const newId = lastId + 1;
           nextInvoiceNumber = `${settings?.businessProfile?.invoicePrefix || 'INV-'}${newId.toString().padStart(4, '0')}`;
@@ -319,7 +327,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
         }
       });
 
-      toast({ title: initialData ? "Invoice Updated" : "Invoice Created", description: `Invoice ${values.invoiceNumber} has been successfully created and stock levels updated.` });
+      toast({ title: initialData ? "Invoice Updated" : "Invoice Created", description: `Invoice ${nextInvoiceNumber} has been successfully ${initialData ? 'updated' : 'created'}.` });
 
       if (finalInvoiceId) {
         router.refresh(); // Ensure the view page gets fresh data

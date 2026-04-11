@@ -76,6 +76,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
               <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>Descriptions</th>
               {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>HSN</th>}
               <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>QTY.</th>
+              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>MRP</th>
               <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>RATE</th>
               {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>GST %</th>}
               <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>AMOUNT</th>
@@ -92,6 +93,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
                   </td>
                   {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top" style={{ textAlign: 'left' }}>{item.hsnCode}</td>}
                   <td className="p-2 align-top" style={{ textAlign: 'left' }}>{item.quantity} {item.unit || ''}</td>
+                  <td className="p-2 align-top" style={{ textAlign: 'right' }}>{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
                   <td className="p-2 align-top" style={{ textAlign: 'right' }}>{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                   {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top" style={{ textAlign: 'right' }}>{item.gstRate}%</td>}
                   <td className="p-2 font-semibold align-top" style={{ textAlign: 'right' }}>{currencySymbol}{itemTotalWithTax.toFixed(2)}</td>

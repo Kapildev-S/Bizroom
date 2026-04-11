@@ -48,6 +48,7 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
       const quantity = watchedItems[itemIndex]?.quantity || 1;
       setValue(`items.${itemIndex}.productName`, product.name);
       setValue(`items.${itemIndex}.unitPrice`, product.price);
+      setValue(`items.${itemIndex}.mrp`, product.mrp ?? 0, { shouldValidate: true });
       setValue(`items.${itemIndex}.unit`, product.unit || '', { shouldValidate: true });
       setValue(`items.${itemIndex}.hsnCode`, product.hsnCode || '', { shouldValidate: true });
       setValue(`items.${itemIndex}.gstRate`, product.gstRate || 0, { shouldValidate: true });
@@ -181,6 +182,28 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
                             />
                             )}
                         />
+                    </FormItem>
+                  )}
+                  {enableAdvancedInvoiceSystem && (
+                    <FormItem>
+                      <Label>MRP ({currencySymbol})</Label>
+                      <Controller
+                        control={control}
+                        name={`items.${index}.mrp`}
+                        defaultValue={0}
+                        render={({ field: controllerField }) => (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            {...controllerField}
+                            onChange={(e) => {
+                              controllerField.onChange(isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber);
+                            }}
+                            value={controllerField.value ?? ''}
+                          />
+                        )}
+                      />
                     </FormItem>
                   )}
                   <FormItem>
@@ -318,11 +341,12 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
                 <TableHead className={enableAdvancedInvoiceSystem ? "w-[15%]" : "w-[25%]"}>Product/Service</TableHead>
                 {enableAdvancedInvoiceSystem && <TableHead className="w-[8%]">HSN</TableHead>}
                 <TableHead className="w-[10%]">Quantity</TableHead>
-                <TableHead className="w-[12%]">Unit</TableHead>
-                <TableHead className="w-[12%]">Unit Price ({currencySymbol})</TableHead>
-                {enableAdvancedInvoiceSystem && <TableHead className="w-[10%]">GST %</TableHead>}
-                <TableHead className={enableAdvancedInvoiceSystem ? "w-[12%]" : "w-[20%]"}>Total ({currencySymbol})</TableHead>
-                <TableHead className={cn(enableAdvancedInvoiceSystem ? "w-[8%]" : "w-[15%]", "text-right")}>Action</TableHead>
+                <TableHead className="w-[10%]">Unit</TableHead>
+                <TableHead className="w-[10%]">Unit Price ({currencySymbol})</TableHead>
+                {enableAdvancedInvoiceSystem && <TableHead className="w-[9%]">MRP ({currencySymbol})</TableHead>}
+                {enableAdvancedInvoiceSystem && <TableHead className="w-[8%]">GST %</TableHead>}
+                <TableHead className={enableAdvancedInvoiceSystem ? "w-[10%]" : "w-[20%]"}>Total ({currencySymbol})</TableHead>
+                <TableHead className={cn(enableAdvancedInvoiceSystem ? "w-[6%]" : "w-[15%]", "text-right")}>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -469,6 +493,27 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
                     <TableCell>
                       <Controller
                         control={control}
+                        name={`items.${index}.mrp`}
+                        defaultValue={0}
+                        render={({ field: controllerField }) => (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="MRP"
+                            {...controllerField}
+                            onChange={(e) => {
+                              controllerField.onChange(isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber);
+                            }}
+                            value={controllerField.value ?? ''}
+                          />
+                        )}
+                      />
+                    </TableCell>
+                  )}
+                  {enableAdvancedInvoiceSystem && (
+                    <TableCell>
+                      <Controller
+                        control={control}
                         name={`items.${index}.gstRate`}
                         defaultValue={0}
                         render={({ field: controllerField }) => (
@@ -533,7 +578,7 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
       <Button
         type="button"
         variant="outline"
-        onClick={() => append({ productId: "", productName: "", quantity: 1, unitPrice: 0, totalPrice: 0, unit: "", hsnCode: "", gstRate: 0, taxAmount: 0 })}
+        onClick={() => append({ productId: "", productName: "", quantity: 1, unitPrice: 0, mrp: 0, totalPrice: 0, unit: "", hsnCode: "", gstRate: 0, taxAmount: 0 })}
         className="text-primary border-primary hover:bg-primary/10"
       >
         <PlusCircle className="mr-2 h-4 w-4" /> Add Item

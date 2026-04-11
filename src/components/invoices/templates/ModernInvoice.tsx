@@ -74,6 +74,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left">Descriptions</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left">HSN</th>}
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center">QTY</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">MRP</th>
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">UNIT PRICE</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">GST %</th>}
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">TOTAL</th>
@@ -85,6 +86,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                             <td className="p-2 py-3">{item.productName}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3">{item.hsnCode}</td>}
                             <td className="p-2 py-3 text-center">{item.quantity} {item.unit || ''}</td>
+                            <td className="p-2 py-3 text-right">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
                             <td className="p-2 py-3 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 text-right">{item.gstRate}%</td>}
                             <td className="p-2 py-3 text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>

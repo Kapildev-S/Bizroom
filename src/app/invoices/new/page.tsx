@@ -37,28 +37,35 @@ export default function NewInvoicePage() {
             setSettings(fetchedSettings);
           }
 
-          const invoicesCollectionRef = collection(db, `users/${user.uid}/invoices`);
-          const invoiceSnapshot = await getDocs(query(invoicesCollectionRef));
-          let maxCount = 0;
-          let totalDocCount = 0;
-          invoiceSnapshot.forEach(docSnapshot => {
-             totalDocCount++;
-             const invNum = docSnapshot.data().invoiceNumber;
-             if (invNum) {
-                const match = invNum.match(/\d+$/);
+          // --- Determine the next invoice number preview ---
+          // The Firestore counter doc is the single source of truth.
+          // settings.page.tsx syncs nextInvoiceSequence into the counter on save,
+          // so we only need to read from the counter here.
+          const counterDocRef = doc(db, `users/${user.uid}/counters`, 'invoices');
+          const counterSnap = await getDoc(counterDocRef);
+          let computedCount = 0;
+
+          if (counterSnap.exists() && (counterSnap.data().lastId || 0) > 0) {
+            // Counter doc is authoritative — use it directly
+            computedCount = counterSnap.data().lastId;
+          } else {
+            // Counter doc doesn't exist yet: scan existing invoice numbers for the max suffix
+            const invoicesCollectionRef = collection(db, `users/${user.uid}/invoices`);
+            const invoiceSnapshot = await getDocs(query(invoicesCollectionRef));
+            let maxCount = 0;
+            invoiceSnapshot.forEach(docSnapshot => {
+              const invNum = docSnapshot.data().invoiceNumber;
+              if (invNum) {
+                const match = invNum.match(/(\d+)$/);
                 if (match) {
-                   const num = parseInt(match[0], 10);
-                   if (num > maxCount) maxCount = num;
+                  const num = parseInt(match[1], 10);
+                  if (num > maxCount) maxCount = num;
                 }
-             }
-          });
-          
-          let computedCount = Math.max(maxCount, totalDocCount);
-          // If the user manually specified the NEXT invoice sequence (e.g. 284),
-          // Since the form does `invoiceCount + 1`, we must set invoiceCount to nextInvoiceSequence - 1
-          if (fetchedSettings?.invoiceSettings?.nextInvoiceSequence) {
-             computedCount = Math.max(computedCount, fetchedSettings.invoiceSettings.nextInvoiceSequence - 1);
+              }
+            });
+            computedCount = maxCount;
           }
+
           setInvoiceCount(computedCount);
             
           // Fetch customers
@@ -77,6 +84,7 @@ export default function NewInvoicePage() {
               name: data.name,
               description: data.description || '',
               price: data.price,
+              mrp: data.mrp ?? undefined,
               stock: data.stock === null ? Infinity : data.stock,
               unit: data.unit || '',
               hsnCode: data.hsnCode || '',

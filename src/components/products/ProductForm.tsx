@@ -31,6 +31,7 @@ const productFormSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters."),
   description: z.string().optional(),
   price: z.coerce.number().min(0, "Price cannot be negative."),
+  mrp: z.coerce.number().min(0, "MRP cannot be negative.").optional().nullable(),
   stock: z.coerce.number().min(0, "Stock cannot be negative.").optional().nullable(),
   unit: z.string().optional(),
   hsnCode: z.string().optional(),
@@ -61,6 +62,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
     defaultValues: initialData ? {
       ...initialData,
       stock: initialData.stock === Infinity ? null : initialData.stock,
+      mrp: initialData.mrp ?? null,
       unit: initialData.unit || "",
       hsnCode: initialData.hsnCode || "",
       gstRate: initialData.gstRate || 0,
@@ -68,6 +70,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       name: "",
       description: "",
       price: 0,
+      mrp: null,
       stock: null,
       unit: "",
       hsnCode: "",
@@ -86,6 +89,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       name: values.name,
       description: values.description || "",
       price: values.price,
+      mrp: values.mrp ?? null,
       stock: values.stock ?? null,
       unit: values.unit || '',
       hsnCode: values.hsnCode || '',
@@ -158,13 +162,38 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 name="price"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Price</FormLabel>
+                    <FormLabel>Selling Price</FormLabel>
                     <div className="relative">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
                         <FormControl>
                         <Input type="number" step="0.01" placeholder="0.00" {...field} className="pl-7" />
                         </FormControl>
                     </div>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="mrp"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>MRP (Optional)</FormLabel>
+                    <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                        <FormControl>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            {...field}
+                            onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)}
+                            value={field.value ?? ''}
+                            className="pl-7"
+                        />
+                        </FormControl>
+                    </div>
+                    <FormDescription>Maximum Retail Price — shown on invoice, no effect on totals.</FormDescription>
                     <FormMessage />
                     </FormItem>
                 )}

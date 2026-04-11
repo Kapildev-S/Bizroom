@@ -74,6 +74,15 @@ export function InvoiceList() {
           dueDate: (data.dueDate as Timestamp).toDate().toISOString(),
         } as Invoice;
       });
+
+      // Sort by the numeric part of the invoice number (descending) so the list
+      // always matches the invoice sequence even when invoices are back-dated.
+      fetchedInvoices.sort((a, b) => {
+        const numA = parseInt((a.invoiceNumber.match(/(\d+)$/) || ['', '0'])[1], 10);
+        const numB = parseInt((b.invoiceNumber.match(/(\d+)$/) || ['', '0'])[1], 10);
+        return numB - numA;
+      });
+
       setInvoices(fetchedInvoices);
 
        const settingsDocRef = doc(db, `users/${userId}/settings`, 'appSettings');

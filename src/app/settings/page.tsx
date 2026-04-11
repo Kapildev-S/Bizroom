@@ -151,6 +151,27 @@ export default function SettingsPage() {
       paymentSettings: { ...settings.paymentSettings, ...newSettings.paymentSettings },
     };
 
+    // --- Sync nextInvoiceSequence to the Firestore counter doc ---
+    // When the user explicitly sets a "Next Invoice Sequence No.", we must write
+    // that value into the counter document (lastId = nextSequence - 1) so that
+    // the advanced invoice system picks it up correctly on the next invoice.
+    const nextSeq = newSettings.invoiceSettings?.nextInvoiceSequence;
+    if (nextSeq && nextSeq >= 1) {
+      try {
+        const counterDocRef = doc(db, `users/${currentUser.uid}/counters`, 'invoices');
+        await setDoc(counterDocRef, { lastId: nextSeq - 1 }, { merge: true });
+        console.log(`Counter doc updated: lastId set to ${nextSeq - 1}`);
+      } catch (e) {
+        console.error('Failed to update invoice counter doc:', e);
+      }
+      // Clear nextInvoiceSequence from the saved settings so it doesn't
+      // interfere on every subsequent invoice creation.
+      updatedSettings.invoiceSettings = {
+        ...updatedSettings.invoiceSettings,
+        nextInvoiceSequence: null as any,
+      };
+    }
+
     const settingsDocRef = doc(db, `users/${currentUser.uid}/settings`, 'appSettings');
     try {
       console.log("Saving settings to Firestore...");

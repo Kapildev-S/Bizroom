@@ -85,6 +85,7 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                             <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2">Descriptions</th>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-left">HSN</th>}
                             <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-center">QTY</th>
+                            <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">MRP</th>
                             <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">PRICE</th>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">GST %</th>}
                             <th className="p-2 pb-4 font-semibold text-gray-700 border-b-2 text-right">TOTAL</th>
@@ -96,6 +97,7 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                                 <td className="p-3 border-b font-medium">{item.productName}</td>
                                 {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-xs text-gray-500">{item.hsnCode}</td>}
                                 <td className="p-3 border-b text-center font-medium">{item.quantity} {item.unit || ''}</td>
+                                <td className="p-3 border-b text-right font-medium">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
                                 <td className="p-3 border-b text-right font-medium">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                                 {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-right font-medium">{item.gstRate}%</td>}
                                 <td className="p-3 border-b text-right font-bold text-gray-900 border-l-2 border-transparent" style={{ borderLeftColor: themeColor }}>{currencySymbol}{item.totalPrice.toFixed(2)}</td>

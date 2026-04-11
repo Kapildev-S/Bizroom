@@ -97,6 +97,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                             <th className="p-2 pb-2 font-semibold text-left">Descriptions</th>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-2 font-semibold text-left">HSN</th>}
                             <th className="p-2 pb-2 font-semibold text-right">QTY/UNIT</th>
+                            <th className="p-2 pb-2 font-semibold text-right">MRP</th>
                             <th className="p-2 pb-2 font-semibold text-right">PRICE</th>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-2 font-semibold text-right">GST %</th>}
                             <th className="p-2 pb-2 font-semibold text-right">AMOUNT</th>
@@ -109,6 +110,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                                     <td className="p-2 font-medium">{item.productName}</td>
                                     {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 font-medium">{item.hsnCode}</td>}
                                     <td className="p-2 text-right">{item.quantity} {item.unit || ''}</td>
+                                    <td className="p-2 text-right">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
                                     <td className="p-2 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                                     {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 text-right">{item.gstRate}%</td>}
                                     <td className="p-2 text-right font-semibold">{currencySymbol}{(item.totalPrice).toFixed(2)}</td>

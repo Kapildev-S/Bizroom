@@ -14,6 +14,7 @@ export type Product = {
   name: string;
   description: string;
   price: number;
+  mrp?: number; // Maximum Retail Price — display only, no calculation role
   stock: number; // Infinity for services/unlimited
   unit?: string;
   hsnCode?: string;
@@ -25,6 +26,7 @@ export type InvoiceItem = {
   productName: string;
   quantity: number;
   unitPrice: number;
+  mrp?: number; // Display only — no calculation role
   totalPrice: number;
   unit?: string;
   hsnCode?: string;

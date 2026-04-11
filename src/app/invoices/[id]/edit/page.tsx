@@ -67,6 +67,7 @@ export default function EditInvoicePage() {
               name: data.name,
               description: data.description || '',
               price: data.price,
+              mrp: data.mrp ?? undefined,
               stock: data.stock === null ? Infinity : data.stock,
               unit: data.unit || '',
               hsnCode: data.hsnCode || '',

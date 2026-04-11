@@ -121,6 +121,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                         <th className="border-r border-black p-1 text-center">Description</th>
                         <th className="border-r border-black p-1 w-20 text-center">HSN SAC</th>
                         <th className="border-r border-black p-1 w-16 text-center">QTY (Nos)</th>
+                        <th className="border-r border-black p-1 w-20 text-center">MRP</th>
                         <th className="border-r border-black p-1 w-20 text-center">Rate</th>
                         <th className="border-r border-black p-1 w-12 text-center text-[9px]">Tax %</th>
                         <th className="p-1 w-24 text-center">Total Amount</th>
@@ -133,6 +134,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                             <td className="border-r border-black p-1">{item.productName}</td>
                             <td className="border-r border-black p-1 text-center">{item.hsnCode || '-'}</td>
                             <td className="border-r border-black p-1 text-center">{item.quantity} {item.unit || ''}</td>
+                            <td className="border-r border-black p-1 text-right">{item.mrp ? item.mrp.toFixed(2) : '-'}</td>
                             <td className="border-r border-black p-1 text-right">{item.unitPrice.toFixed(2)}</td>
                             <td className="border-r border-black p-1 text-center">{item.gstRate}%</td>
                             <td className="p-1 text-right font-bold">{item.totalPrice.toFixed(2)}</td>

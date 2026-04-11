@@ -131,8 +131,11 @@ export default function InvoiceSettings({ settings, onSave }: InvoiceSettingsPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Next Invoice Sequence No.</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g. 284" {...field} value={field.value ?? ''} /></FormControl>
-                     <FormDescription>Leave blank to auto-continue.</FormDescription>
+                    <FormControl><Input type="number" placeholder="e.g. 40" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormDescription>
+                      Set the next invoice number to use (e.g. enter <strong>40</strong> to make the next invoice <strong>INV-0040</strong>).
+                      This is applied <em>once</em> when you save, then automatically cleared.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
