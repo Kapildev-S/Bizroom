@@ -69,34 +69,34 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
       </div>
 
       <div className="overflow-x-auto mt-8">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>S.NO.</th>
-              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>Descriptions</th>
-              {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>HSN</th>}
-              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'left' }}>QTY.</th>
-              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>MRP</th>
-              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>RATE</th>
-              {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>GST %</th>}
-              <th className="p-2 font-semibold text-gray-600" style={{ textAlign: 'right' }}>AMOUNT</th>
+              <th className="p-2 font-semibold text-gray-600 w-[8%] text-left">S.NO.</th>
+              <th className="p-2 font-semibold text-gray-600 w-[30%] text-left">Descriptions</th>
+              {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600 w-[12%] text-left">HSN</th>}
+              <th className="p-2 font-semibold text-gray-600 w-[10%] text-left">QTY.</th>
+              <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">MRP</th>
+              <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">RATE</th>
+              {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600 w-[6%] text-right">GST %</th>}
+              <th className="p-2 font-semibold text-gray-600 w-[10%] text-right">AMOUNT</th>
             </tr>
           </thead>
           <tbody>
             {invoice.items.map((item, index) => {
-              const itemTotalWithTax = item.totalPrice; // Amount should not include tax here per image.
+              const itemTotalWithTax = item.totalPrice;
               return (
                 <tr key={index} className="border-b">
-                  <td className="p-2 align-top" style={{ textAlign: 'left' }}>{index + 1}</td>
-                  <td className="p-2 align-top" style={{ textAlign: 'left' }}>
-                    <p className="font-semibold">{item.productName}</p>
+                  <td className="p-2 align-top text-left overflow-hidden text-ellipsis whitespace-nowrap">{index + 1}</td>
+                  <td className="p-2 align-top text-left">
+                    <p className="font-semibold break-words leading-tight">{item.productName}</p>
                   </td>
-                  {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top" style={{ textAlign: 'left' }}>{item.hsnCode}</td>}
-                  <td className="p-2 align-top" style={{ textAlign: 'left' }}>{item.quantity} {item.unit || ''}</td>
-                  <td className="p-2 align-top" style={{ textAlign: 'right' }}>{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
-                  <td className="p-2 align-top" style={{ textAlign: 'right' }}>{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                  {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top" style={{ textAlign: 'right' }}>{item.gstRate}%</td>}
-                  <td className="p-2 font-semibold align-top" style={{ textAlign: 'right' }}>{currencySymbol}{itemTotalWithTax.toFixed(2)}</td>
+                  {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top text-left overflow-hidden text-ellipsis">{item.hsnCode}</td>}
+                  <td className="p-2 align-top text-left overflow-hidden text-ellipsis">{item.quantity} {item.unit || ''}</td>
+                  <td className="p-2 align-top text-right overflow-hidden text-ellipsis">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
+                  <td className="p-2 align-top text-right overflow-hidden text-ellipsis">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
+                  {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top text-right overflow-hidden text-ellipsis">{item.gstRate}%</td>}
+                  <td className="p-2 font-semibold align-top text-right overflow-hidden text-ellipsis">{currencySymbol}{itemTotalWithTax.toFixed(2)}</td>
                 </tr>
               );
             })}

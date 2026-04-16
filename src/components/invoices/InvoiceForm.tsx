@@ -59,7 +59,11 @@ const invoiceFormSchema = z.object({
   customerId: z.string().optional(),
   customerName: z.string().min(1, "Customer name is required."),
   customerPhone: z.string().optional(),
-  issueDate: z.date({ required_error: "Issue date is required." }),
+  issueDate: z.date({ required_error: "Issue date is required." }).refine(date => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return date <= today;
+  }, "Issue date cannot be in the future."),
   dueDate: z.date({ required_error: "Due date is required." }),
   items: z.array(invoiceItemSchema).min(1, "At least one item is required."),
   notes: z.string().optional(),
@@ -120,7 +124,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
     customerGstin: initialData.customerGstin || '',
     reverseCharge: initialData.reverseCharge || false,
   } : {
-    invoiceNumber: `${settings?.businessProfile?.invoicePrefix || 'INV-'}${(invoiceCount! + 1).toString().padStart(4, '0')}`,
+    invoiceNumber: `INV${(invoiceCount! + 1).toString().padStart(3, '0')}`,
     customerId: "",
     customerName: "",
     customerPhone: "",
@@ -192,7 +196,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
       await runTransaction(db, async (transaction) => {
         // --- 1. Counter Logic (READ counter) ---
         let counterUpdate: { ref: any, newId: number } | null = null;
-        if (!initialData && enableAdvancedInvoiceSystem) {
+        if (!initialData) {
           const counterDocRef = doc(db, `users/${currentUser.uid}/counters`, 'invoices');
           const counterSnap = await transaction.get(counterDocRef);
           let lastId = 0;
@@ -206,7 +210,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
             lastId = invoiceCount ?? 0;
           }
           const newId = lastId + 1;
-          nextInvoiceNumber = `${settings?.businessProfile?.invoicePrefix || 'INV-'}${newId.toString().padStart(4, '0')}`;
+          nextInvoiceNumber = `INV${newId.toString().padStart(3, '0')}`;
           counterUpdate = { ref: counterDocRef, newId };
         }
 
@@ -489,7 +493,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                     <FormLabel>Invoice Number</FormLabel>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                      <FormControl><Input {...field} className="pl-10" /></FormControl>
+                      <FormControl><Input {...field} className="pl-10 bg-muted cursor-not-allowed" readOnly /></FormControl>
                     </div>
                     <FormMessage />
                   </FormItem>

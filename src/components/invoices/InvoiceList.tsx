@@ -63,7 +63,7 @@ export function InvoiceList() {
     setLoading(true);
     try {
       const invoicesCollectionRef = collection(db, `users/${userId}/invoices`);
-      const q = query(invoicesCollectionRef, orderBy("issueDate", "desc"));
+      const q = query(invoicesCollectionRef, orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
       const fetchedInvoices = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -75,12 +75,11 @@ export function InvoiceList() {
         } as Invoice;
       });
 
-      // Sort by the numeric part of the invoice number (descending) so the list
-      // always matches the invoice sequence even when invoices are back-dated.
+      // Default secondary sort by issueDate if createdAt is same
       fetchedInvoices.sort((a, b) => {
-        const numA = parseInt((a.invoiceNumber.match(/(\d+)$/) || ['', '0'])[1], 10);
-        const numB = parseInt((b.invoiceNumber.match(/(\d+)$/) || ['', '0'])[1], 10);
-        return numB - numA;
+        const dateA = a.createdAt ? (a.createdAt as any).toDate?.()?.getTime() || new Date(a.issueDate).getTime() : new Date(a.issueDate).getTime();
+        const dateB = b.createdAt ? (b.createdAt as any).toDate?.()?.getTime() || new Date(b.issueDate).getTime() : new Date(b.issueDate).getTime();
+        return dateB - dateA;
       });
 
       setInvoices(fetchedInvoices);

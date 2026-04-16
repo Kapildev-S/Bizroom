@@ -19,7 +19,7 @@ import {
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
-import { collection, getDocs, query, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, Timestamp, writeBatch, doc, orderBy, setDoc } from 'firebase/firestore';
 import JSZip from 'jszip';
 import type { Invoice, InvoiceItem } from '@/lib/mockData';
 
@@ -148,6 +148,43 @@ export default function DataManagementSettings() {
         setIsResetting(false);
         setResetConfirmation("");
     };
+    
+    const [isRecalibrating, setIsRecalibrating] = useState(false);
+
+    const handleRecalibrateSequence = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        setIsRecalibrating(true);
+        try {
+            const invoicesRef = collection(db, `users/${user.uid}/invoices`);
+            const q = query(invoicesRef, orderBy("createdAt", "asc"));
+            const querySnapshot = await getDocs(q);
+            
+            const batch = writeBatch(db);
+            const prefix = "INV"; // Using INVXXX format as requested
+            let count = 1;
+            
+            querySnapshot.docs.forEach((docSnap) => {
+                const newInvoiceNumber = `${prefix}${count.toString().padStart(3, '0')}`;
+                batch.update(docSnap.ref, { invoiceNumber: newInvoiceNumber });
+                count++;
+            });
+            
+            await batch.commit();
+            
+            // Also update the counter doc
+            const counterRef = doc(db, `users/${user.uid}/counters`, 'invoices');
+            await setDoc(counterRef, { lastId: count - 1 }, { merge: true });
+            
+            toast({ title: 'Recalibration Successful', description: `Re-sequenced ${querySnapshot.size} invoices starting from ${prefix}001.` });
+        } catch (error) {
+            console.error('Recalibration failed:', error);
+            toast({ variant: 'destructive', title: 'Recalibration Failed', description: 'Could not re-sequence invoices.' });
+        } finally {
+            setIsRecalibrating(false);
+        }
+    };
 
     return (
         <div className="space-y-8">
@@ -161,6 +198,40 @@ export default function DataManagementSettings() {
                         {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                         Export Data (CSV)
                     </Button>
+                </CardContent>
+            </Card>
+
+            <Card className="shadow-lg border-amber-200">
+                <CardHeader>
+                    <CardTitle className="text-amber-700">Recalibrate Invoice Sequence</CardTitle>
+                    <CardDescription>
+                        This will re-assign sequential invoice numbers (INV001, INV002...) to all existing bills based on their creation time. 
+                        <strong> This action is irreversible.</strong>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" className="border-amber-600 text-amber-700 hover:bg-amber-50">
+                                {isRecalibrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Recalibrate All Invoice Numbers"}
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Recalibrate Sequence?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    All your existing invoices will be renamed following a strict sequence (INV001, INV002...) based on when they were created. 
+                                    This helps fix gaps or unordered numbering.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleRecalibrateSequence} className="bg-amber-600 hover:bg-amber-700">
+                                    Yes, Recalibrate Sequence
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </CardContent>
             </Card>
 

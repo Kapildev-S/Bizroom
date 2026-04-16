@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Invoice, Customer, AppSettings } from '@/lib/mockData';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, Edit, Trash2, CreditCard, Loader2, Share2, FileImage } from 'lucide-react';
+import { Printer, Edit, Trash2, CreditCard, Loader2, Share2, FileImage, FileText } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import {
@@ -60,129 +61,151 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const { toast } = useToast();
   const invoiceContentRef = useRef<HTMLDivElement>(null);
 
-  // State management
+  // Orientation management
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  // State management for dialogs and exports
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isPreparingShare, setIsPreparingShare] = useState(false);
   const [isReadyToShare, setIsReadyToShare] = useState(false);
   const [shareableFile, setShareableFile] = useState<File | null>(null);
 
+  // Inject dynamic @page styles
+  useEffect(() => {
+    const styleId = 'dynamic-print-styles';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+    
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+
+    const isLandscape = orientation === 'landscape';
+    const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+    
+    let sizeValue = 'A4';
+    if (paperSize === 'A5') sizeValue = 'A5';
+    else if (paperSize === 'Thermal80') sizeValue = '80mm 297mm';
+    else if (paperSize === 'Thermal58') sizeValue = '58mm 297mm';
+
+    styleElement.innerHTML = `
+      @media print {
+        @page { 
+          size: ${sizeValue} ${isLandscape ? 'landscape' : 'portrait'}; 
+          margin: 0 !important;
+        }
+      }
+    `;
+
+    return () => {
+      // Keep it or clean it - usually better to keep for the duration of the view
+    };
+  }, [orientation, settings?.customizationSettings?.paperSize]);
+
   // State for reliable generation
-  const [isLogoLoaded, setIsLogoLoaded] = useState(false);
+  // State for reliable generation
+  const [isLogoLoaded, setIsLogoLoaded] = useState(!logoDataUri);
   const [areFontsReady, setAreFontsReady] = useState(false);
 
   const selectedColorName = settings?.customizationSettings?.themeColor || 'Default';
   const themeColor = colorOptions.find(c => c.name === selectedColorName)?.value || 'hsl(var(--primary))';
 
-  const handleLogoLoad = useCallback(() => {
-    setIsLogoLoaded(true);
-  }, []);
+  const handleLogoLoad = useCallback(() => setIsLogoLoaded(true), []);
+  const handleLogoError = useCallback(() => setIsLogoLoaded(true), []);
 
   useEffect(() => {
-    if (!logoDataUri) {
-      setIsLogoLoaded(true);
-    } else {
-      setIsLogoLoaded(false);
-    }
+    if (logoDataUri) setIsLogoLoaded(false);
+    else setIsLogoLoaded(true);
   }, [logoDataUri]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-
-    document.fonts.ready.then(() => {
-      setAreFontsReady(true);
-    }).catch(() => {
-      setAreFontsReady(true); // Proceed anyway on error
-    });
-
-    // Fallback: set fonts as ready after 1 second anyway to not block the user forever
-    timeoutId = setTimeout(() => {
-      setAreFontsReady(true);
-    }, 1000);
-
+    const checkFonts = () => {
+      if (typeof document !== 'undefined' && document.fonts) {
+        document.fonts.ready.then(() => setAreFontsReady(true)).catch(() => setAreFontsReady(true));
+      } else {
+        setAreFontsReady(true);
+      }
+    };
+    checkFonts();
+    timeoutId = setTimeout(() => setAreFontsReady(true), 1500);
     return () => clearTimeout(timeoutId);
   }, []);
 
+  const [scale, setScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-fit logic: Calculates the exact scale needed to fit the 280mm invoice into the available screen width
+  useEffect(() => {
+    const updateScale = () => {
+      if (!containerRef.current) return;
+      
+      const availableWidth = containerRef.current.offsetWidth - 48; // Space minus padding
+      const targetWidthPx = 280 * 3.7795275591; // 280mm to Pixels at 96dpi
+      
+      if (availableWidth < targetWidthPx) {
+        const newScale = availableWidth / targetWidthPx;
+        setScale(Math.max(newScale, 0.4)); // Don't scale below 40% to keep it readable
+      } else {
+        setScale(1);
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    const timer = setTimeout(updateScale, 500); // Initial adjustment
+    
+    return () => {
+      window.removeEventListener('resize', updateScale);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const getPaperSizeStyle = () => {
+    return { width: '280mm', minHeight: '200mm' };
+  };
+
+  const getPaperClass = () => {
+    return 'paper-a4-landscape orientation-landscape';
+  };
+
   const isReady = isLogoLoaded && areFontsReady;
+  const preparingMessage = !areFontsReady ? "Preparing fonts..." : (!isLogoLoaded ? "Preparing logo..." : "");
 
   const generateImageFile = async (): Promise<File | null> => {
-    if (!isReady) {
-      toast({ description: "Please wait, preparing document..." });
-      return null;
-    }
+    if (!isReady) return null;
+    const input = document.getElementById('invoice-root');
+    if (!input) return null;
 
-    const input = invoiceContentRef.current;
-    if (!input) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not find invoice content to render.' });
-      return null;
-    }
-
-    // Add a slightly larger delay for mobile to ensure rendering is complete
-    await new Promise(resolve => setTimeout(resolve, isMobileDevice() ? 300 : 100));
+    // Snapshot Mode: Reset scale to 1:1 for perfect pixel alignment during capture
+    const originalTransform = input.style.transform;
+    input.style.transform = 'none';
 
     try {
-      const isMobile = window.innerWidth <= 768;
+      // Ensure we are at the top to avoid capture offset bugs
+      window.scrollTo(0, 0);
 
-      // Safety timeout: Longer for mobile devices (30s vs 15s)
-      const timeoutDuration = isMobile ? 30000 : 15000;
-
-      const canvasPromise = html2canvas(input, {
-        scale: isMobile ? 1.5 : 2, // Slight increase for mobile quality but stay safe
+      const canvas = await html2canvas(input, {
+        scale: 3, 
         useCORS: true,
+        backgroundColor: "#ffffff",
         logging: false,
         allowTaint: true,
-        backgroundColor: "#ffffff",
-        imageTimeout: 15000,
-        removeContainer: true,
-        onclone: (clonedDoc) => {
-          const el = clonedDoc.getElementById('invoice-content-render');
-          if (el) {
-            el.style.transform = 'none';
-            el.style.margin = '0 auto';
-            el.style.padding = '32px';
-            el.style.boxShadow = 'none';
-            el.style.borderRadius = '0';
-          }
-        }
       });
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Generation timed out. Please try again.')), timeoutDuration)
-      );
+      // Restore original scale immediately
+      input.style.transform = originalTransform;
 
-      const canvas = await Promise.race([canvasPromise, timeoutPromise]);
-
-      // Use toDataURL as a fallback/alternative for iOS if toBlob fails
-      let blob: Blob | null = null;
-      try {
-        blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.9));
-        if (!blob) {
-          // Fallback for older Safari or if toBlob fails
-          const dataUrl = canvas.toDataURL('image/png');
-          const res = await fetch(dataUrl);
-          blob = await res.blob();
-        }
-      } catch (blobError) {
-        console.warn("toBlob failed, trying toDataURL fallback", blobError);
-        const dataUrl = canvas.toDataURL('image/png');
-        const res = await fetch(dataUrl);
-        blob = await res.blob();
-      }
-
-      if (!blob) {
-        throw new Error('Could not create image blob.');
-      }
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
+      if (!blob) throw new Error('Could not create image blob.');
 
       return new File([blob], `invoice-${invoice.invoiceNumber}.png`, { type: 'image/png' });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Image generation failed:", error);
-      // Show the actual error message on mobile to help debug
-      alert(`Debug Error: ${error.message || error}`);
-      toast({
-        variant: 'destructive',
-        title: 'Image Generation Failed',
-        description: error.message || 'Unknown error occurred'
-      });
+      input.style.transform = originalTransform;
       return null;
     }
   };
@@ -191,15 +214,53 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     setIsDownloading(true);
     const file = await generateImageFile();
     setIsDownloading(false);
-
     if (file) {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(file);
       link.download = file.name;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!isReady) return;
+    const input = document.getElementById('invoice-root');
+    if (!input) return;
+
+    setIsDownloadingPdf(true);
+    
+    // Snapshot Mode: Reset scale to 1:1
+    const originalTransform = input.style.transform;
+    input.style.transform = 'none';
+
+    try {
+      window.scrollTo(0, 0);
+
+      const canvas = await html2canvas(input, {
+        scale: 2, // Slight reduction for PDF size, but scale must be solid
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      // Restore transform
+      input.style.transform = originalTransform;
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const pdf = new jsPDF({
+        orientation: 'l',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, 297, 210);
+      pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
+    } catch (error) {
+      console.error("PDF failed:", error);
+      input.style.transform = originalTransform;
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -225,9 +286,8 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           files: [shareableFile],
           title: `Invoice ${invoice.invoiceNumber}`,
         });
-        setIsReadyToShare(false); // Reset after successful share
+        setIsReadyToShare(false);
       } else {
-        // Fallback to download
         handleDownloadImage();
       }
     } catch (error: any) {
@@ -242,11 +302,9 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     if (!currentUser || !invoice) return;
     try {
       await runTransaction(db, async (transaction) => {
-        // --- 1. All READS first ---
         const productRefs = invoice.items.map(item => doc(db, `users/${currentUser.uid}/products`, item.productId));
         const productDocSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-        // --- 2. All WRITES last ---
         for (let i = 0; i < invoice.items.length; i++) {
           const item = invoice.items[i];
           const productRef = productRefs[i];
@@ -262,7 +320,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         const invoiceDocRef = doc(db, `users/${currentUser.uid}/invoices`, invoice.id);
         transaction.delete(invoiceDocRef);
       });
-      toast({ title: "Invoice Deleted", description: "The invoice has been deleted and stock restored." });
+      toast({ title: "Invoice Deleted", description: "The invoice has been deleted." });
       onDelete();
     } catch (error) {
       console.error("Failed to delete invoice:", error);
@@ -273,31 +331,6 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   };
 
   const template = settings?.customizationSettings?.template || 'classic';
-  const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-
-  const getPaperSizeStyle = () => {
-    if (paperSize === 'custom' && settings?.customizationSettings?.customWidth) {
-      const width = settings.customizationSettings.customWidth;
-      const height = settings.customizationSettings.customHeight;
-      const unit = settings.customizationSettings.unit || 'in';
-      return { 
-        width: `${width}${unit}`, 
-        minHeight: height ? `${height}${unit}` : 'auto' 
-      };
-    }
-    switch (paperSize) {
-      case 'Thermal80': return { width: '80mm', minHeight: '80mm' };
-      case 'Thermal58': return { width: '58mm', minHeight: '58mm' };
-      case '4x3': return { width: '4in', minHeight: '3in' };
-      case '4x6': return { width: '4in', minHeight: '6in' };
-      default: return { width: '100%', maxWidth: '800px' };
-    }
-  };
-
-  const handleLogoError = useCallback(() => {
-    console.warn("Logo failed to load");
-    setIsLogoLoaded(true); // Proceed anyway
-  }, []);
 
   const renderTemplate = () => {
     const templateProps = {
@@ -309,89 +342,148 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       onImageError: handleLogoError
     };
 
-    switch (template) {
-      case 'modern':
-        return <ModernInvoice {...templateProps} />;
-      case 'stylish':
-        return <StylishInvoice {...templateProps} />;
-      case 'professional':
-        return <ProfessionalInvoice {...templateProps} />;
-      case 'gst':
-        return <GstTaxInvoice {...templateProps} />;
-      case 'classic':
-      default:
-        return <ClassicInvoice {...templateProps} />;
-    }
+    return (
+      <Card 
+        id="invoice-root" 
+        className={`flex-shrink-0 bg-white shadow-none ring-0 ${getPaperClass()}`}
+        style={{
+          ...getPaperSizeStyle(),
+          transform: `scale(${scale})`,
+          transformOrigin: 'top center'
+        }} 
+      >
+        {template === 'gst' ? <GstTaxInvoice {...templateProps} /> : (
+          template === 'modern' ? <ModernInvoice {...templateProps} /> : (
+            template === 'stylish' ? <StylishInvoice {...templateProps} /> : (
+              template === 'professional' ? <ProfessionalInvoice {...templateProps} /> : <ClassicInvoice {...templateProps} />
+            )
+          )
+        )}
+      </Card>
+    );
   };
+
+  useEffect(() => {
+    const isLandscape = orientation === 'landscape' || template === 'gst';
+    if (isLandscape) document.body.classList.add('force-landscape');
+    else document.body.classList.remove('force-landscape');
+    return () => document.body.classList.remove('force-landscape');
+  }, [orientation, template]);
 
   return (
     <>
-      <div id="invoice-content" className="max-w-4xl mx-auto font-sans flex flex-col items-center gap-6 p-4">
-        <Card 
-          ref={invoiceContentRef} 
-          id="invoice-content-render" 
-          className="shadow-2xl bg-white text-gray-800"
-          style={getPaperSizeStyle()}
-        >
-          {renderTemplate()}
-        </Card>
+      <div id="invoice-content" className="w-full flex flex-col items-center gap-8 py-8 animate-in fade-in duration-500">
         
-        <div id="invoice-action-buttons" className="w-full max-w-[800px] p-6 flex flex-wrap items-center justify-end gap-3 no-print bg-card border rounded-xl shadow-lg">
-          <div className="mr-auto">
-            <Badge variant={getStatusBadgeVariant(invoice.status)} className="text-base px-4 py-1 capitalize">
-              Status: {invoice.status}
-            </Badge>
+        {/* Paper View Area */}
+        <div className="w-full flex justify-center px-4" ref={containerRef}>
+          <div 
+            className="w-full max-w-full overflow-x-auto pb-10 pt-4 no-print flex justify-center bg-slate-50/50 rounded-3xl border border-slate-100 shadow-inner"
+            style={{ minHeight: `${200 * scale}mm` }}
+          >
+            {renderTemplate()}
           </div>
-          {invoice.status !== 'paid' && invoice.status !== 'void' && (
-            <Button variant="outline" onClick={() => onUpdateStatus('paid')} className="hover:bg-green-500/10 hover:text-green-600 hover:border-green-500">
-              <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
-            </Button>
-          )}
+        </div>
 
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" /> Print
-          </Button>
+        {/* Hidden Print Area */}
+        <div className="hidden print:block">
+          {renderTemplate()}
+        </div>
+        
+        {/* Professional Action Bar */}
+        <div id="invoice-action-buttons" className="w-full max-w-[1000px] px-4 no-print sticky bottom-6 z-50">
+          <Card className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-4 flex flex-col md:flex-row items-center gap-6 justify-between overflow-hidden">
+            
+            <div className="flex items-center gap-5 w-full md:w-auto border-b md:border-b-0 pb-4 md:pb-0 border-slate-100">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold ml-1">Document Status</span>
+                <Badge variant={getStatusBadgeVariant(invoice.status)} className="px-4 py-1.5 text-sm font-bold shadow-sm">
+                  {invoice.status.toUpperCase()}
+                </Badge>
+              </div>
+            </div>
 
-          {isReadyToShare ? (
-            <Button variant="default" onClick={handleNativeShare} className="gap-2 bg-indigo-600 hover:bg-indigo-700 animate-bounce">
-              <Share2 className="h-4 w-4" /> Send Now
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={handlePrepareShare} disabled={isPreparingShare || isDownloading || !isReady}>
-              {isPreparingShare ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
-              {isPreparingShare ? 'Preparing...' : 'Share Image'}
-            </Button>
-          )}
+            <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 w-full md:w-auto">
+              {invoice.status !== 'paid' && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => onUpdateStatus('paid')} 
+                  className="h-12 px-6 rounded-2xl border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white font-bold transition-all"
+                >
+                  <CreditCard className="mr-2 h-5 w-5" /> Paid
+                </Button>
+              )}
 
-          <Button variant="outline" onClick={handleDownloadImage} disabled={isDownloading || isPreparingShare || !isReady}>
-            {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileImage className="mr-2 h-4 w-4" />}
-            {isDownloading ? "Generating..." : "Download Image"}
-          </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => window.print()}
+                className="h-12 px-5 rounded-2xl bg-neutral-900 text-white hover:bg-black font-bold"
+              >
+                <Printer className="mr-2 h-5 w-5" /> Print
+              </Button>
 
-          {(invoice.status === 'draft' || invoice.status === 'sent') && (
-            <Button variant="default" asChild style={{ backgroundColor: themeColor }} className="text-primary-foreground">
-              <Link href={`/invoices/${invoice.id}/edit`}>
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </Link>
-            </Button>
-          )}
-          <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} className="gap-2">
-            <Trash2 className="h-4 w-4" /> Delete
-          </Button>
+              <div className="h-8 w-px bg-slate-100 mx-1 hidden sm:block"></div>
+
+              {isReadyToShare ? (
+                <Button 
+                  variant="default" 
+                  onClick={handleNativeShare} 
+                  className="h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-bold"
+                >
+                  <Share2 className="h-5 w-5" /> Send
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  onClick={handlePrepareShare} 
+                  disabled={isPreparingShare || isDownloading || !isReady}
+                  className="h-12 px-5 rounded-2xl font-bold border-slate-200"
+                >
+                  {isPreparingShare ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Share2 className="mr-2 h-5 w-5" />}
+                  Share
+                </Button>
+              )}
+
+              <Button 
+                variant="outline" 
+                onClick={handleDownloadImage} 
+                disabled={isDownloading || !isReady}
+                className="h-12 px-5 rounded-2xl font-bold border-slate-200"
+              >
+                {isDownloading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileImage className="mr-2 h-5 w-5 text-blue-500" />}
+                Image
+              </Button>
+
+              <Button 
+                variant="outline" 
+                onClick={handleDownloadPdf} 
+                disabled={isDownloadingPdf || !isReady}
+                className="h-12 px-5 rounded-2xl font-bold border-slate-200"
+              >
+                {isDownloadingPdf ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileText className="mr-2 h-5 w-5 text-red-500" />}
+                PDF
+              </Button>
+
+              <Button variant="default" asChild style={{ backgroundColor: themeColor }} className="h-12 px-4 rounded-2xl shadow-lg">
+                <Link href={`/invoices/${invoice.id}/edit`}><Edit className="h-5 w-5" /></Link>
+              </Button>
+
+              <Button variant="destructive" size="icon" onClick={() => setIsDeleteDialogOpen(true)} className="h-12 w-12 rounded-2xl">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete invoice {invoice.invoiceNumber} and restore stock levels.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Delete Invoice?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove invoice <b>{invoice.invoiceNumber}</b>. This action cannot be reversed.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel className="rounded-2xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600 rounded-2xl font-bold">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

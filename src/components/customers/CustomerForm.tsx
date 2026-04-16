@@ -27,7 +27,7 @@ import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestor
 
 const customerFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
-  email: z.string().email("Invalid email address."),
+  email: z.string().email("Invalid email address.").optional().or(z.literal("")),
   phone: z.string().optional(),
   address: z.string().optional(),
   gstin: z.string().optional(),
@@ -56,7 +56,7 @@ export function CustomerForm({ initialData }: CustomerFormProps) {
     resolver: zodResolver(customerFormSchema),
     defaultValues: initialData ? {
       name: initialData.name,
-      email: initialData.email,
+      email: initialData.email || "",
       phone: initialData.phone || "",
       address: initialData.address || "",
       gstin: initialData.gstin || "",
@@ -149,7 +149,7 @@ export function CustomerForm({ initialData }: CustomerFormProps) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Email Address (Optional)</FormLabel>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <FormControl>

@@ -2,7 +2,13 @@
 "use client";
 
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import type { Invoice, Customer, AppSettings } from '@/lib/mockData';
+import ClassicInvoice from '../invoices/templates/ClassicInvoice';
+import ModernInvoice from '../invoices/templates/ModernInvoice';
+import StylishInvoice from '../invoices/templates/StylishInvoice';
+import ProfessionalInvoice from '../invoices/templates/ProfessionalInvoice';
+import GstTaxInvoice from '../invoices/templates/GstTaxInvoice';
 
 interface InvoicePreviewProps {
   themeColor: string;
@@ -13,6 +19,62 @@ interface InvoicePreviewProps {
   unit?: string;
 }
 
+const SAMPLE_CUSTOMER: Customer = {
+  id: 'sample-cust',
+  name: 'Sample Customer',
+  phone: '9876543210',
+  email: 'customer@example.com',
+  address: '456 Market Road, Suite 10, Chennai, Tamil Nadu - 600001',
+  gstNumber: '33AABBC1234D1Z5',
+  balance: 0,
+  createdAt: Date.now()
+};
+
+const SAMPLE_INVOICE: Invoice = {
+  id: 'sample-inv',
+  invoiceNumber: 'INV001',
+  customerId: 'sample-cust',
+  customerName: 'Sample Customer',
+  customerPhone: '9876543210',
+  customerGstin: '33AABBC1234D1Z5',
+  issueDate: new Date().toISOString(),
+  dueDate: new Date().toISOString(),
+  items: [
+    {
+      productId: 'p1',
+      productName: 'Sample Premium Product',
+      quantity: 2,
+      unitPrice: 5000,
+      gstRate: 18,
+      hsnCode: '8517',
+      totalPrice: 10000,
+      taxAmount: 1800,
+      mrp: 6000
+    },
+    {
+      productId: 'p2',
+      productName: 'Essential Service',
+      quantity: 1,
+      unitPrice: 2000,
+      gstRate: 12,
+      hsnCode: '9983',
+      totalPrice: 2000,
+      taxAmount: 240,
+      mrp: 2500
+    }
+  ],
+  subtotal: 12000,
+  taxAmount: 2040,
+  totalAmount: 14040,
+  discountAmount: 0,
+  status: 'sent',
+  paymentStatus: 'pending',
+  invoiceType: 'Retail',
+  gstType: 'CGST_SGST',
+  placeOfSupply: 'Tamil Nadu',
+  createdAt: Date.now()
+};
+
 export default function InvoicePreview({ 
   themeColor, 
   template = 'classic', 
@@ -21,249 +83,91 @@ export default function InvoicePreview({
   customHeight,
   unit = 'in'
 }: InvoicePreviewProps) {
-  const accentStyle = { color: themeColor };
   
-  const getContainerStyle = () => {
-    if (paperSize === 'custom' && customWidth) {
-      return { width: `${customWidth}${unit}`, margin: '0 auto' };
-    }
-    switch (paperSize) {
-      case 'Thermal80': return { width: '80mm', margin: '0 auto' };
-      case 'Thermal58': return { width: '58mm', margin: '0 auto' };
-      case '4x3': return { width: '4in', margin: '0 auto' };
-      case '4x6': return { width: '4in', margin: '0 auto' };
-      default: return { width: '100%' };
+  const sampleSettings: AppSettings = {
+    businessProfile: {
+      businessName: 'YOUR BUSINESS NAME',
+      phone: '9655613399',
+      email: 'info@bizroom.in',
+      address: '123 Business Street, Tech Park, Bangalore - 560001',
+      gstNumber: '29ABCDE1234F1Z5',
+      state: 'Karnataka',
+      logoUrl: ''
+    },
+    invoiceSettings: {
+      nextInvoiceNumber: 1,
+      invoicePrefix: 'INV',
+      defaultDueDateDays: 7,
+      footerNote: 'Terms: 1. Goods once sold will not be taken back. 2. Subject to Bangalore Jurisdiction.',
+      enableAdvancedInvoiceSystem: true
+    },
+    customizationSettings: {
+      themeColor: 'Default',
+      template: template,
+      paperSize: paperSize,
+      customWidth: customWidth,
+      customHeight: customHeight,
+      unit: unit as any
     }
   };
 
-  const ClassicPreview = () => (
-    <>
-      <div className="flex justify-between items-start mb-4">
-        <div><h2 className="font-bold text-sm">Business Name</h2><p className="text-gray-600">Mobile: 9655613399</p></div>
-        <div className="text-right">
-          <h2 className="font-bold text-sm" style={accentStyle}>TAX INVOICE</h2>
-          <p className="text-gray-500 border border-gray-400 px-1 py-0.5 rounded mt-1 text-[10px] inline-block">ORIGINAL FOR RECIPIENT</p>
-        </div>
-      </div>
-      <div className="flex justify-between mb-4">
-        <div className="w-1/2 pr-2"><p className="text-gray-500 font-bold text-[10px] mb-1">BILL TO</p><p className="font-bold">Sample Party</p></div>
-        <div className="w-1/2 pl-2"><div className="grid grid-cols-[auto,1fr] gap-x-2 text-left ml-auto max-w-xs text-gray-600"><p>Invoice No.</p><p className="font-medium text-gray-800">: AABBCCDD/202</p></div></div>
-      </div>
-      <table className="w-full text-left"><thead><tr className="bg-gray-100"><th className="p-1.5 font-semibold text-gray-600">ITEMS</th><th className="p-1.5 font-semibold text-gray-600 text-right">AMOUNT</th></tr></thead><tbody><tr className="border-b"><td className="p-1.5 align-top"><p className="font-semibold">Sample Item 1</p></td><td className="p-1.5 text-right font-semibold align-top">10,000.00</td></tr><tr className="border-b"><td className="p-1.5 align-top"><p className="font-semibold">Sample Item 2</p></td><td className="p-1.5 text-right font-semibold align-top">5,000.00</td></tr></tbody></table>
-      <div className="flex justify-end mt-4"><div className="w-[45%]"><div className="flex justify-between py-2 font-bold text-sm px-2 bg-gray-200" style={{ backgroundColor: themeColor, color: 'white' }}><p>TOTAL</p><p>₹15,000.00</p></div></div></div>
-    </>
-  );
+  const getContainerStyle = () => {
+    let width = '210mm'; 
+    let minHeight = '297mm';
 
-  const ModernPreview = () => (
-    <>
-      <div className="flex justify-between items-center pb-4 border-b-2" style={{ borderColor: themeColor }}><div className="w-16 h-16 bg-gray-200 rounded-md"></div><h1 className="text-2xl font-light uppercase" style={accentStyle}>Invoice</h1></div>
-      <div className="grid grid-cols-2 gap-8 my-4"><p className="font-bold text-gray-800">Billed To: Sample Party</p><div className="text-right"><p><span className="font-bold text-gray-800">Invoice #</span> AABBCCDD/202</p></div></div>
-      <table className="w-full text-left"><thead><tr style={{ color: themeColor }}><th className="p-2 font-semibold">DESCRIPTION</th><th className="p-2 font-semibold text-right">TOTAL</th></tr></thead><tbody><tr className="border-b"><td className="p-3">Sample Item 1</td><td className="p-3 text-right">10,000.00</td></tr><tr className="border-b"><td className="p-3">Sample Item 2</td><td className="p-3 text-right">5,000.00</td></tr></tbody></table>
-      <div className="flex justify-end mt-4"><div className="w-full max-w-xs"><div className="flex justify-between py-4 font-bold text-lg" style={accentStyle}><span>Total:</span><span>₹15,000.00</span></div></div></div>
-    </>
-  );
-
-  const StylishPreview = () => (
-    <>
-      <div className="p-4 text-white" style={{ backgroundColor: themeColor }}>
-        <div className="flex justify-between items-start">
-          <div><h1 className="text-xl font-bold">Business Name</h1></div>
-          <div className="text-right"><h2 className="text-xl font-extrabold uppercase">Invoice</h2></div>
-        </div>
-      </div>
-      <div className="p-4"><p className="font-bold opacity-80 text-xs">Bill To</p><p className="font-medium">Sample Party</p></div>
-      <div className="p-4"><table className="w-full text-left"><thead><tr><th className="p-2 pb-2 font-semibold text-gray-700 border-b-2">ITEM</th><th className="p-2 pb-2 font-semibold text-gray-700 border-b-2 text-right">TOTAL</th></tr></thead><tbody><tr><td className="p-3 border-b">Sample Item 1</td><td className="p-3 border-b text-right">10,000.00</td></tr><tr><td className="p-3 border-b">Sample Item 2</td><td className="p-3 border-b text-right">5,000.00</td></tr></tbody></table></div>
-      <div className="flex justify-end p-4"><div className="w-full max-w-xs text-right space-y-2"><div className="flex justify-between font-bold text-lg" style={accentStyle}><span>Total Due:</span><span>₹15,000.00</span></div></div></div>
-    </>
-  );
-
-  const ProfessionalPreview = () => (
-    <>
-      <div className="p-4 text-white" style={{ backgroundColor: themeColor }}>
-        <div className="flex justify-between items-start">
-          <div><div className="w-8 h-8 bg-white/80 rounded-sm"></div><h2 className="text-xl font-bold mt-1">Invoice</h2></div>
-          <div className="text-right"><h3 className="font-bold text-sm">Company Name</h3><p className="text-xs opacity-80">Address line</p></div>
-        </div>
-      </div>
-      <div className="p-4">
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div><p className="font-bold opacity-80 text-xs">BILL TO</p><p className="font-medium">Sample Party</p></div>
-          <div className="text-right text-xs"><p className="font-bold">INVOICE # <span className="font-normal">12345</span></p><p className="font-bold">DATE <span className="font-normal">12/31/20</span></p></div>
-        </div>
-        <div className="w-full h-px bg-gray-200 mb-2"></div>
-        <div className="flex justify-between text-gray-500 uppercase text-[10px] font-bold"><p>Items</p><p>Amount</p></div>
-        <div className="w-full h-px bg-gray-200 mt-2"></div>
-        <div className="flex justify-between mt-2"><p>Sample Item</p><p>10,000.00</p></div>
-      </div>
-      <div className="grid grid-cols-2 mt-4">
-        <div className="p-4 bg-gray-100 text-gray-600"><h4 className="font-bold text-xs">NOTES:</h4><p className="text-[10px]">Thank you for your business.</p></div>
-        <div className="p-4 flex flex-col justify-center items-center text-white" style={{ backgroundColor: themeColor }}><p className="uppercase text-sm">TOTAL</p><p className="text-xl font-bold">₹15,000.00</p></div>
-      </div>
-    </>
-  );
-
-  // New Theme: Minimal
-  const MinimalPreview = () => (
-    <>
-      <div className="border-l-4 pl-4 mb-6" style={{ borderColor: themeColor }}>
-        <h1 className="text-2xl font-light text-gray-800">INVOICE</h1>
-        <p className="text-xs text-gray-500">No. AABBCCDD/202</p>
-      </div>
-      <div className="flex justify-between mb-6 text-sm">
-        <div>
-          <p className="text-gray-400 text-xs uppercase tracking-wider">From</p>
-          <p className="font-medium">Business Name</p>
-        </div>
-        <div className="text-right">
-          <p className="text-gray-400 text-xs uppercase tracking-wider">To</p>
-          <p className="font-medium">Sample Party</p>
-        </div>
-      </div>
-      <div className="space-y-2 mb-6">
-        <div className="flex justify-between py-2 border-b border-dashed">
-          <span>Sample Item 1</span>
-          <span className="font-medium">₹10,000.00</span>
-        </div>
-        <div className="flex justify-between py-2 border-b border-dashed">
-          <span>Sample Item 2</span>
-          <span className="font-medium">₹5,000.00</span>
-        </div>
-      </div>
-      <div className="flex justify-end">
-        <div className="text-right">
-          <p className="text-xs text-gray-400">TOTAL</p>
-          <p className="text-2xl font-bold" style={accentStyle}>₹15,000.00</p>
-        </div>
-      </div>
-    </>
-  );
-
-  // New Theme: Elegant
-  const ElegantPreview = () => (
-    <>
-      <div className="text-center pb-4 border-b-2" style={{ borderColor: themeColor }}>
-        <h1 className="text-xl font-serif font-bold text-gray-800">Business Name</h1>
-        <p className="text-gray-500 text-xs mt-1">Premium Invoice</p>
-      </div>
-      <div className="flex justify-between my-4 text-sm">
-        <div>
-          <p className="text-xs text-gray-400 font-serif italic">Billed To</p>
-          <p className="font-medium">Sample Party</p>
-        </div>
-        <div className="text-right">
-          <p className="font-mono text-xs" style={accentStyle}>#AABBCCDD/202</p>
-        </div>
-      </div>
-      <div className="rounded-lg overflow-hidden border">
-        <div className="py-2 px-3 text-xs font-semibold text-white" style={{ backgroundColor: themeColor }}>
-          <div className="flex justify-between"><span>ITEM</span><span>AMOUNT</span></div>
-        </div>
-        <div className="divide-y">
-          <div className="flex justify-between py-2 px-3"><span>Sample Item 1</span><span>₹10,000.00</span></div>
-          <div className="flex justify-between py-2 px-3"><span>Sample Item 2</span><span>₹5,000.00</span></div>
-        </div>
-      </div>
-      <div className="mt-4 p-3 rounded-lg bg-gray-50 flex justify-between items-center">
-        <span className="font-serif italic text-gray-600">Grand Total</span>
-        <span className="text-xl font-bold" style={accentStyle}>₹15,000.00</span>
-      </div>
-    </>
-  );
-
-  // New Theme: Bold
-  const BoldPreview = () => (
-    <>
-      <div className="relative">
-        <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-20" style={{ backgroundColor: themeColor }}></div>
-        <h1 className="text-3xl font-black uppercase" style={accentStyle}>Invoice</h1>
-        <p className="text-gray-500 text-xs">AABBCCDD/202</p>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-        <div className="p-3 rounded-lg" style={{ backgroundColor: `${themeColor}15` }}>
-          <p className="text-xs font-bold uppercase" style={accentStyle}>From</p>
-          <p className="font-bold text-gray-800">Business Name</p>
-        </div>
-        <div className="p-3 rounded-lg bg-gray-100">
-          <p className="text-xs font-bold uppercase text-gray-500">To</p>
-          <p className="font-bold text-gray-800">Sample Party</p>
-        </div>
-      </div>
-      <div className="mt-4 space-y-1">
-        <div className="flex justify-between p-2 bg-gray-50 rounded"><span className="font-medium">Sample Item 1</span><span className="font-bold">₹10,000.00</span></div>
-        <div className="flex justify-between p-2 bg-gray-50 rounded"><span className="font-medium">Sample Item 2</span><span className="font-bold">₹5,000.00</span></div>
-      </div>
-      <div className="mt-4 p-4 rounded-lg text-white text-center" style={{ backgroundColor: themeColor }}>
-        <p className="text-xs uppercase opacity-80">Total Amount</p>
-        <p className="text-2xl font-black">₹15,000.00</p>
-      </div>
-    </>
-  );
-
-  // New Theme: Compact
-  const CompactPreview = () => (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: themeColor }}>BN</div>
-          <div>
-            <p className="font-bold text-sm">Business Name</p>
-            <p className="text-[10px] text-gray-500">Tax Invoice</p>
-          </div>
-        </div>
-        <div className="text-right text-xs">
-          <p className="font-mono" style={accentStyle}>#AABBCCDD</p>
-        </div>
-      </div>
-      <div className="text-xs mb-3 p-2 bg-gray-50 rounded">
-        <span className="text-gray-500">Bill to:</span> <span className="font-medium">Sample Party</span>
-      </div>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b" style={{ borderColor: themeColor }}>
-            <th className="text-left py-1 font-medium" style={accentStyle}>Item</th>
-            <th className="text-right py-1 font-medium" style={accentStyle}>Amt</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-b border-gray-100"><td className="py-1">Sample Item 1</td><td className="text-right">₹10,000</td></tr>
-          <tr className="border-b border-gray-100"><td className="py-1">Sample Item 2</td><td className="text-right">₹5,000</td></tr>
-        </tbody>
-      </table>
-      <div className="mt-3 flex justify-between items-center p-2 rounded" style={{ backgroundColor: `${themeColor}15` }}>
-        <span className="font-bold text-sm" style={accentStyle}>TOTAL</span>
-        <span className="font-bold text-lg">₹15,000.00</span>
-      </div>
-    </>
-  );
-
-  const renderPreview = () => {
-    switch (template) {
-      case 'modern':
-        return <ModernPreview />;
-      case 'stylish':
-        return <StylishPreview />;
-      case 'professional':
-        return <ProfessionalPreview />;
-      case 'minimal':
-        return <MinimalPreview />;
-      case 'elegant':
-        return <ElegantPreview />;
-      case 'bold':
-        return <BoldPreview />;
-      case 'compact':
-        return <CompactPreview />;
-      case 'classic':
-      default:
-        return <ClassicPreview />;
+    if (paperSize === 'A5') width = '148mm';
+    else if (paperSize === 'Thermal80') width = '80mm';
+    else if (paperSize === 'Thermal58') width = '58mm';
+    else if (paperSize === '4x3') width = '4in';
+    else if (paperSize === '4x6') width = '4in';
+    else if (paperSize === 'A4_LANDSCAPE') {
+      width = '297mm';
+      minHeight = '210mm';
     }
-  }
+    else if (paperSize === 'custom' && customWidth) width = `${customWidth}${unit}`;
+
+    const scaleFactor = 0.55;
+
+    return { 
+      width, 
+      minHeight,
+      transform: `scale(${scaleFactor})`, 
+      transformOrigin: 'top center',
+      margin: '0 auto',
+      backgroundColor: 'white',
+      boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+    };
+  };
+
+  const renderTemplate = () => {
+    const props = {
+      invoice: SAMPLE_INVOICE,
+      customer: SAMPLE_CUSTOMER,
+      settings: sampleSettings,
+      logoDataUri: null,
+      onImageLoad: () => {}
+    };
+
+    switch (template) {
+      case 'modern': return <ModernInvoice {...props} />;
+      case 'stylish': return <StylishInvoice {...props} />;
+      case 'professional': return <ProfessionalInvoice {...props} />;
+      case 'gst': return <GstTaxInvoice {...props} />;
+      case 'classic':
+      default: return <ClassicInvoice {...props} />;
+    }
+  };
 
   return (
-    <Card className="shadow-md h-full overflow-hidden bg-gray-50 flex justify-center items-center p-4">
-      <div style={getContainerStyle()} className="bg-white shadow">
-        <CardContent className="p-4 text-xs text-gray-800">
-          {renderPreview()}
-        </CardContent>
+    <Card className="shadow-inner h-[600px] overflow-hidden bg-slate-50 flex justify-center border-0">
+      <div className="relative w-full h-full overflow-y-auto overflow-x-hidden p-6">
+        <div className="flex flex-col items-center">
+          <div style={getContainerStyle()} className="bg-white rounded-sm">
+            {renderTemplate()}
+          </div>
+          {/* Subtle spacer to account for scaled height and prevent cutoff */}
+          <div className="h-[200px] w-full pointer-events-none" />
+        </div>
       </div>
     </Card>
   );

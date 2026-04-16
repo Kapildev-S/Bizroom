@@ -68,28 +68,30 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
             </div>
 
             {/* Items Table */}
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm table-fixed border-collapse">
                 <thead>
                     <tr style={{ color: themeColor }}>
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left">Descriptions</th>
-                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left">HSN</th>}
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center">QTY</th>
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">MRP</th>
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">UNIT PRICE</th>
-                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">GST %</th>}
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right">TOTAL</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left w-[35%]">Descriptions</th>
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left w-[12%]">HSN</th>}
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center w-[10%]">QTY</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[12%]">MRP</th>
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[15%]">PRICE</th>
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[6%]">GST%</th>}
+                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[10%]">TOTAL</th>
                     </tr>
                 </thead>
                 <tbody>
                     {invoice.items.map((item, index) => (
                         <tr key={index} className="border-b border-gray-200">
-                            <td className="p-2 py-3">{item.productName}</td>
-                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3">{item.hsnCode}</td>}
-                            <td className="p-2 py-3 text-center">{item.quantity} {item.unit || ''}</td>
-                            <td className="p-2 py-3 text-right">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
-                            <td className="p-2 py-3 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 text-right">{item.gstRate}%</td>}
-                            <td className="p-2 py-3 text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
+                            <td className="p-2 py-3">
+                                <p className="font-semibold break-words leading-tight">{item.productName}</p>
+                            </td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 overflow-hidden text-ellipsis">{item.hsnCode}</td>}
+                            <td className="p-2 py-3 text-center overflow-hidden text-ellipsis">{item.quantity} {item.unit || ''}</td>
+                            <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
+                            <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{item.gstRate}%</td>}
+                            <td className="p-2 py-3 text-right font-bold overflow-hidden text-ellipsis">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
                         </tr>
                     ))}
                 </tbody>
