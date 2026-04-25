@@ -209,9 +209,29 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
             // passed from the parent page, which already computed the max.
             lastId = invoiceCount ?? 0;
           }
-          const newId = lastId + 1;
-          nextInvoiceNumber = `INV${newId.toString().padStart(3, '0')}`;
-          counterUpdate = { ref: counterDocRef, newId };
+
+          const defaultPreviewNumber = `INV${((invoiceCount ?? 0) + 1).toString().padStart(3, '0')}`;
+          
+          // If the user hasn't changed the invoice number from the default preview,
+          // or if it's empty, use the authoritative auto-increment logic.
+          if (values.invoiceNumber === defaultPreviewNumber || !values.invoiceNumber) {
+            const newId = lastId + 1;
+            nextInvoiceNumber = `INV${newId.toString().padStart(3, '0')}`;
+            counterUpdate = { ref: counterDocRef, newId };
+          } else {
+            // User provided a custom invoice number, use it directly.
+            nextInvoiceNumber = values.invoiceNumber;
+            
+            // Try to extract a number from the custom invoice number to keep the counter in sync
+            // if they're using a similar format (e.g., INV005).
+            const match = nextInvoiceNumber.match(/(\d+)$/);
+            if (match) {
+              const customId = parseInt(match[1], 10);
+              if (customId > lastId) {
+                counterUpdate = { ref: counterDocRef, newId: customId };
+              }
+            }
+          }
         }
 
         const productMap = new Map<string, { ref: any, oldQty: number, newQty: number, name: string }>();
@@ -493,8 +513,11 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                     <FormLabel>Invoice Number</FormLabel>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                      <FormControl><Input {...field} className="pl-10 bg-muted cursor-not-allowed" readOnly /></FormControl>
+                      <FormControl><Input {...field} className="pl-10" placeholder="e.g. INV001" /></FormControl>
                     </div>
+                    <FormDescription>
+                      This will auto-increment by default, but you can manually override it.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
