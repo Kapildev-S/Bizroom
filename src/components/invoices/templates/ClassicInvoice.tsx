@@ -63,7 +63,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
         <div className="w-1/2 pl-4 text-right">
           <div className="grid grid-cols-[auto,1fr] gap-x-4 text-left ml-auto max-w-xs text-sm">
             <p className="text-gray-500">Invoice Date:</p>
-            <p className="font-medium text-gray-800">{new Date(invoice.issueDate).toLocaleDateString()}</p>
+            <p className="font-medium text-gray-800">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
           </div>
         </div>
       </div>

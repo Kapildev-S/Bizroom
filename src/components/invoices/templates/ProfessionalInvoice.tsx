@@ -85,7 +85,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                             <p className="font-semibold text-gray-600">INVOICE #</p>
                             <p className="text-gray-800">{invoice.invoiceNumber}</p>
                             <p className="font-semibold text-gray-600">DATE</p>
-                            <p className="text-gray-800">{new Date(invoice.issueDate).toLocaleDateString()}</p>
+                            <p className="text-gray-800">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
                         </div>
                     </div>
                 </div>

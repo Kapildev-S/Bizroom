@@ -134,7 +134,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                                     <tr className="border-b border-black/5">
                                         <td className="font-bold w-[130px] py-1">Date</td>
                                         <td className="w-[10px]">:</td>
-                                        <td className="py-1">{new Date(invoice.issueDate).toLocaleDateString()}</td>
+                                        <td className="py-1">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
                                     </tr>
                                     <tr className="border-b border-black/5">
                                         <td className="font-bold py-1">Invoice Number</td>

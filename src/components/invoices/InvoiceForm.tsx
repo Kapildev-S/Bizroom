@@ -124,7 +124,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
     customerGstin: initialData.customerGstin || '',
     reverseCharge: initialData.reverseCharge || false,
   } : {
-    invoiceNumber: `INV${(invoiceCount! + 1).toString().padStart(3, '0')}`,
+    invoiceNumber: `${settings?.businessProfile?.invoicePrefix ?? 'INV'}${(invoiceCount! + 1).toString().padStart(3, '0')}`,
     customerId: "",
     customerName: "",
     customerPhone: "",
@@ -210,13 +210,14 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
             lastId = invoiceCount ?? 0;
           }
 
-          const defaultPreviewNumber = `INV${((invoiceCount ?? 0) + 1).toString().padStart(3, '0')}`;
+          const invoicePrefix = settings?.businessProfile?.invoicePrefix ?? 'INV';
+          const defaultPreviewNumber = `${invoicePrefix}${((invoiceCount ?? 0) + 1).toString().padStart(3, '0')}`;
           
           // If the user hasn't changed the invoice number from the default preview,
           // or if it's empty, use the authoritative auto-increment logic.
           if (values.invoiceNumber === defaultPreviewNumber || !values.invoiceNumber) {
             const newId = lastId + 1;
-            nextInvoiceNumber = `INV${newId.toString().padStart(3, '0')}`;
+            nextInvoiceNumber = `${invoicePrefix}${newId.toString().padStart(3, '0')}`;
             counterUpdate = { ref: counterDocRef, newId };
           } else {
             // User provided a custom invoice number, use it directly.
@@ -748,7 +749,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                             variant={"outline"}
                             className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                           >
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            {field.value ? format(field.value, "dd/MM/yy") : <span>Pick a date</span>}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
@@ -774,7 +775,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                             variant={"outline"}
                             className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                           >
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            {field.value ? format(field.value, "dd/MM/yy") : <span>Pick a date</span>}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>

@@ -108,7 +108,7 @@ export default function StandardInvoice({ invoice, customer, settings, logoDataU
                 <div className="w-1/2 p-2" style={{ backgroundColor: lightBgColor }}>
                     <div className="grid grid-cols-2">
                         <p className="font-bold">INVOICE NO:</p><p>{invoice.invoiceNumber}</p>
-                        <p className="font-bold">DATE:</p><p>{new Date(invoice.issueDate).toLocaleDateString()}</p>
+                        <p className="font-bold">DATE:</p><p>{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
                     </div>
                 </div>
             </div>

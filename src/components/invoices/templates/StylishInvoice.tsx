@@ -73,7 +73,7 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                     </div>
                     <div>
                         <p className="font-bold opacity-80 text-sm">Date Issued</p>
-                        <p className="font-medium">{new Date(invoice.issueDate).toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
                     </div>
                 </div>
             </div>

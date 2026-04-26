@@ -141,7 +141,7 @@ export function InvoiceList() {
     }
 
     const businessName = settings?.businessProfile?.businessName || 'our business';
-    const message = `Hello ${invoice.customerName}, this is a friendly reminder from ${businessName} regarding invoice ${invoice.invoiceNumber} for ${getCurrencySymbol(invoice.currency)}${invoice.totalAmount.toFixed(2)}. The due date was ${new Date(invoice.dueDate).toLocaleDateString()}. Thank you.`;
+    const message = `Hello ${invoice.customerName}, this is a friendly reminder from ${businessName} regarding invoice ${invoice.invoiceNumber} for ${getCurrencySymbol(invoice.currency)}${invoice.totalAmount.toFixed(2)}. The due date was ${new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}. Thank you.`;
     
     const whatsappUrl = `https://wa.me/${invoice.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
     
@@ -385,7 +385,7 @@ export function InvoiceList() {
                   <CardContent className="flex items-center justify-between">
                      <div className="text-lg font-bold">{getCurrencySymbol(invoice.currency)}{invoice.totalAmount.toFixed(2)}</div>
                      <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Due: {new Date(invoice.dueDate).toLocaleDateString()}</span>
+                      <span className="text-xs text-muted-foreground">Due: {new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                       {renderActions(invoice)}
                      </div>
                   </CardContent>
@@ -412,8 +412,8 @@ export function InvoiceList() {
                     <TableRow key={invoice.id} className="cursor-pointer" onClick={() => handleView(invoice.id)}>
                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                       <TableCell>{invoice.customerName}</TableCell>
-                      <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
+                      <TableCell>{new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
                       {enableAdvancedInvoiceSystem && (
                         <TableCell>
                             <Badge variant="outline" className="font-normal">{invoice.invoiceType}</Badge>
