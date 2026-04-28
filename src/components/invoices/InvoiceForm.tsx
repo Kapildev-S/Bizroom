@@ -305,23 +305,19 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
           taxRate: values.taxRate / 100,
           items: values.items.map(item => {
             const product = products.find(p => p.id === item.productId);
-            const { hsnCode, ...rest } = item;
             return { 
-              ...rest, 
+              ...item, 
               productName: product ? product.name : 'Unknown Product',
-              ...(enableAdvancedInvoiceSystem && { hsnCode })
             };
           }),
           customerId: customerId,
           status: initialData?.status || 'sent',
           userId: currentUser.uid,
-          ...(enableAdvancedInvoiceSystem && { 
-            invoiceType: values.invoiceType,
-            gstType: values.gstType,
-            placeOfSupply: values.placeOfSupply,
-            customerGstin: values.customerGstin,
-            reverseCharge: values.reverseCharge,
-          }),
+          invoiceType: values.invoiceType,
+          gstType: values.gstType,
+          placeOfSupply: values.placeOfSupply,
+          customerGstin: values.customerGstin,
+          reverseCharge: values.reverseCharge,
         };
 
         // Clean data for Firestore (remove undefined values recursively)

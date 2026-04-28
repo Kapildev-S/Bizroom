@@ -109,6 +109,7 @@ export default function StandardInvoice({ invoice, customer, settings, logoDataU
                     <div className="grid grid-cols-2">
                         <p className="font-bold">INVOICE NO:</p><p>{invoice.invoiceNumber}</p>
                         <p className="font-bold">DATE:</p><p>{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
+                        <p className="font-bold">PAY TERMS:</p><p className="uppercase">{invoice.invoiceType === 'Retail' ? 'Cash' : 'Credit'}</p>
                     </div>
                 </div>
             </div>
@@ -130,7 +131,7 @@ export default function StandardInvoice({ invoice, customer, settings, logoDataU
                             <td className="border border-black p-1">{item.productName}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-center">{item.hsnCode}</td>}
                             <td className="border border-black p-1 text-center">{item.quantity} {item.unit || ''}</td>
-                            <td className="border border-black p-1 text-right">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
+                            <td className="border border-black p-1 text-right">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
                             <td className="border border-black p-1 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-right">{item.gstRate}%</td>}
                             <td className="border border-black p-1 text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>

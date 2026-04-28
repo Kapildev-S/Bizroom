@@ -77,6 +77,7 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
           name: data.name,
           description: data.description || "",
           price: data.price,
+          mrp: data.mrp ?? null,
           stock: data.stock === null ? Infinity : data.stock,
           unit: data.unit || "",
           hsnCode: data.hsnCode || "",
@@ -143,7 +144,7 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
   };
   
   const handleViewDetails = (product: Product) => {
-    alert(`Details for ${product.name}:\nPrice: ${currencySymbol}${product.price}\nStock: ${product.stock === Infinity ? 'N/A' : product.stock}\nUnit: ${product.unit || 'N/A'}${product.hsnCode ? `\nHSN: ${product.hsnCode}` : ''}\nGST: ${product.gstRate || 0}%`);
+    alert(`Details for ${product.name}:\nPrice: ${currencySymbol}${product.price}\nMRP: ${currencySymbol}${product.mrp || product.price}\nStock: ${product.stock === Infinity ? 'N/A' : product.stock}\nUnit: ${product.unit || 'N/A'}${product.hsnCode ? `\nHSN: ${product.hsnCode}` : ''}\nGST: ${product.gstRate || 0}%`);
   };
 
   const filteredProducts = useMemo(() => products.filter(product =>

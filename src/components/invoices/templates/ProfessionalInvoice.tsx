@@ -86,6 +86,8 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                             <p className="text-gray-800">{invoice.invoiceNumber}</p>
                             <p className="font-semibold text-gray-600">DATE</p>
                             <p className="text-gray-800">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
+                            <p className="font-semibold text-gray-600">PAY TERMS</p>
+                            <p className="text-gray-800 uppercase">{invoice.invoiceType === 'Retail' ? 'Cash' : 'Credit'}</p>
                         </div>
                     </div>
                 </div>
@@ -119,7 +121,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                                     <td className="p-2 font-medium">{item.productName}</td>
                                     {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 font-medium">{item.hsnCode}</td>}
                                     <td className="p-2 text-right">{item.quantity} {item.unit || ''}</td>
-                                    <td className="p-2 text-right">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
+                                    <td className="p-2 text-right">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
                                     <td className="p-2 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                                     {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 text-right">{item.gstRate}%</td>}
                                     <td className="p-2 text-right font-semibold">{currencySymbol}{(item.totalPrice).toFixed(2)}</td>

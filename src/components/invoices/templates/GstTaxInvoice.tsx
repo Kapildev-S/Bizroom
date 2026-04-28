@@ -118,7 +118,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                             <p className="font-bold underline mb-1">To.</p>
                             <div className="pl-2">
                                 <p className="font-bold text-sm uppercase leading-none mb-1">{invoice.customerName || customer?.name}</p>
-                                <p className="whitespace-pre-wrap leading-tight text-[9px]">{invoice.placeOfSupply || customer?.address || 'Customer Address'}</p>
+                                <p className="whitespace-pre-wrap leading-tight text-[9px]">{customer?.address || invoice.placeOfSupply || 'Customer Address'}</p>
                                 {invoice.customerPhone && <p className="mt-1">Phone: {invoice.customerPhone}</p>}
                                 {invoice.customerGstin && (
                                     <p className="font-bold border border-black/20 mt-2 px-2 py-0.5 inline-block rounded-sm">
@@ -144,7 +144,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                                     <tr>
                                         <td className="font-bold py-1">Payment Terms</td>
                                         <td>:</td>
-                                        <td className="py-1 uppercase">{invoice.invoiceType === 'Retail' ? 'Cash' : 'Credit'}</td>
+                                        <td className="py-1 uppercase">Cash/Credit</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -174,7 +174,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                             <td className="border-r border-black px-1 text-left" style={{ wordBreak: 'break-word' }}>{item.productName}</td>
                             <td className="border-r border-black px-1 text-center" style={{ wordBreak: 'break-word' }}>{item.hsnCode || '-'}</td>
                             <td className="border-r border-black px-1 text-center">{item.quantity}</td>
-                            <td className="border-r border-black px-1 text-right">{item.mrp?.toFixed(2) || '-'}</td>
+                            <td className="border-r border-black px-1 text-right">{(item.mrp || item.unitPrice).toFixed(2)}</td>
                             <td className="border-r border-black px-1 text-right">{item.unitPrice.toFixed(2)}</td>
                             <td className="border-r border-black px-1 text-center">{item.gstRate}%</td>
                             <td className="px-1 text-right font-bold">{item.totalPrice.toFixed(2)}</td>

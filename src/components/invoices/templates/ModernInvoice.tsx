@@ -63,6 +63,8 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                         <p className="text-gray-800">{invoice.invoiceNumber}</p>
                         <p className="font-semibold text-gray-600">Date Issued:</p>
                         <p className="text-gray-800">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
+                        <p className="font-semibold text-gray-600">Pay Terms:</p>
+                        <p className="text-gray-800">{invoice.invoiceType === 'Retail' ? 'Cash' : 'Credit'}</p>
                     </div>
                 </div>
             </div>
@@ -88,7 +90,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                             </td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 overflow-hidden text-ellipsis">{item.hsnCode}</td>}
                             <td className="p-2 py-3 text-center overflow-hidden text-ellipsis">{item.quantity} {item.unit || ''}</td>
-                            <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
+                            <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
                             <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 text-right overflow-hidden text-ellipsis">{item.gstRate}%</td>}
                             <td className="p-2 py-3 text-right font-bold overflow-hidden text-ellipsis">{currencySymbol}{item.totalPrice.toFixed(2)}</td>

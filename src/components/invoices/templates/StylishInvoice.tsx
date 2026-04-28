@@ -72,8 +72,11 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                         {(invoice.customerPhone || customer?.phone) && <p className="font-medium no-underline text-sm">Phone: {breakDetection(invoice.customerPhone || customer?.phone)}</p>}
                     </div>
                     <div>
-                        <p className="font-bold opacity-80 text-sm">Date Issued</p>
+                        <p className="font-bold opacity-80 text-sm uppercase tracking-wider">Date Issued</p>
                         <p className="font-medium">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</p>
+                        
+                        <p className="font-bold opacity-80 text-sm uppercase tracking-wider mt-3">Terms</p>
+                        <p className="font-medium uppercase">{invoice.invoiceType === 'Retail' ? 'Cash' : 'Credit'}</p>
                     </div>
                 </div>
             </div>
@@ -106,7 +109,7 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                                 <td className="p-3 border-b font-medium">{item.productName}</td>
                                 {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-xs text-gray-500">{item.hsnCode}</td>}
                                 <td className="p-3 border-b text-center font-medium">{item.quantity} {item.unit || ''}</td>
-                                <td className="p-3 border-b text-right font-medium">{item.mrp ? `${currencySymbol}${item.mrp.toFixed(2)}` : '-'}</td>
+                                <td className="p-3 border-b text-right font-medium">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
                                 <td className="p-3 border-b text-right font-medium">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                                 {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-right font-medium">{item.gstRate}%</td>}
                                 <td className="p-3 border-b text-right font-bold text-gray-900 border-l-2 border-transparent" style={{ borderLeftColor: themeColor }}>{currencySymbol}{item.totalPrice.toFixed(2)}</td>

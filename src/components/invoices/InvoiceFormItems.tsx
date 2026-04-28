@@ -48,7 +48,8 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
       const quantity = watchedItems[itemIndex]?.quantity || 1;
       setValue(`items.${itemIndex}.productName`, product.name);
       setValue(`items.${itemIndex}.unitPrice`, product.price);
-      setValue(`items.${itemIndex}.mrp`, product.mrp ?? 0, { shouldValidate: true });
+      // Default MRP to selling price (product.price) if MRP is not set (0 or undefined)
+      setValue(`items.${itemIndex}.mrp`, (product.mrp !== undefined && product.mrp !== null) ? product.mrp : product.price, { shouldValidate: true });
       setValue(`items.${itemIndex}.unit`, product.unit || '', { shouldValidate: true });
       setValue(`items.${itemIndex}.hsnCode`, product.hsnCode || '', { shouldValidate: true });
       setValue(`items.${itemIndex}.gstRate`, product.gstRate || 0, { shouldValidate: true });
