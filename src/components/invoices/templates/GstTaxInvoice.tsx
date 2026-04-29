@@ -52,7 +52,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
     const summaryMap = new Map<string, { taxable: number, tax: number, rate: number, hsn: string }>();
     
     invoice.items.forEach(item => {
-        const key = `${item.hsnCode || 'N/A'}-${item.gstRate || 0}`;
+        const key = `${item.gstRate || 0}`;
         const existing = summaryMap.get(key) || { taxable: 0, tax: 0, rate: item.gstRate || 0, hsn: item.hsnCode || 'N/A' };
         
         // Use the per-item taxAmount we calculate in InvoiceForm

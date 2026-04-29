@@ -35,14 +35,17 @@ export default function EditProductPage() {
 
             if (docSnap.exists()) {
                const data = docSnap.data();
-               const fetchedProduct: Product = {
-                id: docSnap.id,
-                name: data.name,
-                description: data.description || "",
-                price: data.price,
-                stock: data.stock === null ? Infinity : data.stock,
-                unit: data.unit || "",
-              };
+                const fetchedProduct: Product = {
+                 id: docSnap.id,
+                 name: data.name,
+                 description: data.description || "",
+                 price: data.price,
+                 mrp: data.mrp ?? null,
+                 stock: data.stock === null ? Infinity : data.stock,
+                 unit: data.unit || "",
+                 hsnCode: data.hsnCode || "",
+                 gstRate: data.gstRate || 0,
+               };
               setProduct(fetchedProduct);
             } else {
                 toast({ variant: "destructive", title: "Not Found", description: "Product not found."});

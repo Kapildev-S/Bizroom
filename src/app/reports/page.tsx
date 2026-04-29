@@ -105,6 +105,13 @@ export default function ReportsPage() {
     const averageInvoiceValue = paidInvoices.length > 0 ? totalRevenue / paidInvoices.length : 0;
     const overdueCount = filteredInvoices.filter(inv => inv.status === 'overdue').length;
 
+    // Segregate by Category (Retail vs Wholesale)
+    const retailInvoices = filteredInvoices.filter(inv => inv.invoiceType === 'Retail');
+    const wholesaleInvoices = filteredInvoices.filter(inv => inv.invoiceType === 'Wholesale');
+    
+    const retailRevenue = retailInvoices.filter(inv => inv.status === 'paid').reduce((acc, inv) => acc + inv.totalAmount, 0);
+    const wholesaleRevenue = wholesaleInvoices.filter(inv => inv.status === 'paid').reduce((acc, inv) => acc + inv.totalAmount, 0);
+
     // Chart data (sales by month)
     const salesByMonth: { [key: string]: { name: string, sales: number } } = {};
     paidInvoices.forEach(inv => {
@@ -133,6 +140,10 @@ export default function ReportsPage() {
       totalInvoices,
       averageInvoiceValue,
       overdueCount,
+      retailRevenue,
+      wholesaleRevenue,
+      retailCount: retailInvoices.length,
+      wholesaleCount: wholesaleInvoices.length,
       chartData: Object.values(salesByMonth),
       topCustomers
     };
@@ -261,6 +272,70 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {enableAdvancedInvoiceSystem && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-indigo-50/50 border-indigo-100 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-sm font-bold text-indigo-900">Retail Sales</CardTitle>
+                <CardDescription className="text-xs text-indigo-600">Performance in Retail segment</CardDescription>
+              </div>
+              <Badge className="bg-indigo-600">Retail</Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-end">
+                <div>
+                  <div className="text-2xl font-black text-indigo-950">{currencySymbol}{reportData.retailRevenue.toFixed(2)}</div>
+                  <p className="text-xs text-indigo-700 font-medium">{reportData.retailCount} Invoices</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase tracking-tighter font-bold text-indigo-400">Contribution</span>
+                  <div className="text-sm font-bold text-indigo-800">
+                    {reportData.totalRevenue > 0 ? ((reportData.retailRevenue / reportData.totalRevenue) * 100).toFixed(1) : 0}%
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 h-1.5 w-full bg-indigo-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-indigo-600" 
+                  style={{ width: `${reportData.totalRevenue > 0 ? (reportData.retailRevenue / reportData.totalRevenue) * 100 : 0}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-emerald-50/50 border-emerald-100 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-sm font-bold text-emerald-900">Wholesale Sales</CardTitle>
+                <CardDescription className="text-xs text-emerald-600">Performance in Wholesale segment</CardDescription>
+              </div>
+              <Badge className="bg-emerald-600">Wholesale</Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-end">
+                <div>
+                  <div className="text-2xl font-black text-emerald-950">{currencySymbol}{reportData.wholesaleRevenue.toFixed(2)}</div>
+                  <p className="text-xs text-emerald-700 font-medium">{reportData.wholesaleCount} Invoices</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase tracking-tighter font-bold text-emerald-400">Contribution</span>
+                  <div className="text-sm font-bold text-emerald-800">
+                    {reportData.totalRevenue > 0 ? ((reportData.wholesaleRevenue / reportData.totalRevenue) * 100).toFixed(1) : 0}%
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 h-1.5 w-full bg-emerald-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-600" 
+                  style={{ width: `${reportData.totalRevenue > 0 ? (reportData.wholesaleRevenue / reportData.totalRevenue) * 100 : 0}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">
