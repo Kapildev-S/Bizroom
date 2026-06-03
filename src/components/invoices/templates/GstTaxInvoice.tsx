@@ -155,16 +155,26 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
 
             {/* Items Table - FIXED LAYOUT ONLY */}
             <table className="w-full border-collapse border-y border-black table-fixed mt-2">
+                <colgroup>
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '37%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '12%' }} />
+                </colgroup>
                 <thead className="bg-gray-50/50">
                     <tr className="font-bold text-[9px] uppercase border-b border-black">
                         <th className="border-r border-black p-1 w-[6%] text-center">S.No</th>
-                        <th className="border-r border-black p-1 w-[41%] text-left">Description</th>
+                        <th className="border-r border-black p-1 w-[37%] text-left">Description</th>
                         <th className="border-r border-black p-1 w-[12%] text-center">HSN SAC</th>
                         <th className="border-r border-black p-1 w-[8%] text-center">QTY</th>
                         <th className="border-r border-black p-1 w-[10%] text-right">MRP</th>
                         <th className="border-r border-black p-1 w-[10%] text-right">Rate</th>
                         <th className="border-r border-black p-1 w-[5%] text-center">Tax</th>
-                        <th className="p-1 w-[8%] text-right">Amount</th>
+                        <th className="p-1 w-[12%] text-right">Amount</th>
                     </tr>
                 </thead>
                 <tbody className="min-h-[250px]">
@@ -206,6 +216,23 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                                 {toWordsRupee(invoice.totalAmount)}
                             </div>
                             <table className="w-full text-[9px] border-collapse table-fixed">
+                                {invoice.gstType !== 'IGST' ? (
+                                    <colgroup>
+                                        <col style={{ width: '25%' }} />
+                                        <col style={{ width: '15%' }} />
+                                        <col style={{ width: '15%' }} />
+                                        <col style={{ width: '15%' }} />
+                                        <col style={{ width: '15%' }} />
+                                        <col style={{ width: '15%' }} />
+                                    </colgroup>
+                                ) : (
+                                    <colgroup>
+                                        <col style={{ width: '25%' }} />
+                                        <col style={{ width: '30%' }} />
+                                        <col style={{ width: '30%' }} />
+                                        <col style={{ width: '15%' }} />
+                                    </colgroup>
+                                )}
                                 <thead className="bg-gray-50/50">
                                     <tr className="border-b border-black font-bold text-center">
                                         <th className="border-r border-black py-0.5 w-[25%] uppercase">Taxable</th>

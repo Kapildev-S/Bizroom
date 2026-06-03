@@ -95,13 +95,13 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                 {/* Items Table - using the compact version */}
                 <table className="w-full text-left text-xs" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                        <col style={{ width: '35%' }} />
-                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '12%' }} />}
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '13%' }} />
-                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '32%' }} />
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '10%' }} />}
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '12%' }} />
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '8%' }} />}
+                        <col style={{ width: '18%' }} />
                     </colgroup>
                     <thead>
                         <tr className="border-b-2 border-gray-300 text-gray-500 uppercase">
@@ -119,12 +119,12 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                             return (
                                 <tr key={index} className="border-b border-gray-200">
                                     <td className="p-2 font-medium">{item.productName}</td>
-                                    {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 font-medium">{item.hsnCode}</td>}
-                                    <td className="p-2 text-right">{item.quantity} {item.unit || ''}</td>
-                                    <td className="p-2 text-right">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
-                                    <td className="p-2 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                                    {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 text-right">{item.gstRate}%</td>}
-                                    <td className="p-2 text-right font-semibold">{currencySymbol}{(item.totalPrice).toFixed(2)}</td>
+                                    {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 font-medium break-all">{item.hsnCode}</td>}
+                                    <td className="p-2 text-right whitespace-nowrap">{item.quantity || 0} {item.unit || ''}</td>
+                                    <td className="p-2 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice || 0).toFixed(2)}`}</td>
+                                    <td className="p-2 text-right whitespace-nowrap">{currencySymbol}{(item.unitPrice || 0).toFixed(2)}</td>
+                                    {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 text-right whitespace-nowrap">{item.gstRate || 0}%</td>}
+                                    <td className="p-2 text-right font-semibold whitespace-nowrap">{currencySymbol}{(item.totalPrice || 0).toFixed(2)}</td>
                                 </tr>
                             );
                         })}
@@ -161,7 +161,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                                             const hsn = parts.join('-');
                                             
                                             const itemsMatching = invoice.items.filter(item => (item.hsnCode || 'N/A') === hsn && (item.gstRate || 0) === rate);
-                                            const taxableValue = itemsMatching.reduce((acc, item) => acc + item.totalPrice, 0);
+                                            const taxableValue = itemsMatching.reduce((acc, item) => acc + (item.totalPrice || 0), 0);
                                             const taxTotal = itemsMatching.reduce((acc, item) => acc + (item.taxAmount || 0), 0);
                                             return (
                                                 <tr key={i} className="border-b border-white/10 last:border-0">
@@ -201,7 +201,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                     <div className="space-y-1 text-right w-full text-xs">
                         <div className="flex justify-between">
                             <span>Subtotal</span>
-                            <span>{currencySymbol}{invoice.subtotal.toFixed(2)}</span>
+                            <span>{currencySymbol}{(invoice.subtotal || 0).toFixed(2)}</span>
                         </div>
                         {(invoice.discountAmount || 0) > 0 && (
                             <div className="flex justify-between">
@@ -213,23 +213,23 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                             <>
                                 <div className="flex justify-between text-[10px] opacity-80">
                                     <span>CGST TOTAL</span>
-                                    <span>{currencySymbol}{(invoice.taxAmount / 2).toFixed(2)}</span>
+                                    <span>{currencySymbol}{((invoice.taxAmount || 0) / 2).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-[10px] opacity-80">
                                     <span>SGST TOTAL</span>
-                                    <span>{currencySymbol}{(invoice.taxAmount / 2).toFixed(2)}</span>
+                                    <span>{currencySymbol}{((invoice.taxAmount || 0) / 2).toFixed(2)}</span>
                                 </div>
                             </>
                         ) : (
                             <div className="flex justify-between">
                                 <span>{settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? 'IGST TOTAL' : 'Tax'}</span>
-                                <span>{currencySymbol}{invoice.taxAmount.toFixed(2)}</span>
+                                <span>{currencySymbol}{(invoice.taxAmount || 0).toFixed(2)}</span>
                             </div>
                         )}
                         <div className="w-full h-px my-1" style={{ backgroundColor: headerTextColor, opacity: 0.5 }}></div>
                         <div className="flex justify-between font-bold text-sm">
                             <span>Grand Total</span>
-                            <span>{currencySymbol}{invoice.totalAmount.toFixed(2)}</span>
+                            <span>{currencySymbol}{(invoice.totalAmount || 0).toFixed(2)}</span>
                         </div>
                     </div>
                 </div>

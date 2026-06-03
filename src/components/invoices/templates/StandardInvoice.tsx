@@ -129,12 +129,12 @@ export default function StandardInvoice({ invoice, customer, settings, logoDataU
                     {invoice.items.map((item, index) => (
                         <tr key={index}>
                             <td className="border border-black p-1">{item.productName}</td>
-                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-center">{item.hsnCode}</td>}
-                            <td className="border border-black p-1 text-center">{item.quantity} {item.unit || ''}</td>
-                            <td className="border border-black p-1 text-right">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
-                            <td className="border border-black p-1 text-right">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-right">{item.gstRate}%</td>}
-                            <td className="border border-black p-1 text-right">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-center break-all">{item.hsnCode}</td>}
+                            <td className="border border-black p-1 text-center whitespace-nowrap">{item.quantity} {item.unit || ''}</td>
+                            <td className="border border-black p-1 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
+                            <td className="border border-black p-1 text-right whitespace-nowrap">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-right whitespace-nowrap">{item.gstRate}%</td>}
+                            <td className="border border-black p-1 text-right whitespace-nowrap">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
                         </tr>
                     ))}
                 </tbody>

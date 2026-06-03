@@ -43,6 +43,35 @@ interface InvoiceViewProps {
   currentUser: User | null;
 }
 
+const getPaperDimensions = (paperSize: string, isLandscape: boolean) => {
+  let width = 210; // mm
+  let height = 297; // mm
+  
+  if (paperSize === 'A5') {
+    width = isLandscape ? 210 : 148;
+    height = isLandscape ? 148 : 210;
+  } else if (paperSize === 'Thermal80') {
+    width = 80;
+    height = 297;
+  } else if (paperSize === 'Thermal58') {
+    width = 58;
+    height = 297;
+  } else if (paperSize === '4x3') {
+    width = 101.6;
+    height = 76.2;
+  } else if (paperSize === '4x6') {
+    width = 101.6;
+    height = 152.4;
+  } else if (paperSize === 'A4_LANDSCAPE') {
+    width = 297;
+    height = 210;
+  } else {
+    width = isLandscape ? 297 : 210;
+    height = isLandscape ? 210 : 297;
+  }
+  return { width, height };
+};
+
 const getStatusBadgeVariant = (status: Invoice['status']) => {
   switch (status) {
     case 'paid': return 'default';
@@ -92,14 +121,16 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     else if (paperSize === 'Thermal58') sizeValue = '58mm 297mm';
     else if (paperSize === '4x3') sizeValue = '4in 3in';
     else if (paperSize === '4x6') sizeValue = '4in 6in';
+    else if (paperSize === 'A4_LANDSCAPE') sizeValue = 'A4 landscape';
 
-    const paperWidth = isLandscape ? (sizeValue === 'A4' ? '297mm' : '210mm') : (sizeValue === 'A4' ? '210mm' : '148mm');
-    const paperHeight = isLandscape ? (sizeValue === 'A4' ? '210mm' : '148mm') : (sizeValue === 'A4' ? '297mm' : '210mm');
+    const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
+    const { width: paperWidth } = getPaperDimensions(paperSize, isLandscape);
+    const printZoom = paperWidth / baseWidth;
 
     styleElement.innerHTML = `
       @media print {
         @page {
-          size: ${sizeValue} ${isLandscape ? 'landscape' : 'portrait'};
+          size: ${sizeValue} ${isLandscape && paperSize !== 'A4_LANDSCAPE' && paperSize !== '4x3' ? 'landscape' : 'portrait'};
           margin: 0;
         }
 
@@ -118,7 +149,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           print-color-adjust: exact !important;
         }
 
-        /* Hide specific UI elements — do NOT hide body > * (breaks App Router) */
+        /* Hide specific UI elements */
         nav, header, footer, aside,
         [data-sidebar], .sidebar,
         .no-print,
@@ -127,7 +158,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           display: none !important;
         }
 
-        /* Print wrapper: fixed overlay covering the full A4 page */
+        /* Print wrapper: fixed overlay covering the full page */
         .invoice-print-wrapper {
           display: block !important;
           position: fixed !important;
@@ -151,10 +182,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           background: white !important;
         }
 
-        /* Card wrapper: strip all chrome, full width */
+        /* Card wrapper: scale the content to fit the target paper size */
         #invoice-print-root {
           display: block !important;
-          width: 100% !important;
+          width: ${baseWidth}mm !important;
           max-width: none !important;
           margin: 0 !important;
           padding: 0 !important;
@@ -163,32 +194,22 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           border: none !important;
           border-radius: 0 !important;
           background: white !important;
+          zoom: ${printZoom} !important;
         }
 
-        /* All descendants: no max-width */
-        #invoice-print-root * {
-          max-width: none !important;
-        }
-
-        /* Direct children of Card: full width */
-        #invoice-print-root > * {
-          width: 100% !important;
-          box-sizing: border-box !important;
-        }
-
-        /* Inner template div: zoom compact layout to fill A4 */
+        /* Prevent double scaling in templates */
         #invoice-root {
           display: block !important;
           width: 100% !important;
           margin: 0 !important;
-          padding: 6mm !important;
+          padding: 0 !important;
           box-sizing: border-box !important;
-          zoom: 1.52 !important;
+          zoom: 1 !important;
           background: white !important;
         }
 
         /* Tables full width */
-        #invoice-root table {
+        #invoice-print-root table {
           width: 100% !important;
           border-collapse: collapse !important;
           page-break-inside: auto !important;
@@ -202,11 +223,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     `;
 
     return () => {
-      // Keep it or clean it - usually better to keep for the duration of the view
+      // Keep it
     };
   }, [orientation, settings?.customizationSettings?.paperSize]);
 
-  // State for reliable generation
   // State for reliable generation
   const [isLogoLoaded, setIsLogoLoaded] = useState(!logoDataUri);
   const [areFontsReady, setAreFontsReady] = useState(false);
@@ -244,14 +264,12 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     const updateScale = () => {
       if (!containerRef.current) return;
       
-      const paperStyle = getPaperSizeStyle();
-      const isInch = paperStyle.width.includes('in');
-      const paperWidthValue = parseFloat(paperStyle.width);
+      const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+      const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+      const { width: paperWidth } = getPaperDimensions(paperSize, isLandscape);
       
       const availableWidth = containerRef.current.offsetWidth - 48; // Space minus padding
-      const targetWidthPx = isInch 
-        ? paperWidthValue * 96 
-        : paperWidthValue * 3.7795275591; // mm to Pixels at 96dpi
+      const targetWidthPx = paperWidth * 3.7795275591; // mm to Pixels at 96dpi
       
       if (availableWidth < targetWidthPx) {
         const newScale = availableWidth / targetWidthPx;
@@ -271,21 +289,6 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     };
   }, [settings?.customizationSettings?.paperSize, orientation]);
 
-  const getPaperSizeStyle = () => {
-    const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-    
-    if (paperSize === 'Thermal80') return { width: '80mm', minHeight: '150mm' };
-    if (paperSize === 'Thermal58') return { width: '58mm', minHeight: '150mm' };
-    if (paperSize === 'A5') return isLandscape ? { width: '210mm', minHeight: '148mm' } : { width: '148mm', minHeight: '210mm' };
-    if (paperSize === 'A4_LANDSCAPE') return { width: '297mm', minHeight: '210mm' };
-    if (paperSize === '4x3') return { width: '4in', minHeight: '3in' };
-    if (paperSize === '4x6') return { width: '4in', minHeight: '6in' };
-    
-    // Default A4
-    return isLandscape ? { width: '297mm', minHeight: '210mm' } : { width: '210mm', minHeight: '297mm' };
-  };
-
   const getPaperClass = () => {
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
     const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
@@ -293,16 +296,28 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   };
 
   const isReady = isLogoLoaded && areFontsReady;
-  const preparingMessage = !areFontsReady ? "Preparing fonts..." : (!isLogoLoaded ? "Preparing logo..." : "");
 
   const generateImageFile = async (): Promise<File | null> => {
     if (!isReady) return null;
     const input = document.getElementById('invoice-root');
     if (!input) return null;
 
+    const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+    const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
+    const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297;
+
     // Snapshot Mode: Reset scale to 1:1 for perfect pixel alignment during capture
     const originalTransform = input.style.transform;
     input.style.transform = 'none';
+
+    const parent = input.parentElement;
+    const originalParentStyle = parent ? parent.getAttribute('style') : null;
+    if (parent) {
+      parent.style.width = `${baseWidth}mm`;
+      parent.style.height = `${baseHeight}mm`;
+      parent.style.overflow = 'visible';
+    }
 
     try {
       // Ensure we are at the top to avoid capture offset bugs
@@ -316,8 +331,11 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         allowTaint: true,
       });
 
-      // Restore original scale immediately
+      // Restore original styles immediately
       input.style.transform = originalTransform;
+      if (parent && originalParentStyle !== null) {
+        parent.setAttribute('style', originalParentStyle);
+      }
 
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
       if (!blob) throw new Error('Could not create image blob.');
@@ -326,6 +344,9 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     } catch (error) {
       console.error("Image generation failed:", error);
       input.style.transform = originalTransform;
+      if (parent && originalParentStyle !== null) {
+        parent.setAttribute('style', originalParentStyle);
+      }
       return null;
     }
   };
@@ -369,34 +390,9 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
       const imgData = canvas.toDataURL('image/png', 1.0);
       
-      const paperStyle = getPaperSizeStyle();
       const isLandscape = orientation === 'landscape' || (settings?.customizationSettings?.paperSize === 'A4_LANDSCAPE');
       const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-      
-      // Determine PDF dimensions in mm
-      let pdfWidth = 210;
-      let pdfHeight = 297;
-      
-      if (paperSize === 'A5') {
-        pdfWidth = 148;
-        pdfHeight = 210;
-      } else if (paperSize === 'Thermal80') {
-        pdfWidth = 80;
-        pdfHeight = 297;
-      } else if (paperSize === 'Thermal58') {
-        pdfWidth = 58;
-        pdfHeight = 297;
-      } else if (paperSize === '4x3') {
-        pdfWidth = 101.6; // 4in
-        pdfHeight = 76.2; // 3in
-      } else if (paperSize === '4x6') {
-        pdfWidth = 101.6; // 4in
-        pdfHeight = 152.4; // 6in
-      }
-
-      if (isLandscape) {
-        [pdfWidth, pdfHeight] = [pdfHeight, pdfWidth];
-      }
+      const { width: pdfWidth, height: pdfHeight } = getPaperDimensions(paperSize, isLandscape);
 
       const pdf = new jsPDF({
         orientation: pdfWidth > pdfHeight ? 'l' : 'p',
@@ -492,27 +488,67 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       onImageError: handleLogoError
     };
 
-    const paperStyle = getPaperSizeStyle();
+    const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+    
+    const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
+    const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297;
+
+    const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape);
+    const paperScale = paperWidth / baseWidth;
+    const displayScale = paperScale * scale;
+
+    if (forPrint) {
+      return (
+        <Card 
+          id="invoice-print-root" 
+          className={`flex-shrink-0 bg-white shadow-none ring-0 ${getPaperClass()}`}
+          style={{
+            width: `${baseWidth}mm`,
+            minHeight: `${baseHeight}mm`,
+            boxSizing: 'border-box'
+          }} 
+        >
+          {template === 'gst' ? <GstTaxInvoice {...templateProps} /> : (
+            template === 'modern' ? <ModernInvoice {...templateProps} /> : (
+              template === 'stylish' ? <StylishInvoice {...templateProps} /> : (
+                template === 'professional' ? <ProfessionalInvoice {...templateProps} /> : <ClassicInvoice {...templateProps} />
+              )
+            )
+          )}
+        </Card>
+      );
+    }
 
     return (
-      <Card 
-        id={forPrint ? "invoice-print-root" : "invoice-root"} 
-        className={`flex-shrink-0 bg-white shadow-none ring-0 ${getPaperClass(forPrint)}`}
-        style={!forPrint ? {
-          width: paperStyle.width,
-          minHeight: paperStyle.minHeight,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top center'
-        } : {}} 
+      <div 
+        className="flex-shrink-0 bg-transparent"
+        style={{
+          width: `${paperWidth * scale}mm`,
+          height: `${paperHeight * scale}mm`,
+          overflow: 'hidden'
+        }}
       >
-        {template === 'gst' ? <GstTaxInvoice {...templateProps} /> : (
-          template === 'modern' ? <ModernInvoice {...templateProps} /> : (
-            template === 'stylish' ? <StylishInvoice {...templateProps} /> : (
-              template === 'professional' ? <ProfessionalInvoice {...templateProps} /> : <ClassicInvoice {...templateProps} />
+        <Card 
+          id="invoice-root" 
+          className={`flex-shrink-0 bg-white shadow-none ring-0 ${getPaperClass()}`}
+          style={{
+            width: `${baseWidth}mm`,
+            minHeight: `${baseHeight}mm`,
+            transform: `scale(${displayScale})`,
+            transformOrigin: 'top left',
+            boxSizing: 'border-box'
+          }} 
+        >
+          {template === 'gst' ? <GstTaxInvoice {...templateProps} /> : (
+            template === 'modern' ? <ModernInvoice {...templateProps} /> : (
+              template === 'stylish' ? <StylishInvoice {...templateProps} /> : (
+                template === 'professional' ? <ProfessionalInvoice {...templateProps} /> : <ClassicInvoice {...templateProps} />
+              )
             )
-          )
-        )}
-      </Card>
+          )}
+        </Card>
+      </div>
     );
   };
 
@@ -524,6 +560,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     return () => document.body.classList.remove('force-landscape');
   }, [orientation, settings?.customizationSettings?.paperSize]);
 
+  const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+  const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+  const { height: paperHeight } = getPaperDimensions(paperSize, isLandscape);
+
   return (
     <>
       <div id="invoice-content" className="w-full flex flex-col items-center gap-8 py-8 animate-in fade-in duration-500">
@@ -533,7 +573,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           <div 
             className="w-full max-w-full overflow-x-auto pb-10 pt-4 flex justify-center bg-slate-50/50 rounded-3xl border border-slate-100 shadow-inner"
             style={{ 
-              minHeight: `${parseFloat(getPaperSizeStyle().minHeight) * (getPaperSizeStyle().minHeight.includes('mm') ? 3.7795275591 : 96) * scale}px` 
+              minHeight: `${paperHeight * 3.7795275591 * scale}px` 
             }}
           >
             {renderInvoice(false)}

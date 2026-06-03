@@ -84,13 +84,13 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
             <div className="p-8">
                 <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                        <col style={{ width: '35%' }} />
-                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '12%' }} />}
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '13%' }} />
-                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '32%' }} />
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '10%' }} />}
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '12%' }} />
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '8%' }} />}
+                        <col style={{ width: '18%' }} />
                     </colgroup>
                     <thead>
                         <tr>
@@ -107,12 +107,12 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
                         {invoice.items.map((item, index) => (
                             <tr key={index}>
                                 <td className="p-3 border-b font-medium">{item.productName}</td>
-                                {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-xs text-gray-500">{item.hsnCode}</td>}
-                                <td className="p-3 border-b text-center font-medium">{item.quantity} {item.unit || ''}</td>
-                                <td className="p-3 border-b text-right font-medium">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
-                                <td className="p-3 border-b text-right font-medium">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
-                                {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-right font-medium">{item.gstRate}%</td>}
-                                <td className="p-3 border-b text-right font-bold text-gray-900 border-l-2 border-transparent" style={{ borderLeftColor: themeColor }}>{currencySymbol}{item.totalPrice.toFixed(2)}</td>
+                                {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-xs text-gray-500 break-all">{item.hsnCode}</td>}
+                                <td className="p-3 border-b text-center font-medium whitespace-nowrap">{item.quantity} {item.unit || ''}</td>
+                                <td className="p-3 border-b text-right font-medium whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
+                                <td className="p-3 border-b text-right font-medium whitespace-nowrap">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
+                                {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-3 border-b text-right font-medium whitespace-nowrap">{item.gstRate}%</td>}
+                                <td className="p-3 border-b text-right font-bold text-gray-900 border-l-2 border-transparent whitespace-nowrap" style={{ borderLeftColor: themeColor }}>{currencySymbol}{item.totalPrice.toFixed(2)}</td>
                             </tr>
                         ))}
                     </tbody>

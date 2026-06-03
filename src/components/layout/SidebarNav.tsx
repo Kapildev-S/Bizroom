@@ -30,6 +30,7 @@ import {
   FileImage,
   Smartphone,
   ShieldCheck,
+  Bot
 } from "lucide-react";
 import {
   SidebarMenu,
@@ -61,6 +62,7 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/products", label: "Products", icon: Package },
+  { href: "/agent", label: "AI Assistant", icon: Bot },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -252,7 +254,7 @@ export function SidebarNav() {
           const isExpired = isPremiumStatus && expiryDate && new Date() > expiryDate;
           const isPremium = isPremiumStatus && !isExpired;
 
-          const allowedPaths = ['/dashboard', '/invoices', '/products', '/settings'];
+          const allowedPaths = ['/dashboard', '/invoices', '/products', '/settings', '/agent'];
 
           const renderMenuItem = (item: any) => {
             const isLocked = !isPremium && !allowedPaths.some(path => item.href.startsWith(path));

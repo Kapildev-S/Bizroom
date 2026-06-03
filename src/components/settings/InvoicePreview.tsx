@@ -19,15 +19,43 @@ interface InvoicePreviewProps {
   unit?: string;
 }
 
+const getPaperDimensions = (paperSize: string, isLandscape: boolean) => {
+  let width = 210; // mm
+  let height = 297; // mm
+  
+  if (paperSize === 'A5') {
+    width = isLandscape ? 210 : 148;
+    height = isLandscape ? 148 : 210;
+  } else if (paperSize === 'Thermal80') {
+    width = 80;
+    height = 297;
+  } else if (paperSize === 'Thermal58') {
+    width = 58;
+    height = 297;
+  } else if (paperSize === '4x3') {
+    width = 101.6;
+    height = 76.2;
+  } else if (paperSize === '4x6') {
+    width = 101.6;
+    height = 152.4;
+  } else if (paperSize === 'A4_LANDSCAPE') {
+    width = 297;
+    height = 210;
+  } else {
+    width = isLandscape ? 297 : 210;
+    height = isLandscape ? 210 : 297;
+  }
+  return { width, height };
+};
+
 const SAMPLE_CUSTOMER: Customer = {
   id: 'sample-cust',
   name: 'Sample Customer',
   phone: '9876543210',
   email: 'customer@example.com',
   address: '456 Market Road, Suite 10, Chennai, Tamil Nadu - 600001',
-  gstNumber: '33AABBC1234D1Z5',
-  balance: 0,
-  createdAt: Date.now()
+  gstin: '33AABBC1234D1Z5',
+  createdAt: new Date().toISOString()
 };
 
 const SAMPLE_INVOICE: Invoice = {
@@ -68,11 +96,11 @@ const SAMPLE_INVOICE: Invoice = {
   totalAmount: 14040,
   discountAmount: 0,
   status: 'sent',
-  paymentStatus: 'pending',
   invoiceType: 'Retail',
   gstType: 'CGST_SGST',
   placeOfSupply: 'Tamil Nadu',
-  createdAt: Date.now()
+  currency: 'INR',
+  taxRate: 0.18
 };
 
 export default function InvoicePreview({ 
@@ -95,8 +123,7 @@ export default function InvoicePreview({
       logoUrl: ''
     },
     invoiceSettings: {
-      nextInvoiceNumber: 1,
-      invoicePrefix: 'INV',
+      nextInvoiceSequence: 1,
       defaultDueDateDays: 7,
       footerNote: 'Terms: 1. Goods once sold will not be taken back. 2. Subject to Bangalore Jurisdiction.',
       enableAdvancedInvoiceSystem: true
@@ -108,36 +135,24 @@ export default function InvoicePreview({
       customWidth: customWidth,
       customHeight: customHeight,
       unit: unit as any
+    },
+    appearanceSettings: {
+      theme: 'light'
+    },
+    notificationSettings: {
+      email: true
     }
   };
 
-  const getContainerStyle = () => {
-    let width = '210mm'; 
-    let minHeight = '297mm';
+  const isLandscape = paperSize === 'A4_LANDSCAPE';
+  const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210; // mm
+  const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297; // mm
 
-    if (paperSize === 'A5') width = '148mm';
-    else if (paperSize === 'Thermal80') width = '80mm';
-    else if (paperSize === 'Thermal58') width = '58mm';
-    else if (paperSize === '4x3') width = '4in';
-    else if (paperSize === '4x6') width = '4in';
-    else if (paperSize === 'A4_LANDSCAPE') {
-      width = '297mm';
-      minHeight = '210mm';
-    }
-    else if (paperSize === 'custom' && customWidth) width = `${customWidth}${unit}`;
-
-    const scaleFactor = 0.55;
-
-    return { 
-      width, 
-      minHeight,
-      transform: `scale(${scaleFactor})`, 
-      transformOrigin: 'top center',
-      margin: '0 auto',
-      backgroundColor: 'white',
-      boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
-    };
-  };
+  const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape);
+  const paperScale = paperWidth / baseWidth;
+  
+  const previewScale = 0.55;
+  const displayScale = paperScale * previewScale;
 
   const renderTemplate = () => {
     const props = {
@@ -159,14 +174,30 @@ export default function InvoicePreview({
   };
 
   return (
-    <Card className="shadow-inner h-[600px] overflow-hidden bg-slate-50 flex justify-center border-0">
-      <div className="relative w-full h-full overflow-y-auto overflow-x-hidden p-6">
-        <div className="flex flex-col items-center">
-          <div style={getContainerStyle()} className="bg-white rounded-sm">
+    <Card className="shadow-inner h-[600px] overflow-hidden bg-slate-50 flex justify-center items-start border-0">
+      <div className="relative w-full h-full overflow-y-auto overflow-x-hidden p-6 flex justify-center">
+        <div 
+          className="flex-shrink-0 bg-transparent rounded-sm"
+          style={{
+            width: `${paperWidth * previewScale}mm`,
+            height: `${paperHeight * previewScale}mm`,
+            overflow: 'hidden',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+          }}
+        >
+          <div
+            id="invoice-preview-root"
+            className="bg-white"
+            style={{
+              width: `${baseWidth}mm`,
+              minHeight: `${baseHeight}mm`,
+              transform: `scale(${displayScale})`,
+              transformOrigin: 'top left',
+              boxSizing: 'border-box'
+            }}
+          >
             {renderTemplate()}
           </div>
-          {/* Subtle spacer to account for scaled height and prevent cutoff */}
-          <div className="h-[200px] w-full pointer-events-none" />
         </div>
       </div>
     </Card>
