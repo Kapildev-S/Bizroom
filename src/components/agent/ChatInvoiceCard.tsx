@@ -44,6 +44,7 @@ export default function ChatInvoiceCard({
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -76,15 +77,46 @@ export default function ChatInvoiceCard({
 
   const handleShareLink = async () => {
     setIsCopying(true);
+    const shareUrl = `${window.location.origin}/invoices/${invoiceId}`;
     try {
-      const shareUrl = `${window.location.origin}/invoices/${invoiceId}`;
-      await navigator.clipboard.writeText(shareUrl);
-      toast({ title: "Link Copied!", description: "Invoice link copied to clipboard." });
-    } catch {
-      toast({ variant: "destructive", title: "Error", description: "Could not copy link." });
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title: `Invoice #${invoiceNumber}`,
+          text: `Check out invoice #${invoiceNumber} for ${invoice?.customerName || "customer"}.`,
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: "Link Copied!", description: "Invoice link copied to clipboard." });
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        toast({ variant: "destructive", title: "Error", description: "Could not share link." });
+      }
     } finally {
       setIsCopying(false);
     }
+  };
+
+  const handleDownloadInvoice = () => {
+    setIsDownloading(true);
+    // Create a temporary hidden iframe to trigger PDF generation and download
+    const iframe = document.createElement("iframe");
+    iframe.src = `/invoices/${invoiceId}?download=pdf`;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+
+    // Automatically clean up after generation
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+      setIsDownloading(false);
+      toast({
+        title: "Generating PDF",
+        description: "Your invoice PDF is being prepared and will download shortly.",
+      });
+    }, 4500);
   };
 
   const handleOpenInvoice = () => {
@@ -174,7 +206,21 @@ export default function ChatInvoiceCard({
             onClick={() => setIsDialogOpen(true)}
           >
             <Eye className="h-3.5 w-3.5 mr-1.5" />
-            View Invoice
+            View
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-400"
+            onClick={handleDownloadInvoice}
+            disabled={isDownloading}
+            title="Download PDF"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
           </Button>
           <Button
             size="sm"
@@ -182,6 +228,7 @@ export default function ChatInvoiceCard({
             className="rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-400"
             onClick={handleShareLink}
             disabled={isCopying}
+            title="Share Link"
           >
             {isCopying ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

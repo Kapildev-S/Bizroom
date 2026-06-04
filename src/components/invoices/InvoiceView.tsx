@@ -410,6 +410,18 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     }
   };
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isReady) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('download') === 'pdf') {
+        const timer = setTimeout(() => {
+          handleDownloadPdf();
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isReady]);
+
   const handlePrepareShare = async () => {
     setIsPreparingShare(true);
     setIsReadyToShare(false);
