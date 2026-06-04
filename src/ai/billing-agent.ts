@@ -90,126 +90,130 @@ if (!admin.apps.length) {
 
 const db = admin.apps.length ? admin.firestore() : null;
 
-// ─── Tools ────────────────────────────────────────────────────────────────────
-export const createCustomerTool = ai.defineTool(
-  {
-    name: 'createCustomer',
-    description: 'Create a new customer in the database. Returns the customer ID and details.',
-    inputSchema: z.object({
-      userId: z.string(),
-      name: z.string(),
-      phone: z.string().optional(),
-      email: z.string().optional(),
-      address: z.string().optional(),
-    }),
-    outputSchema: z.any(),
-  },
-  async (input) => {
-    if (!db) throw new Error('Database not initialized');
-    const docRef = await db.collection(`users/${input.userId}/customers`).add({
-      name: input.name,
-      phone: input.phone || '',
-      email: input.email || '',
-      address: input.address || '',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      userId: input.userId,
-    });
-    return { id: docRef.id, ...input, message: 'Customer created successfully' };
-  }
-);
-
-export const getCustomersTool = ai.defineTool(
-  {
-    name: 'getCustomers',
-    description: 'Fetch all registered customers for the user.',
-    inputSchema: z.object({ userId: z.string() }),
-    outputSchema: z.any(),
-  },
-  async (input) => {
-    if (!db) throw new Error('Database not initialized');
-    const snapshot = await db.collection(`users/${input.userId}/customers`).get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  }
-);
-
-export const getProductsTool = ai.defineTool(
-  {
-    name: 'getProducts',
-    description: 'Fetch all registered products/services for the user.',
-    inputSchema: z.object({ userId: z.string() }),
-    outputSchema: z.any(),
-  },
-  async (input) => {
-    if (!db) throw new Error('Database not initialized');
-    const snapshot = await db.collection(`users/${input.userId}/products`).get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  }
-);
-
-export const createInvoiceTool = ai.defineTool(
-  {
-    name: 'createInvoice',
-    description: 'Create a new invoice. Returns the created invoice ID and invoice number.',
-    inputSchema: z.object({
-      userId: z.string(),
-      customerId: z.string(),
-      customerName: z.string(),
-      items: z.array(z.object({
-        productId: z.string(),
-        productName: z.string(),
-        quantity: z.number(),
-        unitPrice: z.number(),
-        totalPrice: z.number(),
-      })),
-      subtotal: z.number(),
-      totalAmount: z.number(),
-    }),
-    outputSchema: z.any(),
-  },
-  async (input) => {
-    if (!db) throw new Error('Database not initialized');
-
-    const counterRef = db.doc(`users/${input.userId}/counters/invoices`);
-    let invoiceNumber = '';
-    let invoiceId = '';
-
-    await db.runTransaction(async (transaction) => {
-      const counterSnap = await transaction.get(counterRef);
-      const lastId = counterSnap.exists ? (counterSnap.data()?.lastId || 0) : 0;
-      const newId = lastId + 1;
-      invoiceNumber = `INV${newId.toString().padStart(3, '0')}`;
-      transaction.set(counterRef, { lastId: newId }, { merge: true });
-
-      const newInvoiceRef = db!.collection(`users/${input.userId}/invoices`).doc();
-      invoiceId = newInvoiceRef.id;
-      transaction.set(newInvoiceRef, {
-        invoiceNumber,
-        customerId: input.customerId,
-        customerName: input.customerName,
-        items: input.items.map(item => ({
-          ...item,
-          mrp: item.unitPrice,
-          taxAmount: 0,
-          gstRate: 0,
-        })),
-        subtotal: input.subtotal || 0,
-        totalAmount: input.totalAmount || 0,
-        taxRate: 0,
-        taxAmount: 0,
-        discountAmount: 0,
-        issueDate: admin.firestore.FieldValue.serverTimestamp(),
-        dueDate: admin.firestore.FieldValue.serverTimestamp(),
-        status: 'sent',
-        currency: 'INR',
-        invoiceType: 'Retail',
+// ─── Tools Factory ────────────────────────────────────────────────────────────
+function getToolsForInstance(aiInstance: ReturnType<typeof genkit>) {
+  const createCustomerTool = aiInstance.defineTool(
+    {
+      name: 'createCustomer',
+      description: 'Create a new customer in the database. Returns the customer ID and details.',
+      inputSchema: z.object({
+        userId: z.string(),
+        name: z.string(),
+        phone: z.string().optional(),
+        email: z.string().optional(),
+        address: z.string().optional(),
+      }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      if (!db) throw new Error('Database not initialized');
+      const docRef = await db.collection(`users/${input.userId}/customers`).add({
+        name: input.name,
+        phone: input.phone || '',
+        email: input.email || '',
+        address: input.address || '',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         userId: input.userId,
       });
-    });
+      return { id: docRef.id, ...input, message: 'Customer created successfully' };
+    }
+  );
 
-    return { invoiceId, invoiceNumber, message: 'Invoice created successfully' };
-  }
-);
+  const getCustomersTool = aiInstance.defineTool(
+    {
+      name: 'getCustomers',
+      description: 'Fetch all registered customers for the user.',
+      inputSchema: z.object({ userId: z.string() }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      if (!db) throw new Error('Database not initialized');
+      const snapshot = await db.collection(`users/${input.userId}/customers`).get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+  );
+
+  const getProductsTool = aiInstance.defineTool(
+    {
+      name: 'getProducts',
+      description: 'Fetch all registered products/services for the user.',
+      inputSchema: z.object({ userId: z.string() }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      if (!db) throw new Error('Database not initialized');
+      const snapshot = await db.collection(`users/${input.userId}/products`).get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+  );
+
+  const createInvoiceTool = aiInstance.defineTool(
+    {
+      name: 'createInvoice',
+      description: 'Create a new invoice. Returns the created invoice ID and invoice number.',
+      inputSchema: z.object({
+        userId: z.string(),
+        customerId: z.string(),
+        customerName: z.string(),
+        items: z.array(z.object({
+          productId: z.string(),
+          productName: z.string(),
+          quantity: z.number(),
+          unitPrice: z.number(),
+          totalPrice: z.number(),
+        })),
+        subtotal: z.number(),
+        totalAmount: z.number(),
+      }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      if (!db) throw new Error('Database not initialized');
+
+      const counterRef = db.doc(`users/${input.userId}/counters/invoices`);
+      let invoiceNumber = '';
+      let invoiceId = '';
+
+      await db.runTransaction(async (transaction) => {
+        const counterSnap = await transaction.get(counterRef);
+        const lastId = counterSnap.exists ? (counterSnap.data()?.lastId || 0) : 0;
+        const newId = lastId + 1;
+        invoiceNumber = `INV${newId.toString().padStart(3, '0')}`;
+        transaction.set(counterRef, { lastId: newId }, { merge: true });
+
+        const newInvoiceRef = db!.collection(`users/${input.userId}/invoices`).doc();
+        invoiceId = newInvoiceRef.id;
+        transaction.set(newInvoiceRef, {
+          invoiceNumber,
+          customerId: input.customerId,
+          customerName: input.customerName,
+          items: input.items.map(item => ({
+            ...item,
+            mrp: item.unitPrice,
+            taxAmount: 0,
+            gstRate: 0,
+          })),
+          subtotal: input.subtotal || 0,
+          totalAmount: input.totalAmount || 0,
+          taxRate: 0,
+          taxAmount: 0,
+          discountAmount: 0,
+          issueDate: admin.firestore.FieldValue.serverTimestamp(),
+          dueDate: admin.firestore.FieldValue.serverTimestamp(),
+          status: 'sent',
+          currency: 'INR',
+          invoiceType: 'Retail',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          userId: input.userId,
+        });
+      });
+
+      return { invoiceId, invoiceNumber, message: 'Invoice created successfully' };
+    }
+  );
+
+  return [createCustomerTool, getCustomersTool, getProductsTool, createInvoiceTool];
+}
 
 // ─── Main Agent Flow ──────────────────────────────────────────────────────────
 export const billingAgentFlow = ai.defineFlow(
@@ -265,9 +269,10 @@ IMPORTANT RULES:
 
     // Generate with automatic key rotation on rate-limit errors
     const response = await withKeyRotation(async (aiInstance) => {
+      const tools = getToolsForInstance(aiInstance);
       return await aiInstance.generate({
         messages: formattedMessages,
-        tools: [createCustomerTool, getCustomersTool, getProductsTool, createInvoiceTool],
+        tools,
         model: 'googleai/gemini-1.5-flash',
       });
     });
