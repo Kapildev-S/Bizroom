@@ -36,7 +36,7 @@ function makeAi(apiKey: string) {
   return genkit({
     plugins: [googleAI({ apiKey })],
     // gemini-1.5-flash: free tier = 15 RPM / 1M TPM (much higher than 2.5-flash)
-    model: 'googleai/gemini-1.5-flash',
+    model: 'googleai/gemini-2.5-flash',
   });
 }
 
@@ -273,7 +273,7 @@ IMPORTANT RULES:
       return await aiInstance.generate({
         messages: formattedMessages,
         tools,
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-2.5-flash',
       });
     });
 
