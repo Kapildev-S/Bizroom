@@ -76,24 +76,27 @@ export default function AgentPage() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
-
       const data = await response.json();
-      
+
+      // Server may return a friendly model message even on rate-limit errors
       if (data.message) {
         setMessages((prev) => [...prev, data.message as Message]);
+      } else if (!response.ok) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: data.error || "Failed to get a response from AI.",
+        });
       } else {
-         toast({ title: "Error", description: "Received unexpected format from AI." });
+        toast({ title: "Error", description: "Received unexpected format from AI." });
       }
-      
+
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to communicate with AI.",
+        title: "Connection Error",
+        description: "Could not reach the AI service. Please check your connection.",
       });
     } finally {
       setIsLoading(false);
