@@ -89,21 +89,25 @@ export function SalesReport() {
       const issueDate = new Date(invoice.issueDate);
       const isAfterFrom = !dateRange?.from || issueDate >= dateRange.from;
       const isBeforeTo = !dateRange?.to || issueDate <= dateRange.to;
-      const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
+      // Treat "Sent" as the full created-bill bucket because newly created invoices
+      // are stored as sent in this app, and reports should include all created bills.
+      const matchesStatus =
+        statusFilter === 'all' ||
+        statusFilter === 'sent' ||
+        invoice.status === statusFilter;
       return isAfterFrom && isBeforeTo && matchesStatus;
     });
   }, [invoices, dateRange, statusFilter]);
 
   const reportData = useMemo(() => {
-    const paidInvoices = filteredInvoices.filter(inv => inv.status === 'paid');
-    const totalRevenue = paidInvoices.reduce((acc, inv) => acc + inv.totalAmount, 0);
+    const totalCreatedValue = filteredInvoices.reduce((acc, inv) => acc + inv.totalAmount, 0);
     const totalInvoices = filteredInvoices.length;
-    const averageInvoiceValue = paidInvoices.length > 0 ? totalRevenue / paidInvoices.length : 0;
+    const averageInvoiceValue = totalInvoices > 0 ? totalCreatedValue / totalInvoices : 0;
     const overdueCount = filteredInvoices.filter(inv => inv.status === 'overdue').length;
 
     // Chart data (sales by month)
     const salesByMonth: { [key: string]: { name: string, sales: number } } = {};
-    paidInvoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       const month = new Date(inv.issueDate).toLocaleString('default', { month: 'short' });
       if (!salesByMonth[month]) {
         salesByMonth[month] = { name: month, sales: 0 };
@@ -113,7 +117,7 @@ export function SalesReport() {
 
     // Top customers
     const salesByCustomer: { [name: string]: number } = {};
-    paidInvoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
         if (!salesByCustomer[inv.customerName]) {
             salesByCustomer[inv.customerName] = 0;
         }
@@ -125,7 +129,7 @@ export function SalesReport() {
         .map(([name, sales]) => ({ name, sales }));
 
     return {
-      totalRevenue,
+      totalRevenue: totalCreatedValue,
       totalInvoices,
       averageInvoiceValue,
       overdueCount,
@@ -197,7 +201,7 @@ export function SalesReport() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{currencySymbol}{reportData.totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">From paid invoices in period</p>
+            <p className="text-xs text-muted-foreground">From all created bills in period</p>
           </CardContent>
         </Card>
         <Card>
@@ -217,7 +221,7 @@ export function SalesReport() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{currencySymbol}{reportData.averageInvoiceValue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">For paid invoices</p>
+            <p className="text-xs text-muted-foreground">For all created bills</p>
           </CardContent>
         </Card>
         <Card>
@@ -236,7 +240,7 @@ export function SalesReport() {
         <Card className="lg:col-span-4">
             <CardHeader>
                 <CardTitle>Revenue Overview</CardTitle>
-                <CardDescription>Paid invoice revenue over the selected period.</CardDescription>
+                <CardDescription>Created bill value over the selected period.</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
                 <ChartContainer config={chartConfig} className="h-[300px] w-full">
@@ -276,7 +280,7 @@ export function SalesReport() {
                     </TableBody>
                 </Table>
               ) : (
-                 <p className="text-sm text-muted-foreground py-4 text-center">No paid invoices in this period to rank customers.</p>
+                 <p className="text-sm text-muted-foreground py-4 text-center">No invoices in this period to rank customers.</p>
               )}
             </CardContent>
         </Card>

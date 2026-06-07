@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import html2canvas from "html2canvas";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, type Timestamp } from "firebase/firestore";
 import type { Invoice } from "@/lib/mockData";
@@ -99,24 +100,128 @@ export default function ChatInvoiceCard({
   };
 
   const handleDownloadInvoice = () => {
-    setIsDownloading(true);
-    // Create a temporary hidden iframe to trigger PDF generation and download
-    const iframe = document.createElement("iframe");
-    iframe.src = `/invoices/${invoiceId}?download=pdf`;
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
+    const downloadAsJpg = async () => {
+      setIsDownloading(true);
 
-    // Automatically clean up after generation
-    setTimeout(() => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe);
+      const iframe = document.createElement("iframe");
+      const iframeUrl = `/invoices/${invoiceId}`;
+      iframe.style.position = "fixed";
+      iframe.style.left = "-9999px";
+      iframe.style.top = "0";
+      iframe.style.width = "1400px";
+      iframe.style.height = "2000px";
+      iframe.style.border = "0";
+
+      const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const waitForInvoiceRoot = async () => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const doc = iframe.contentWindow?.document;
+          const root = doc?.querySelector<HTMLElement>("#invoice-root, #invoice-print-root");
+          if (root) {
+            return root;
+          }
+          await wait(200);
+        }
+        return null;
+      };
+
+      const waitForAssets = async (root: HTMLElement) => {
+        const doc = root.ownerDocument;
+        if (!doc) return;
+
+        try {
+          if (doc.fonts?.ready) {
+            await Promise.race([
+              doc.fonts.ready,
+              wait(3000),
+            ]);
+          }
+        } catch {
+          // Fonts are best-effort for capture.
+        }
+
+        const images = Array.from(root.querySelectorAll("img"));
+        await Promise.all(
+          images.map((img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise<void>((resolve) => {
+                  img.addEventListener("load", () => resolve(), { once: true });
+                  img.addEventListener("error", () => resolve(), { once: true });
+                })
+          )
+        );
+      };
+
+      try {
+        const loadPromise = new Promise<void>((resolve, reject) => {
+          iframe.onload = () => resolve();
+          iframe.onerror = () => reject(new Error("Failed to load invoice page."));
+        });
+
+        document.body.appendChild(iframe);
+        iframe.src = iframeUrl;
+        await loadPromise;
+
+        const invoiceRoot = await waitForInvoiceRoot();
+        if (!invoiceRoot) {
+          throw new Error("Invoice content was not ready for capture after waiting for the iframe to render.");
+        }
+
+        await waitForAssets(invoiceRoot);
+        await wait(100);
+
+        const originalTransform = invoiceRoot.style.transform;
+        invoiceRoot.style.transform = "none";
+        try {
+          const canvas = await html2canvas(invoiceRoot, {
+            scale: 3,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            logging: false,
+            allowTaint: true,
+          });
+
+          const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob(resolve, "image/jpeg", 0.95)
+          );
+
+          if (!blob) {
+            throw new Error("Could not create JPG blob.");
+          }
+
+          const link = document.createElement("a");
+          const fileName = `Invoice_${invoiceNumber}.jpg`;
+          const objectUrl = URL.createObjectURL(blob);
+          link.href = objectUrl;
+          link.download = fileName;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+
+          toast({
+            title: "Invoice Downloaded",
+            description: `Saved as ${fileName}.`,
+          });
+        } finally {
+          invoiceRoot.style.transform = originalTransform;
+        }
+      } catch (error) {
+        console.error("Error generating invoice image:", error);
+        toast({
+          variant: "destructive",
+          title: "Download Failed",
+          description: "Could not generate the JPG invoice. Please try again.",
+        });
+      } finally {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        setIsDownloading(false);
       }
-      setIsDownloading(false);
-      toast({
-        title: "Generating PDF",
-        description: "Your invoice PDF is being prepared and will download shortly.",
-      });
-    }, 4500);
+    };
+
+    void downloadAsJpg();
   };
 
   const handleOpenInvoice = () => {
@@ -214,7 +319,7 @@ export default function ChatInvoiceCard({
             className="rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-400"
             onClick={handleDownloadInvoice}
             disabled={isDownloading}
-            title="Download PDF"
+            title="Download JPG"
           >
             {isDownloading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

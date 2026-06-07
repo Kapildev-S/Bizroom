@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import type { AppSettings, BusinessProfile } from '@/lib/mockData';
 import UserAccountSettings from '@/components/settings/UserAccountSettings';
@@ -23,9 +23,18 @@ import PaymentSettings from '@/components/settings/PaymentSettings';
 export default function SettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("account");
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -202,7 +211,7 @@ export default function SettingsPage() {
         description="Manage your account, business profile, and application preferences."
       />
 
-      <Tabs defaultValue="account" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 h-auto flex-wrap">
           <TabsTrigger value="account"><User className="mr-2 h-4 w-4" />Account</TabsTrigger>
           <TabsTrigger value="business"><Building className="mr-2 h-4 w-4" />Business</TabsTrigger>
