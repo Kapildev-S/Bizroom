@@ -46,7 +46,7 @@ interface InvoiceViewProps {
 const getPaperDimensions = (paperSize: string, isLandscape: boolean) => {
   let width = 210; // mm
   let height = 297; // mm
-  
+
   if (paperSize === 'A5') {
     width = isLandscape ? 210 : 148;
     height = isLandscape ? 148 : 210;
@@ -105,7 +105,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   useEffect(() => {
     const styleId = 'dynamic-print-styles';
     let styleElement = document.getElementById(styleId) as HTMLStyleElement;
-    
+
     if (!styleElement) {
       styleElement = document.createElement('style');
       styleElement.id = styleId;
@@ -114,7 +114,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
     const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-    
+
     let sizeValue = 'A4';
     if (paperSize === 'A5') sizeValue = 'A5';
     else if (paperSize === 'Thermal80') sizeValue = '80mm 297mm';
@@ -263,14 +263,14 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   useEffect(() => {
     const updateScale = () => {
       if (!containerRef.current) return;
-      
+
       const paperSize = settings?.customizationSettings?.paperSize || 'A4';
       const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
       const { width: paperWidth } = getPaperDimensions(paperSize, isLandscape);
-      
+
       const availableWidth = containerRef.current.offsetWidth - 48; // Space minus padding
       const targetWidthPx = paperWidth * 3.7795275591; // mm to Pixels at 96dpi
-      
+
       if (availableWidth < targetWidthPx) {
         const newScale = availableWidth / targetWidthPx;
         setScale(Math.max(newScale, 0.4)); // Don't scale below 40% to keep it readable
@@ -282,7 +282,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     updateScale();
     window.addEventListener('resize', updateScale);
     const timer = setTimeout(updateScale, 500); // Initial adjustment
-    
+
     return () => {
       window.removeEventListener('resize', updateScale);
       clearTimeout(timer);
@@ -324,7 +324,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       window.scrollTo(0, 0);
 
       const canvas = await html2canvas(input, {
-        scale: 3, 
+        scale: 3,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
@@ -337,10 +337,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         parent.setAttribute('style', originalParentStyle);
       }
 
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
       if (!blob) throw new Error('Could not create image blob.');
 
-      return new File([blob], `invoice-${invoice.invoiceNumber}.png`, { type: 'image/png' });
+      return new File([blob], `invoice-${invoice.invoiceNumber}.jpg`, { type: 'image/jpeg' });
     } catch (error) {
       console.error("Image generation failed:", error);
       input.style.transform = originalTransform;
@@ -370,7 +370,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     if (!input) return;
 
     setIsDownloadingPdf(true);
-    
+
     // Snapshot Mode: Reset scale to 1:1
     const originalTransform = input.style.transform;
     input.style.transform = 'none';
@@ -379,7 +379,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       window.scrollTo(0, 0);
 
       const canvas = await html2canvas(input, {
-        scale: 2, 
+        scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
@@ -389,7 +389,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       input.style.transform = originalTransform;
 
       const imgData = canvas.toDataURL('image/png', 1.0);
-      
+
       const isLandscape = orientation === 'landscape' || (settings?.customizationSettings?.paperSize === 'A4_LANDSCAPE');
       const paperSize = settings?.customizationSettings?.paperSize || 'A4';
       const { width: pdfWidth, height: pdfHeight } = getPaperDimensions(paperSize, isLandscape);
@@ -438,20 +438,43 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const handleNativeShare = async () => {
     if (!shareableFile) return;
     try {
-      const canShare = navigator.canShare ? navigator.canShare({ files: [shareableFile] }) : true;
-      if (navigator.share && canShare) {
+      // Try to share the image file directly (works on Android, some iOS versions)
+      const canShareFiles = navigator.canShare ? navigator.canShare({ files: [shareableFile] }) : false;
+
+      if (navigator.share && canShareFiles) {
         await navigator.share({
           files: [shareableFile],
           title: `Invoice ${invoice.invoiceNumber}`,
         });
         setIsReadyToShare(false);
-      } else {
-        handleDownloadImage();
+        return;
       }
+
+      // If file sharing isn't supported (e.g., iOS Safari), download first then trigger share
+      // Download the file to the device first
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(shareableFile);
+      link.download = shareableFile.name;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      // Then try native share with text only (user can attach the downloaded image)
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Invoice ${invoice.invoiceNumber}`,
+            text: `Invoice ${invoice.invoiceNumber} from BizRoom`,
+          });
+        } catch (_) {
+          // Ignore abort errors
+        }
+      }
+
+      setIsReadyToShare(false);
     } catch (error: any) {
       if (error.name !== 'AbortError') {
-        console.error("Sharing failed:", error);
-        toast({ variant: 'destructive', title: 'Sharing Failed', description: 'Could not share the image.' });
+        // Fallback: just download
+        handleDownloadImage();
       }
     }
   };
@@ -502,7 +525,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
     const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-    
+
     const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
     const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297;
 
@@ -512,14 +535,14 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
     if (forPrint) {
       return (
-        <Card 
-          id="invoice-print-root" 
+        <Card
+          id="invoice-print-root"
           className={`flex-shrink-0 bg-white shadow-none ring-0 ${getPaperClass()}`}
           style={{
             width: `${baseWidth}mm`,
             minHeight: `${baseHeight}mm`,
             boxSizing: 'border-box'
-          }} 
+          }}
         >
           {template === 'gst' ? <GstTaxInvoice {...templateProps} /> : (
             template === 'modern' ? <ModernInvoice {...templateProps} /> : (
@@ -533,7 +556,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     }
 
     return (
-      <div 
+      <div
         className="flex-shrink-0 bg-transparent"
         style={{
           width: `${paperWidth * scale}mm`,
@@ -541,8 +564,8 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           overflow: 'hidden'
         }}
       >
-        <Card 
-          id="invoice-root" 
+        <Card
+          id="invoice-root"
           className={`flex-shrink-0 bg-white shadow-none ring-0 ${getPaperClass()}`}
           style={{
             width: `${baseWidth}mm`,
@@ -550,7 +573,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
             transform: `scale(${displayScale})`,
             transformOrigin: 'top left',
             boxSizing: 'border-box'
-          }} 
+          }}
         >
           {template === 'gst' ? <GstTaxInvoice {...templateProps} /> : (
             template === 'modern' ? <ModernInvoice {...templateProps} /> : (
@@ -579,23 +602,23 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   return (
     <>
       <div id="invoice-content" className="w-full flex flex-col items-center gap-8 py-8 animate-in fade-in duration-500">
-        
+
         {/* Paper View Area */}
         <div className="w-full flex justify-center px-4 no-print" ref={containerRef}>
-          <div 
+          <div
             className="w-full max-w-full overflow-x-auto pb-10 pt-4 flex justify-center bg-slate-50/50 rounded-3xl border border-slate-100 shadow-inner"
-            style={{ 
-              minHeight: `${paperHeight * 3.7795275591 * scale}px` 
+            style={{
+              minHeight: `${paperHeight * 3.7795275591 * scale}px`
             }}
           >
             {renderInvoice(false)}
           </div>
         </div>
-        
+
         {/* Professional Action Bar */}
         <div id="invoice-action-buttons" className="w-full max-w-[1000px] px-4 no-print sticky bottom-6 z-50">
           <Card className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-4 flex flex-col md:flex-row items-center gap-6 justify-between overflow-hidden">
-            
+
             <div className="flex items-center gap-5 w-full md:w-auto border-b md:border-b-0 pb-4 md:pb-0 border-slate-100">
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold ml-1">Document Status</span>
@@ -607,17 +630,17 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
             <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 w-full md:w-auto">
               {invoice.status !== 'paid' && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => onUpdateStatus('paid')} 
+                <Button
+                  variant="outline"
+                  onClick={() => onUpdateStatus('paid')}
                   className="h-12 px-6 rounded-2xl border-emerald-200 text-emerald-600 hover:bg-emerald-600 hover:text-white font-bold transition-all"
                 >
                   <CreditCard className="mr-2 h-5 w-5" /> Paid
                 </Button>
               )}
 
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => window.print()}
                 className="h-12 px-5 rounded-2xl bg-neutral-900 text-white hover:bg-black font-bold"
               >
@@ -627,17 +650,17 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
               <div className="h-8 w-px bg-slate-100 mx-1 hidden sm:block"></div>
 
               {isReadyToShare ? (
-                <Button 
-                  variant="default" 
-                  onClick={handleNativeShare} 
+                <Button
+                  variant="default"
+                  onClick={handleNativeShare}
                   className="h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-bold"
                 >
                   <Share2 className="h-5 w-5" /> Send
                 </Button>
               ) : (
-                <Button 
-                  variant="outline" 
-                  onClick={handlePrepareShare} 
+                <Button
+                  variant="outline"
+                  onClick={handlePrepareShare}
                   disabled={isPreparingShare || isDownloading || !isReady}
                   className="h-12 px-5 rounded-2xl font-bold border-slate-200"
                 >
@@ -646,9 +669,9 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
                 </Button>
               )}
 
-              <Button 
-                variant="outline" 
-                onClick={handleDownloadImage} 
+              <Button
+                variant="outline"
+                onClick={handleDownloadImage}
                 disabled={isDownloading || !isReady}
                 className="h-12 px-5 rounded-2xl font-bold border-slate-200"
               >
@@ -656,9 +679,9 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
                 Image
               </Button>
 
-              <Button 
-                variant="outline" 
-                onClick={handleDownloadPdf} 
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
                 disabled={isDownloadingPdf || !isReady}
                 className="h-12 px-5 rounded-2xl font-bold border-slate-200"
               >

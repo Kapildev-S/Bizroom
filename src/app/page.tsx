@@ -106,9 +106,9 @@ export default function HomePage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // If user is logged in, redirect them to the dashboard.
+        // If user is logged in, redirect them to the AI agent page.
         // router.replace prevents the marketing page from being in browser history.
-        router.replace('/dashboard');
+        router.replace('/agent');
       } else {
         // If no user, stop loading and show the marketing page.
         setLoading(false);

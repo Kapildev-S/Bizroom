@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -11,25 +11,39 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowUpRight,
   Bell,
   Bot,
+  Bookmark,
+  BookmarkCheck,
   CircleHelp,
   ChevronRight,
   HelpCircle,
-  History,
   LayoutGrid,
   Loader2,
   LogOut,
   Menu,
   MessageSquareText,
   Mic,
+  MicOff,
   Package,
   Palette,
   Receipt,
   Send,
   Sparkles,
   SquarePlus,
+  Trash2,
   User as UserIcon,
   Users,
   Wand2,
@@ -65,6 +79,7 @@ type ChatSession = {
   messages: Message[];
   createdAt: number;
   updatedAt: number;
+  bookmarked?: boolean;
 };
 
 const quickPrompts = [
@@ -77,7 +92,7 @@ const quickPrompts = [
 const navItems = [
   { icon: LayoutGrid, label: "Dashboard", active: false },
   { icon: MessageSquareText, label: "Recent Chats", active: true },
-  { icon: History, label: "History", active: false },
+  { icon: BookmarkCheck, label: "Bookmarks", active: false },
   { icon: Palette, label: "Customization", active: false },
 ];
 
@@ -100,8 +115,12 @@ export default function AgentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [recentChatsOpen, setRecentChatsOpen] = useState(true);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const storageKey = useMemo(() => {
     return user ? `${STORAGE_PREFIX}:${user.uid}` : null;
@@ -113,6 +132,10 @@ export default function AgentPage() {
   }, [activeSessionId, sessions]);
 
   const activeMessages = activeSession?.messages || [];
+
+  const bookmarkedSessions = useMemo(() => {
+    return sessions.filter((s) => s.bookmarked);
+  }, [sessions]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -133,6 +156,7 @@ export default function AgentPage() {
             .map((session) => ({
               ...session,
               title: session.title || "New Chat",
+              bookmarked: session.bookmarked || false,
             }))
             .sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -154,6 +178,7 @@ export default function AgentPage() {
         messages: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        bookmarked: false,
       },
     ]);
     setActiveSessionId(freshId);
@@ -187,6 +212,7 @@ export default function AgentPage() {
           messages: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          bookmarked: false,
         },
         ...prev,
       ].sort((a, b) => b.updatedAt - a.updatedAt)
@@ -268,9 +294,80 @@ export default function AgentPage() {
     }
   };
 
+  const toggleBookmark = (sessionId: string) => {
+    updateSession(sessionId, (session) => ({
+      ...session,
+      bookmarked: !session.bookmarked,
+    }));
+    toast({
+      title: sessions.find((s) => s.id === sessionId)?.bookmarked ? "Removed from Bookmarks" : "Added to Bookmarks",
+    });
+  };
+
+  const deleteSession = (sessionId: string) => {
+    setSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== sessionId);
+      const sorted = filtered.sort((a, b) => b.updatedAt - a.updatedAt);
+
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(sorted[0]?.id || null);
+      }
+
+      return sorted;
+    });
+    setDeleteConfirmId(null);
+    toast({
+      title: "Chat deleted",
+    });
+  };
+
+  const startListening = useCallback(() => {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      toast({
+        variant: "destructive",
+        title: "Voice Not Supported",
+        description: "Speech recognition is not available on this browser.",
+      });
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast({
+        variant: "destructive",
+        title: "Voice Error",
+        description: "Could not capture voice. Please try again.",
+      });
+    };
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => (prev ? prev + " " + transcript : transcript));
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [toast]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
   const selectSession = (sessionId: string) => {
     setActiveSessionId(sessionId);
     setRecentChatsOpen(false);
+    setBookmarksOpen(false);
     setMobileSidebarOpen(false);
   };
 
@@ -303,6 +400,29 @@ export default function AgentPage() {
       });
     }
   };
+
+  const handleDeleteChat = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    setDeleteConfirmId(sessionId);
+  };
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  // Update new chat default to include bookmarked
+  useEffect(() => {
+    if (!hydrated && sessions.length > 0 && !sessions[0].hasOwnProperty("bookmarked")) {
+      setSessions((prev) =>
+        prev.map((s) => ({ ...s, bookmarked: s.bookmarked || false }))
+      );
+    }
+  }, [hydrated, sessions]);
 
   if (loading || !hydrated) {
     return (
@@ -342,6 +462,28 @@ export default function AgentPage() {
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-[#f4f7ff] text-[#17313a]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(15,111,128,0.06),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(0,180,216,0.05),transparent_24%)]" />
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chat</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this chat? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => deleteConfirmId && deleteSession(deleteConfirmId)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Mobile Sidebar */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/25 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <aside
@@ -365,7 +507,7 @@ export default function AgentPage() {
                     <button
                       key={item.label}
                       type="button"
-                      onClick={() => setRecentChatsOpen((open) => !open)}
+                      onClick={() => { setRecentChatsOpen((open) => !open); setBookmarksOpen(false); }}
                       className={[
                         "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition",
                         recentChatsOpen
@@ -376,6 +518,30 @@ export default function AgentPage() {
                       <Icon className="h-4 w-4" />
                       {item.label}
                       <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${recentChatsOpen ? "rotate-90" : "rotate-0"}`} />
+                    </button>
+                  );
+                }
+                if (item.label === "Bookmarks") {
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => { setBookmarksOpen((open) => !open); setRecentChatsOpen(false); }}
+                      className={[
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition",
+                        bookmarksOpen
+                          ? "bg-[#dfe9ff] text-[#0f6f80] font-medium shadow-sm"
+                          : "text-slate-600 hover:bg-white",
+                      ].join(" ")}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                      {bookmarkedSessions.length > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[#0f6f80] text-[10px] text-white">
+                          {bookmarkedSessions.length}
+                        </span>
+                      )}
+                      <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${bookmarksOpen ? "rotate-90" : "rotate-0"} ${bookmarkedSessions.length > 0 ? "hidden" : ""}`} />
                     </button>
                   );
                 }
@@ -423,27 +589,64 @@ export default function AgentPage() {
               })}
             </nav>
 
+            {/* Mobile Recent Chats */}
             <div className={recentChatsOpen ? "mt-3 rounded-2xl border border-white/70 bg-white/75 p-3 shadow-sm backdrop-blur" : "hidden"}>
               <div className="space-y-2">
                 {recentChats.map((session) => (
-                  <button
-                    key={session.id}
-                    type="button"
-                    onClick={() => selectSession(session.id)}
-                    className={[
-                      "w-full rounded-xl border px-3 py-2 text-left transition",
-                      session.id === activeSessionId
-                        ? "border-[#0f6f80]/20 bg-[#dfe9ff] shadow-sm"
-                        : "border-transparent bg-white hover:border-black/5 hover:bg-slate-50",
-                    ].join(" ")}
-                  >
-                    <p className="truncate text-sm font-medium text-slate-800">{session.title}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {session.messages.length ? `${session.messages.length} messages` : "Empty"}
-                    </p>
-                  </button>
+                  <div key={session.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => selectSession(session.id)}
+                      className={[
+                        "flex-1 rounded-xl border px-3 py-2 text-left transition",
+                        session.id === activeSessionId
+                          ? "border-[#0f6f80]/20 bg-[#dfe9ff] shadow-sm"
+                          : "border-transparent bg-white hover:border-black/5 hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      <p className="truncate text-sm font-medium text-slate-800">{session.title}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {session.messages.length ? `${session.messages.length} messages` : "Empty"}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleBookmark(session.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-yellow-500"
+                    >
+                      {session.bookmarked ? <BookmarkCheck className="h-4 w-4 fill-yellow-400 text-yellow-400" /> : <Bookmark className="h-4 w-4" />}
+                    </button>
+                  </div>
                 ))}
               </div>
+            </div>
+
+            {/* Mobile Bookmarks */}
+            <div className={bookmarksOpen ? "mt-3 rounded-2xl border border-white/70 bg-white/75 p-3 shadow-sm backdrop-blur" : "hidden"}>
+              {bookmarkedSessions.length === 0 ? (
+                <p className="py-4 text-center text-xs text-slate-400">No bookmarked chats yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {bookmarkedSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      onClick={() => selectSession(session.id)}
+                      className={[
+                        "w-full rounded-xl border px-3 py-2 text-left transition",
+                        session.id === activeSessionId
+                          ? "border-[#0f6f80]/20 bg-[#dfe9ff] shadow-sm"
+                          : "border-transparent bg-white hover:border-black/5 hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      <p className="truncate text-sm font-medium text-slate-800">{session.title}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {session.messages.length ? `${session.messages.length} messages` : "Empty"}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-4 space-y-1">
@@ -469,8 +672,9 @@ export default function AgentPage() {
       )}
 
       <div className="relative flex min-h-[calc(100vh-4rem)]">
-        <aside className="hidden w-[250px] flex-shrink-0 border-r border-[#d9e3f7] bg-[#eef4ff] md:flex md:flex-col">
-          <div className="p-4">
+        {/* Desktop Sidebar */}
+        <aside className="hidden w-[260px] flex-shrink-0 border-r border-[#d9e3f7] bg-[#eef4ff] md:flex md:flex-col">
+          <div className="p-4 pb-2">
             <div className="rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-[0_10px_30px_rgba(15,111,128,0.06)] backdrop-blur">
               <p className="text-[28px] font-extrabold leading-none tracking-tight text-[#0f6f80]">BizRoom</p>
               <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-500">AI Assistant</p>
@@ -486,7 +690,7 @@ export default function AgentPage() {
             </Button>
           </div>
 
-          <nav className="space-y-2 px-3">
+          <nav className="space-y-1 px-3">
             {navItems.map((item) => {
               const Icon = item.icon;
               if (item.label === "Recent Chats") {
@@ -494,7 +698,7 @@ export default function AgentPage() {
                   <button
                     key={item.label}
                     type="button"
-                    onClick={() => setRecentChatsOpen((open) => !open)}
+                    onClick={() => { setRecentChatsOpen((open) => !open); setBookmarksOpen(false); }}
                     className={[
                       "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition",
                       recentChatsOpen
@@ -502,9 +706,33 @@ export default function AgentPage() {
                         : "text-slate-500 hover:bg-white hover:text-slate-700",
                     ].join(" ")}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 flex-shrink-0" />
                     {item.label}
                     <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${recentChatsOpen ? "rotate-90" : "rotate-0"}`} />
+                  </button>
+                );
+              }
+              if (item.label === "Bookmarks") {
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => { setBookmarksOpen((open) => !open); setRecentChatsOpen(false); }}
+                    className={[
+                      "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition",
+                      bookmarksOpen
+                        ? "bg-[#dfe9ff] text-[#0f6f80] font-medium shadow-sm"
+                        : "text-slate-500 hover:bg-white hover:text-slate-700",
+                    ].join(" ")}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    {item.label}
+                    {bookmarkedSessions.length > 0 && (
+                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[#0f6f80] text-[10px] text-white">
+                        {bookmarkedSessions.length}
+                      </span>
+                    )}
+                    <ChevronRight className={`h-4 w-4 transition-transform ${bookmarksOpen ? "rotate-90" : "rotate-0"} ${bookmarkedSessions.length > 0 ? "hidden" : ""}`} />
                   </button>
                 );
               }
@@ -552,33 +780,99 @@ export default function AgentPage() {
             })}
           </nav>
 
-          <div className={recentChatsOpen ? "mt-3 px-3" : "hidden"}>
-            <div className="rounded-[24px] border border-white/70 bg-white/75 p-3 shadow-[0_10px_30px_rgba(15,111,128,0.06)] backdrop-blur">
-              <div className="max-h-[260px] space-y-2 overflow-auto pr-1">
+          {/* Recent Chats Panel */}
+          <div className={recentChatsOpen ? "mt-2 flex-1 overflow-hidden px-3" : "hidden"}>
+            <div className="flex h-full flex-col rounded-[24px] border border-white/70 bg-white/75 p-3 shadow-[0_10px_30px_rgba(15,111,128,0.06)] backdrop-blur">
+              <div className="flex-1 space-y-1.5 overflow-auto pr-1">
                 {recentChats.map((session) => (
-                  <button
-                    key={session.id}
-                    type="button"
-                    onClick={() => selectSession(session.id)}
-                    className={[
-                      "w-full rounded-2xl border px-3 py-2.5 text-left transition",
-                      session.id === activeSessionId
-                        ? "border-[#0f6f80]/20 bg-[#dfe9ff] shadow-sm"
-                        : "border-transparent bg-white hover:border-black/5 hover:bg-slate-50",
-                    ].join(" ")}
-                  >
-                    <p className="truncate text-sm font-medium text-slate-800">{session.title}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {session.messages.length ? `${session.messages.length} messages` : "Empty"}
-                    </p>
-                  </button>
+                  <div key={session.id} className="group flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => selectSession(session.id)}
+                      className={[
+                        "flex-1 rounded-2xl border px-3 py-2.5 text-left transition",
+                        session.id === activeSessionId
+                          ? "border-[#0f6f80]/20 bg-[#dfe9ff] shadow-sm"
+                          : "border-transparent bg-white hover:border-black/5 hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      <p className="truncate text-sm font-medium text-slate-800">{session.title}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {session.messages.length ? `${session.messages.length} messages` : "Empty"}
+                      </p>
+                    </button>
+                    <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => toggleBookmark(session.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-yellow-500"
+                        title={session.bookmarked ? "Remove bookmark" : "Add bookmark"}
+                      >
+                        {session.bookmarked ? (
+                          <BookmarkCheck className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                        ) : (
+                          <Bookmark className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteChat(e, session.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-red-500"
+                        title="Delete chat"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="mt-4 px-3 pb-4">
-            <div className="space-y-1 pb-4">
+          {/* Bookmarks Panel */}
+          <div className={bookmarksOpen ? "mt-2 flex-1 overflow-hidden px-3" : "hidden"}>
+            <div className="flex h-full flex-col rounded-[24px] border border-white/70 bg-white/75 p-3 shadow-[0_10px_30px_rgba(15,111,128,0.06)] backdrop-blur">
+              {bookmarkedSessions.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <p className="text-xs text-slate-400">No bookmarked chats yet.<br />Click the bookmark icon on any chat.</p>
+                </div>
+              ) : (
+                <div className="flex-1 space-y-1.5 overflow-auto pr-1">
+                  {bookmarkedSessions.map((session) => (
+                    <div key={session.id} className="group flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => selectSession(session.id)}
+                        className={[
+                          "flex-1 rounded-2xl border px-3 py-2.5 text-left transition",
+                          session.id === activeSessionId
+                            ? "border-[#0f6f80]/20 bg-[#dfe9ff] shadow-sm"
+                            : "border-transparent bg-white hover:border-black/5 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        <p className="truncate text-sm font-medium text-slate-800">{session.title}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {session.messages.length ? `${session.messages.length} messages` : "Empty"}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleBookmark(session.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-yellow-400 hover:bg-white"
+                        title="Remove bookmark"
+                      >
+                        <BookmarkCheck className="h-3.5 w-3.5 fill-yellow-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar Footer */}
+          <div className="mt-auto px-3 pb-4">
+            <div className="space-y-1">
               <button type="button" onClick={handleHelp} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-slate-500 hover:bg-white">
                 <HelpCircle className="h-4 w-4" />
                 Help
@@ -589,7 +883,7 @@ export default function AgentPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 px-1 py-2">
+            <div className="mt-2 flex items-center gap-3 px-1 py-2">
               <Avatar className="h-9 w-9 border border-black/5">
                 <AvatarFallback className="bg-slate-900 text-white">
                   {user.displayName?.slice(0, 1)?.toUpperCase() || "A"}
@@ -603,6 +897,7 @@ export default function AgentPage() {
           </div>
         </aside>
 
+        {/* Main Content */}
         <main className="relative flex min-w-0 flex-1 flex-col">
           <header className="flex h-[44px] items-center justify-between border-b border-[#d9e3f7] bg-[#f7f9ff] px-4 md:px-5">
             <div className="flex items-center gap-2 text-[12px] text-slate-700">
@@ -801,8 +1096,16 @@ export default function AgentPage() {
                             className="h-12 border-0 bg-transparent text-white placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                             disabled={isLoading}
                           />
-                          <button type="button" className="rounded-lg p-2 text-slate-400 hover:text-white" aria-label="Voice">
-                            <Mic className="h-4 w-4" />
+                          <button
+                            type="button"
+                            onClick={isListening ? stopListening : startListening}
+                            className={`rounded-lg p-2 transition ${isListening
+                              ? "text-green-400 bg-green-400/10 animate-pulse"
+                              : "text-slate-400 hover:text-white"
+                              }`}
+                            aria-label={isListening ? "Stop listening" : "Voice input"}
+                          >
+                            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                           </button>
                           <Button
                             type="submit"

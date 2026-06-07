@@ -103,14 +103,14 @@ export default function HelpPage() {
                   <div className="mt-3 space-y-3 text-sm text-slate-600">
                     <div className="flex items-center gap-3">
                       <Mail className="h-4 w-4 text-[#0f6f80]" />
-                      <a href="mailto:support@bizroom.in" className="hover:text-[#0f6f80]">
-                        support@bizroom.in
+                      <a href="mailto:info@bizroom.in" className="hover:text-[#0f6f80]">
+                        info@bizroom.in
                       </a>
                     </div>
                     <div className="flex items-center gap-3">
                       <Phone className="h-4 w-4 text-[#0f6f80]" />
-                      <a href="tel:+919999999999" className="hover:text-[#0f6f80]">
-                        +91 99999 99999
+                      <a href="tel:9655613399" className="hover:text-[#0f6f80]">
+                        9655613399
                       </a>
                     </div>
                   </div>
