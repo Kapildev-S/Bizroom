@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Banknote, Users, FileText, Loader2 } from "lucide-react";
+import { Banknote, Users, FileText, Loader2, Calculator } from "lucide-react";
 import {
     ChartContainer,
     ChartTooltip,
@@ -58,8 +58,8 @@ export default function DashboardClient() {
                         return {
                             id: doc.id,
                             ...data,
-                            issueDate: (data.issueDate as Timestamp).toDate().toISOString(),
-                            dueDate: (data.dueDate as Timestamp).toDate().toISOString(),
+                            issueDate: typeof data.issueDate === 'string' ? data.issueDate : (data.issueDate?.toDate ? data.issueDate.toDate().toISOString() : new Date().toISOString()),
+                            dueDate: typeof data.dueDate === 'string' ? data.dueDate : (data.dueDate?.toDate ? data.dueDate.toDate().toISOString() : new Date().toISOString()),
                         } as Invoice;
                     });
                     setInvoices(allFetchedInvoices);
@@ -165,6 +165,13 @@ export default function DashboardClient() {
                         <h2 className="text-3xl font-bold tracking-tight font-headline">Welcome, {currentUser?.displayName || 'User'}!</h2>
                         <p className="text-muted-foreground">Your business overview will appear here once you have some data.</p>
                     </div>
+                    <div className="flex gap-2">
+                        <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform hover:scale-105">
+                            <Link href="/pos">
+                                <Calculator className="mr-2 h-5 w-5" /> Open POS Terminal
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
                 <EmptyState
                     title="Your Dashboard is Empty"
@@ -197,6 +204,13 @@ export default function DashboardClient() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
                     <p className="text-muted-foreground">Here's a quick overview of your business.</p>
+                </div>
+                <div className="flex gap-2">
+                    <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform hover:scale-105">
+                        <Link href="/pos">
+                            <Calculator className="mr-2 h-5 w-5" /> Open POS Terminal
+                        </Link>
+                    </Button>
                 </div>
             </div>
 

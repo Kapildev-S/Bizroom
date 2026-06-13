@@ -21,8 +21,9 @@ export function PWAInstallPrompt() {
             return;
         }
 
-        // Register service worker
-        if ('serviceWorker' in navigator) {
+        // Register service worker — skip in Capacitor native WebView (no SW support)
+        const isCapacitor = typeof (window as any).Capacitor !== 'undefined';
+        if ('serviceWorker' in navigator && !isCapacitor) {
             navigator.serviceWorker
                 .register('/sw.js')
                 .then((registration) => {

@@ -13,6 +13,24 @@ type AgentMessage = {
 type BillingRouterResult = {
   message: AgentMessage;
   invoiceCard?: { invoiceId: string; invoiceNumber: string } | null;
+  reportCard?: ReportCard | null;
+};
+
+type ReportCard = {
+  title: string;
+  periodLabel: string;
+  totalRevenue: number;
+  totalInvoices: number;
+  averageInvoiceValue: number;
+  paidRevenue: number;
+  totalPaid: number;
+  totalUnpaid: number;
+  statusDistribution: Array<{ name: string; value: number; color: string }>;
+  monthlyTrend: Array<{ name: string; sales: number; count: number }>;
+  topCustomers: Array<{ name: string; sales: number }>;
+  topProducts: Array<{ name: string; qty: number; revenue: number }>;
+  highlights: string[];
+  exportRows: Array<Record<string, string | number>>;
 };
 
 type InvoiceDraftItem = {
@@ -23,6 +41,7 @@ type InvoiceDraftItem = {
 
 type InvoiceDraft = {
   customerName: string;
+  customerPhone?: string;
   items: InvoiceDraftItem[];
 };
 
@@ -47,6 +66,25 @@ const normalizeText = (value: string) =>
     .replace(/[^\w\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+const extractPhoneNumber = (text: string) => {
+  const match = text.match(/\b(?:mobile|phone|tel|contact)\s*(?:no|number)?\s*[:\-]?\s*([+\d][\d\s\-]{7,}\d)\b/i);
+  return match?.[1]?.replace(/[^\d+]/g, '').trim() || '';
+};
+
+const normalizeProductQuery = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b(recharges)\b$/i, 'recharge')
+    .replace(/\b(domains)\b$/i, 'domain')
+    .replace(/\b(websites)\b$/i, 'website');
+
+const splitInvoiceItemSegments = (text: string) =>
+  text
+    .split(/\s*(?:,|;|\n|\s+\+\s+|\s+\band\b\s+|\s+\bplus\b\s+|\s+\bwith\b\s+|\s+\bincluding\b\s+)\s*/i)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
 
 const formatCurrency = (amount: number, currency = 'INR') =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount);
@@ -194,89 +232,125 @@ const parseInvoiceLookup = (text: string) => {
   return match?.[1] || null;
 };
 
+const parseInvoiceItemSegment = (segment: string): InvoiceDraftItem | null => {
+  const compact = segment.replace(/\s+/g, ' ').trim();
+  if (!compact) return null;
+
+  const patterns: RegExp[] = [
+    // "3 recharges at 199 each"
+    /^(\d+)\s+(.+?)\s+(?:at|@|for)\s*(?:[₹$])?\s*([\d.,]+)\s*(?:each|per|pc|piece|unit|units)?$/i,
+    // "Recharge 2 qty ₹199" or "Recharge 2 qty at ₹199 each"
+    /^(.+?)\s+(\d+)\s*(?:qty|quantity|units?|pcs?|pc)\s*(?:at|@|for|rate|price)?\s*(?:[₹$])?\s*([\d.,]+)\s*(?:each|per|pc|piece|unit|units)?$/i,
+    // "2 recharge at ₹199 each"
+    /^(\d+)\s+(.+?)\s+(?:at|@|for|of|rate|price)\s*(?:[₹$])?\s*([\d.,]+)\s*(?:each|per|pc|piece|unit|units)?$/i,
+    // "Recharge @199 x 3" or "Recharge ₹199 qty 3"
+    /^(.+?)\s*(?:@|at|for|rate|price)\s*(?:[₹$])?\s*([\d.,]+)\s*(?:x\s*)?(\d+)?\s*(?:qty|quantity|units?|pcs?|pc|each|per)?$/i,
+    // "Recharge ₹199"
+    /^(.+?)\s*(?:[₹$])?\s*([\d.,]+)\s*$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = compact.match(pattern);
+    if (!match) continue;
+
+    let productQuery = '';
+    let quantity = 1;
+    let unitPrice = 0;
+
+    if (pattern === patterns[0]) {
+      quantity = Number(match[1]);
+      productQuery = match[2].trim();
+      unitPrice = Number(match[3].replace(/,/g, ''));
+    } else if (pattern === patterns[1]) {
+      productQuery = match[1].trim();
+      quantity = Number(match[2]);
+      unitPrice = Number(match[3].replace(/,/g, ''));
+    } else if (pattern === patterns[2]) {
+      productQuery = match[1].trim();
+      unitPrice = Number(match[2].replace(/,/g, ''));
+      quantity = Number(match[3] || 1);
+    } else {
+      productQuery = match[1].trim();
+      unitPrice = Number(match[2].replace(/,/g, ''));
+      quantity = Number(match[3] || 1);
+    }
+
+    productQuery = productQuery.replace(/^[\d\sx]+/i, '').trim();
+    if (!/[a-z]/i.test(productQuery) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) continue;
+
+    const stripped = normalizeProductQuery(
+      productQuery.replace(/\b(recharge|domain|website|bill|invoice|qty|quantity|each|per|pc|piece|rate|price|item|items)\b$/i, '').trim()
+    );
+    return {
+      productQuery: stripped || productQuery,
+      quantity,
+      unitPrice,
+    };
+  }
+
+  return null;
+};
+
 const parseSimpleInvoiceDraft = (text: string): InvoiceDraft | null => {
-  // Strip out "add discount X%" and "mobile no:" / "phone:" parts
+  // Strip out discount language while keeping the rest of the request intact.
   let cleanText = text
     .replace(/\b(?:add|apply|give)\s+discount\s+\d+\s*%/gi, '')
-    .replace(/\b(?:mobile|phone|tel)\s*(?:no|number)?\s*:?\s*[+\d]+/gi, '')
+    .replace(/^[\"']|[\"']$/g, '')
     .trim();
 
-  // Extract customer name: "create bill for kapil" or "bill for John"
-  const customerMatch = cleanText.match(/(?:bill|invoice|make bill|make invoice|create bill|create invoice)\s+for\s+(.+?)(?:\s+with\s+|\s+and\s+|$)/i);
-  const customerName = customerMatch?.[1]?.trim();
+  const phoneMatch = extractPhoneNumber(cleanText);
+  let customerPhone = phoneMatch;
+  if (phoneMatch) {
+    cleanText = cleanText.replace(/\b(?:mobile|phone|tel|contact)\s*(?:no|number)?\s*[:\-]?\s*[+\d][\d\s\-]{7,}\d\b/i, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Extract customer name from a wider set of billing verbs and connectors.
+  const customerMatch = cleanText.match(/(?:bill|invoice|make bill|make invoice|create bill|create invoice|generate bill|generate invoice|raise bill|raise invoice|prepare bill|prepare invoice)\s+(?:for|to|of)\s+(.+)/i);
+  const requestTail = customerMatch?.[1]?.trim().replace(/^[\"']|[\"']$/g, '');
+  if (!requestTail) return null;
+
+  const separatorMatch = requestTail.match(/\s*(,|\bwith\b|\bplus\b|\bincluding\b|\band\b)\s+/i);
+  const separatorIndex = separatorMatch?.index ?? requestTail.length;
+  let customerName = separatorMatch
+    ? requestTail.slice(0, separatorIndex).trim()
+    : requestTail.replace(/\s*(?:,|;)\s*$/, '').trim();
   if (!customerName) return null;
 
-  // Get everything after "with" (or after the customer name clause if no "with")
-  const withIndex = cleanText.search(/\bwith\b/i);
-  const itemsSection = withIndex >= 0
-    ? cleanText.substring(withIndex + 4).trim()
-    : cleanText.replace(customerMatch?.[0] || '', '').trim();
+  // Extract phone number from customer name if it is embedded there.
+  if (!customerPhone) {
+    const embeddedPhone = customerName.match(/(?:\+?\d[\d\s-]{8,}\d)/);
+    if (embeddedPhone) {
+      customerPhone = embeddedPhone[0].replace(/[^\d+]/g, '').trim();
+      customerName = customerName.replace(embeddedPhone[0], ' ').replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  // Remove "name:" prefix if present in customer name (e.g. "name:Kapil" -> "Kapil")
+  customerName = customerName.replace(/^name:\s*/i, '').trim();
+
+  if (!customerName) return null;
+
+  const itemsSection = separatorMatch
+    ? requestTail.slice(separatorIndex + separatorMatch[0].length).trim().replace(/^[\"']|[\"']$/g, '')
+    : '';
   if (!itemsSection) return null;
 
-  // Split by "and" to get individual item phrases
-  const segments = itemsSection
-    .split(/\s+and\s+/i)
-    .map((s) => s.trim().replace(/^with\s+/i, '').replace(/\bof\b/gi, ' ').replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+  const cleanedItemsSection = itemsSection.replace(
+    /\b(?:mobile|phone|tel|contact)\s*(?:no|number)?\s*[:\-]?\s*[+\d][\d\s\-]{7,}\d\b.*$/i,
+    ''
+  ).trim();
+
+  // Split by common separators so prompts like "recharge x2 @199, domain x1 @399" are handled naturally.
+  const segments = splitInvoiceItemSegments(cleanedItemsSection);
 
   const items: InvoiceDraftItem[] = [];
   for (const segment of segments) {
-    // Try multiple parsers for different input formats
-
-    // Try multiple parsers for different input formats
-    let res: RegExpMatchArray | null;
-
-    // Format 1: "recharge 2qty with ₹199" or "domain 2qty ₹399" or "recharge 2 qty ₹199"
-    res = segment.match(/^(.+?)\s+(\d+)\s*qty\s*(?:\s+with\s+)?(?:[₹$])?\s*([\d.,]+)\s*$/i);
-    if (!res) {
-      // Format 2: "recharge of 2 qty ₹199" or "2 recharge at ₹199 each" (qty first)
-      res = segment.match(/^(\d+)\s+(.+?)\s+(?:at|@|for|of)\s+(?:[₹$])?\s*([\d.,]+)\s*(?:each|per|pc)?\s*$/i);
-    }
-    if (!res) {
-      // Format 3: "recharge ₹199 qty 2"
-      res = segment.match(/^(.+?)\s+(?:[₹$])?\s*([\d.,]+)\s+(?:qty|quantity)\s+(\d+)\s*$/i);
-    }
-    if (!res) {
-      // Format 4: Simple "recharge ₹199" (qty defaults to 1)
-      res = segment.match(/^(.+?)\s+(?:[₹$])?\s*([\d.,]+)\s*$/i);
-      if (res) {
-        const productQuery = res[1].trim();
-        const unitPrice = Number(res[2].replace(/,/g, ''));
-        if (productQuery && unitPrice > 0 && !Number.isNaN(unitPrice)) {
-          items.push({ productQuery, quantity: 1, unitPrice });
-        }
-        continue;
-      }
-    }
-
-    if (!res) continue;
-
-    // res[1] = product name or qty, res[2] = qty or price, res[3] = price or undefined
-    let productQuery: string;
-    let quantity: number;
-    let unitPrice: number;
-
-    if (res[3] !== undefined) {
-      // Format 1 or 2: product name + qty + price
-      productQuery = res[1].trim();
-      quantity = Number(res[2]);
-      unitPrice = Number(res[3].replace(/,/g, ''));
-    } else {
-      // Format 3: product name + price (qty defaults to 1) — already handled above
-      continue;
-    }
-
-    if (!productQuery || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) continue;
-
-    // Strip trailing keywords from product name (only if something remains)
-    const stripped = productQuery.replace(/\b(recharge|domain|website|bill|invoice|qty|quantity|each|per|pc)\b$/i, '').trim();
-    if (stripped) productQuery = stripped;
-
-    items.push({ productQuery, quantity, unitPrice });
+    const item = parseInvoiceItemSegment(segment);
+    if (item) items.push(item);
   }
 
   if (!items.length) return null;
-  return { customerName, items };
+  return { customerName, customerPhone, items };
 };
 
 const isRateLimitError = (error: any) => {
@@ -307,9 +381,10 @@ const callOpenRouterText = async (messages: ChatMessage[]) => {
   const { apiKey, model, siteUrl, appName } = getOpenRouterConfig();
   const system = `
 You are BizBot, the billing assistant for BizRoom.
-Answer clearly and briefly.
-If the user asks about a billing summary, invoice lookup, or customer/product related question, answer naturally from the data already available in the conversation.
-Keep the reply short and useful.
+Understand the user's intent from short, informal, or incomplete billing prompts.
+Map shorthand to likely billing actions such as invoice creation, invoice lookup, sales summary, stock lookup, or customer/product updates.
+If a request is ambiguous, ask one short clarifying question instead of guessing.
+Answer clearly, briefly, and in a helpful tone.
 `;
 
   const payload = {
@@ -352,7 +427,7 @@ Keep the reply short and useful.
   return String(content).trim();
 };
 
-const createCustomerIfMissing = async (userId: string, customerName: string) => {
+const createCustomerIfMissing = async (userId: string, customerName: string, phone?: string) => {
   const firestore = getFirestore();
   const customers = await getCustomers(userId);
   const normalizedTarget = normalizeText(customerName);
@@ -361,7 +436,7 @@ const createCustomerIfMissing = async (userId: string, customerName: string) => 
 
   const ref = await firestore.collection(`users/${userId}/customers`).add({
     name: customerName,
-    phone: '',
+    phone: phone || '',
     email: '',
     address: '',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -374,7 +449,7 @@ const createCustomerIfMissing = async (userId: string, customerName: string) => 
 const createInvoiceDirect = async (userId: string, draft: InvoiceDraft) => {
   const firestore = getFirestore();
   const products = await getProducts(userId);
-  const customer = await createCustomerIfMissing(userId, draft.customerName);
+  const customer = await createCustomerIfMissing(userId, draft.customerName, draft.customerPhone);
 
   const resolvedItems = draft.items.map((item) => {
     const product = matchProduct(item.productQuery, products);
@@ -439,6 +514,88 @@ const createInvoiceDirect = async (userId: string, draft: InvoiceDraft) => {
   return { invoiceId, invoiceNumber };
 };
 
+const buildReportCard = (title: string, periodLabel: string, invoices: any[]): ReportCard => {
+  const totalRevenue = invoices.reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0);
+  const totalInvoices = invoices.length;
+  const averageInvoiceValue = totalInvoices > 0 ? totalRevenue / totalInvoices : 0;
+  const totalPaid = invoices.filter((invoice) => invoice.status === 'paid').reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0);
+  const totalUnpaid = invoices.filter((invoice) => invoice.status !== 'paid').reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0);
+  const paidCount = invoices.filter((invoice) => invoice.status === 'paid').length;
+  const sentCount = invoices.filter((invoice) => invoice.status === 'sent').length;
+  const overdueCount = invoices.filter((invoice) => invoice.status === 'overdue').length;
+  const draftCount = invoices.filter((invoice) => invoice.status === 'draft').length;
+
+  const statusDistribution = [
+    { name: 'Paid', value: paidCount, color: '#19CB97' },
+    { name: 'Sent', value: sentCount, color: '#0f6f80' },
+    { name: 'Overdue', value: overdueCount, color: '#ef4444' },
+    { name: 'Draft', value: draftCount, color: '#94a3b8' },
+  ].filter((entry) => entry.value > 0);
+
+  const monthlyMap: Record<string, { name: string; sales: number; count: number }> = {};
+  invoices.forEach((invoice) => {
+    const date = toDate(invoice.issueDate || invoice.createdAt);
+    if (!date) return;
+    const key = date.toLocaleString('default', { month: 'short' }) + ' ' + date.getFullYear();
+    if (!monthlyMap[key]) monthlyMap[key] = { name: key, sales: 0, count: 0 };
+    monthlyMap[key].sales += Number(invoice.totalAmount) || 0;
+    monthlyMap[key].count += 1;
+  });
+
+  const customerTotals: Record<string, number> = {};
+  invoices.forEach((invoice) => {
+    const name = invoice.customerName || 'Unknown';
+    customerTotals[name] = (customerTotals[name] || 0) + (Number(invoice.totalAmount) || 0);
+  });
+  const topCustomers = Object.entries(customerTotals)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([name, sales]) => ({ name, sales }));
+
+  const productTotals: Record<string, { name: string; qty: number; revenue: number }> = {};
+  invoices.forEach((invoice) => {
+    (invoice.items || []).forEach((item: any) => {
+      const key = item.productId || item.productName || 'unknown';
+      if (!productTotals[key]) productTotals[key] = { name: item.productName || key, qty: 0, revenue: 0 };
+      productTotals[key].qty += Number(item.quantity) || 0;
+      productTotals[key].revenue += Number(item.totalPrice) || 0;
+    });
+  });
+  const topProducts = Object.values(productTotals)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const exportRows = invoices.map((invoice) => ({
+    invoiceNumber: invoice.invoiceNumber || '',
+    customerName: invoice.customerName || '',
+    date: toDate(invoice.issueDate || invoice.createdAt)?.toLocaleDateString('en-IN') || '',
+    status: invoice.status || '',
+    totalAmount: Number(invoice.totalAmount) || 0,
+    items: (invoice.items || []).length,
+  }));
+
+  return {
+    title,
+    periodLabel,
+    totalRevenue,
+    totalInvoices,
+    averageInvoiceValue,
+    paidRevenue: totalPaid,
+    totalPaid,
+    totalUnpaid,
+    statusDistribution,
+    monthlyTrend: Object.values(monthlyMap),
+    topCustomers,
+    topProducts,
+    highlights: [
+      `${totalInvoices} invoices in ${periodLabel}`,
+      `${formatCurrency(totalRevenue)} total revenue`,
+      `${paidCount} paid and ${overdueCount} overdue`,
+    ],
+    exportRows,
+  };
+};
+
 const answerSalesOfMonth = async (userId: string, text: string) => {
   const monthYear = parseMonthYear(text);
   if (!monthYear) return null;
@@ -453,6 +610,7 @@ const answerSalesOfMonth = async (userId: string, text: string) => {
     .sort((a, b) => (toDate(b.createdAt || b.issueDate)?.getTime() || 0) - (toDate(a.createdAt || a.issueDate)?.getTime() || 0))
     .slice(0, 5)
     .map((invoice) => `- ${invoice.invoiceNumber} | ${invoice.customerName} | ${formatCurrency(Number(invoice.totalAmount) || 0)}`);
+  const reportCard = buildReportCard(`${monthName} ${monthYear.year} Sales`, `${monthName} ${monthYear.year}`, matching);
 
   return {
     message: {
@@ -461,6 +619,7 @@ const answerSalesOfMonth = async (userId: string, text: string) => {
         text: `**${monthName} ${monthYear.year} Sales**\n\n- Total bills: **${matching.length}**\n- Total value: **${formatCurrency(totalSales)}**\n\n${topInvoices.length ? `Recent bills:\n${topInvoices.join('\n')}` : 'No bills found for that month.'}`,
       }],
     },
+    reportCard,
   };
 };
 
@@ -480,6 +639,8 @@ const answerSalesDateRange = async (userId: string, text: string) => {
     .sort((a, b) => (toDate(b.createdAt || b.issueDate)?.getTime() || 0) - (toDate(a.createdAt || a.issueDate)?.getTime() || 0))
     .slice(0, 5)
     .map((invoice) => `- ${invoice.invoiceNumber} | ${invoice.customerName} | ${formatCurrency(Number(invoice.totalAmount) || 0)}`);
+  const periodLabel = `${range.startDate.toLocaleDateString('en-IN')} to ${range.endDate.toLocaleDateString('en-IN')}`;
+  const reportCard = buildReportCard(`Sales from ${periodLabel}`, periodLabel, matching);
 
   return {
     message: {
@@ -488,6 +649,7 @@ const answerSalesDateRange = async (userId: string, text: string) => {
         text: `**Sales from ${range.startDate.toLocaleDateString('en-IN')} to ${range.endDate.toLocaleDateString('en-IN')}**\n\n- Total bills: **${matching.length}**\n- Total value: **${formatCurrency(totalSales)}**\n\n${topInvoices.length ? `Recent bills:\n${topInvoices.join('\n')}` : 'No bills found in this period.'}`,
       }],
     },
+    reportCard,
   };
 };
 
@@ -526,6 +688,7 @@ const answerTopCustomer = async (userId: string) => {
 
   const [topName, topValue] = Object.entries(totals).sort(([, a], [, b]) => b - a)[0] || [];
   if (!topName) return null;
+  const reportCard = buildReportCard('Top Customer Report', 'all time', invoices);
 
   return {
     message: {
@@ -534,6 +697,7 @@ const answerTopCustomer = async (userId: string) => {
         text: `**Top Customer**\n\n- Customer: **${topName}**\n- Total bill value: **${formatCurrency(topValue)}**`,
       }],
     },
+    reportCard,
   };
 };
 
@@ -616,6 +780,7 @@ const answerTopProduct = async (userId: string) => {
   const lines = top.map((p, i) =>
     `${i + 1}. **${p.name}** — ${p.qty} units sold — ${formatCurrency(p.revenue)}`
   );
+  const reportCard = buildReportCard('Top Products Report', 'all time', invoices);
 
   return {
     message: {
@@ -624,6 +789,7 @@ const answerTopProduct = async (userId: string) => {
         text: `**Top Selling Products**\n\n${lines.join('\n')}`,
       }],
     },
+    reportCard,
   };
 };
 
@@ -862,6 +1028,7 @@ const routeDirectBillingQuestion = async (userId: string, text: string) => {
   if (/(?:total\s+)?(?:sales|revenue|income)/i.test(normalized)) {
     const invoices = await getInvoices(userId);
     const total = invoices.reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0);
+    const reportCard = buildReportCard('Total Sales Report', 'all time', invoices);
     return {
       message: {
         role: 'model' as const,
@@ -869,6 +1036,7 @@ const routeDirectBillingQuestion = async (userId: string, text: string) => {
           text: `**Total Sales**\n\n- Total bills: **${invoices.length}**\n- Total value: **${formatCurrency(total)}**`,
         }],
       },
+      reportCard,
     };
   }
 
@@ -900,7 +1068,7 @@ const routeMutation = async (userId: string, text: string) => {
 };
 
 const isCreateInvoiceIntent = (text: string) =>
-  /(create|make|generate|new)\s+(bill|invoice)|\bbill\s+for\b|\binvoice\s+for\b/i.test(text);
+  /(create|make|generate|raise|prepare|new)\s+(bill|invoice)|\b(?:bill|invoice)\s+for\b|\b(?:create|make|generate|raise|prepare)\s+(?:a\s+)?(?:bill|invoice)\b/i.test(text);
 
 const createInvoiceFromText = async (userId: string, text: string) => {
   const directDraft = parseSimpleInvoiceDraft(text);

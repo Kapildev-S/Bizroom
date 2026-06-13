@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -17,67 +16,66 @@ interface NotificationProviderProps {
 export default function NotificationProvider({ children, user }: NotificationProviderProps) {
   const { toast } = useToast();
 
+  // Request FCM permission + store token
   useEffect(() => {
+    if (!user) return;
+
     const requestPermissionAndToken = async () => {
-      // Ensure this code runs only on the client
-      if (typeof window !== 'undefined' && 'Notification' in window) {
-        try {
-          const messaging = getMessagingInstance();
-          if (!messaging) return;
+      try {
+        // getMessagingInstance() returns null in Capacitor WebView / unsupported envs
+        const messaging = await getMessagingInstance();
+        if (!messaging) return;
 
-          // 1. Request Permission
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-            console.log('Notification permission not granted.');
-            return;
-          }
+        if (!('Notification' in window)) return;
 
-          // 2. Get VAPID key from environment variables
-          const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
-          if (!vapidKey) {
-            console.warn('VAPID key not found. Push notifications will be disabled. Set NEXT_PUBLIC_VAPID_KEY to enable.');
-            return;
-          }
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
 
-          // 3. Get Token
-          const currentToken = await getToken(messaging, { vapidKey: vapidKey });
-
-          if (currentToken) {
-            console.log('FCM Token:', currentToken);
-            // 4. Save the token to Firestore
-            const tokenRef = doc(db, `users/${user.uid}/fcmTokens`, currentToken);
-            await setDoc(tokenRef, {
-              uid: user.uid,
-              createdAt: serverTimestamp(),
-              userAgent: navigator.userAgent,
-            }, { merge: true });
-          } else {
-            console.log('No registration token available. Request permission to generate one.');
-          }
-
-        } catch (error) {
-          console.error('An error occurred while retrieving token. ', error);
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
+        if (!vapidKey) {
+          console.warn('VAPID key not set – push notifications disabled.');
+          return;
         }
+
+        const currentToken = await getToken(messaging, { vapidKey });
+        if (currentToken) {
+          const tokenRef = doc(db, `users/${user.uid}/fcmTokens`, currentToken);
+          await setDoc(tokenRef, {
+            uid: user.uid,
+            createdAt: serverTimestamp(),
+            userAgent: navigator.userAgent,
+          }, { merge: true });
+        }
+      } catch (err) {
+        // Swallow silently – push notifications are non-critical
+        console.warn('FCM setup skipped:', err);
       }
     };
 
-    if (user) {
-      requestPermissionAndToken();
-    }
+    requestPermissionAndToken();
   }, [user]);
 
+  // Listen for foreground messages
   useEffect(() => {
-    const messaging = getMessagingInstance();
-    if (messaging) {
-      const unsubscribe = onMessage(messaging, (payload) => {
-        console.log('Foreground message received. ', payload);
-        toast({
-          title: payload.notification?.title || 'New Notification',
-          description: payload.notification?.body,
+    let unsubscribe: (() => void) | undefined;
+
+    const setupListener = async () => {
+      try {
+        const messaging = await getMessagingInstance();
+        if (!messaging) return;
+        unsubscribe = onMessage(messaging, (payload) => {
+          toast({
+            title: payload.notification?.title || 'New Notification',
+            description: payload.notification?.body,
+          });
         });
-      });
-      return () => unsubscribe();
-    }
+      } catch {
+        // Unsupported environment – no-op
+      }
+    };
+
+    setupListener();
+    return () => { unsubscribe?.(); };
   }, [toast]);
 
   return <>{children}</>;

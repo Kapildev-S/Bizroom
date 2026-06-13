@@ -19,6 +19,9 @@ export type Product = {
   unit?: string;
   hsnCode?: string;
   gstRate?: number;
+  imageUrl?: string; // Image for POS
+  category?: string; // e.g., Snacks, Beverages, Icecream
+  soldBy?: 'piece' | 'weight'; // 'piece' = unit-based, 'weight' = grams/kg based
 };
 
 export type InvoiceItem = {

@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/useAuth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { AppSettings } from '@/lib/mockData';
+import { copyToClipboard } from '@/lib/clipboard';
 
 export default function SocialMediaPage() {
   const { user } = useAuth();
@@ -96,7 +97,8 @@ export default function SocialMediaPage() {
 
   const copyToClipboard = async (text: string, type: 'caption' | 'hashtags') => {
     try {
-      await navigator.clipboard.writeText(text);
+      const { copyToClipboard: copy } = await import('@/lib/clipboard');
+      await copy(text);
       if (type === 'caption') {
         setCopiedCaption(true);
         setTimeout(() => setCopiedCaption(false), 2000);

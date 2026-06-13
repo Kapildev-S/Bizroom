@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'BizRoom',
   webDir: 'public',
   server: {
-    url: 'https://bizroom--bill-7362b.us-east4.hosted.app',
+    url: 'http://172.20.10.6:3000',
     cleartext: true
   }
 };

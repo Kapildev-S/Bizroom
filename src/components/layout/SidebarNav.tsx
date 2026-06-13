@@ -67,6 +67,7 @@ const navItems = [
 ];
 
 const businessToolsItems = [
+  { href: "/pos", label: "POS Billing", icon: Calculator },
   { href: "/attendance", label: "Staff Management", icon: Briefcase },
   { href: "/ledger", label: "Daily Ledger", icon: HandCoins },
   { href: "/dashboard/feedback", label: "Feedback & Insights", icon: Sparkles },
@@ -254,7 +255,7 @@ export function SidebarNav() {
           const isExpired = isPremiumStatus && expiryDate && new Date() > expiryDate;
           const isPremium = isPremiumStatus && !isExpired;
 
-          const allowedPaths = ['/dashboard', '/invoices', '/products', '/settings', '/agent'];
+          const allowedPaths = ['/dashboard', '/invoices', '/products', '/settings', '/agent', '/pos'];
 
           const renderMenuItem = (item: any) => {
             const isLocked = !isPremium && !allowedPaths.some(path => item.href.startsWith(path));

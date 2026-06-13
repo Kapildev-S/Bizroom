@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrencySymbol } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface ChatInvoiceCardProps {
   invoiceId: string;
@@ -87,7 +88,7 @@ export default function ChatInvoiceCard({
           url: shareUrl,
         });
       } else {
-        await navigator.clipboard.writeText(shareUrl);
+        await copyToClipboard(shareUrl);
         toast({ title: "Link Copied!", description: "Invoice link copied to clipboard." });
       }
     } catch (err: any) {

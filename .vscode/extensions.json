@@ -2,6 +2,7 @@
     "recommendations": [
         "openai.chatgpt",
         "rooveterinaryinc.roo-cline",
-        "saoudrizwan.claude-dev"
+        "saoudrizwan.claude-dev",
+        "ms-azuretools.vscode-docker"
     ]
 }

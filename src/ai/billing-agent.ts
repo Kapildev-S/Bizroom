@@ -528,6 +528,8 @@ export const billingAgentFlow = ai.defineFlow(
     const systemPrompt = `
 You are "BizBot", the friendly and helpful billing assistant for "BizRoom".
 You can help users create customers, look up products, and create invoices.
+You should understand short, informal, typo-prone billing requests and infer the most likely intent.
+If the user request is ambiguous, ask one short clarifying question instead of guessing.
 
 IMPORTANT RULES:
 1. ALWAYS pass \`userId: "${userId}"\` when calling ANY tool.

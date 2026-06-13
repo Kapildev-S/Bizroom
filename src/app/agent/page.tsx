@@ -5,9 +5,9 @@ import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import ChatInvoiceCard from "@/components/agent/ChatInvoiceCard";
+import ChatReportCard from "@/components/agent/ChatReportCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
@@ -70,6 +70,22 @@ type Message = {
   invoiceCard?: {
     invoiceId: string;
     invoiceNumber: string;
+  } | null;
+  reportCard?: {
+    title: string;
+    periodLabel: string;
+    totalRevenue: number;
+    totalInvoices: number;
+    averageInvoiceValue: number;
+    paidRevenue: number;
+    totalPaid: number;
+    totalUnpaid: number;
+    statusDistribution: Array<{ name: string; value: number; color: string }>;
+    monthlyTrend: Array<{ name: string; sales: number; count: number }>;
+    topCustomers: Array<{ name: string; sales: number }>;
+    topProducts: Array<{ name: string; qty: number; revenue: number }>;
+    highlights: string[];
+    exportRows: Array<Record<string, string | number>>;
   } | null;
 };
 
@@ -266,6 +282,7 @@ export default function AgentPage() {
             {
               ...modelMessage,
               invoiceCard: data.invoiceCard ?? modelMessage.invoiceCard ?? null,
+              reportCard: data.reportCard ?? modelMessage.reportCard ?? null,
             },
           ],
           updatedAt: Date.now(),
@@ -992,8 +1009,8 @@ export default function AgentPage() {
               </div>
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex-1 overflow-hidden px-4 py-4 md:px-6 md:py-5">
-                  <ScrollArea className="h-full" ref={scrollRef}>
+                <div className="flex min-h-0 flex-1 overflow-hidden px-4 py-4 md:px-6 md:py-5">
+                  <div ref={scrollRef} className="h-full min-h-0 overflow-y-auto overscroll-contain">
                     <div className="mx-auto flex max-w-5xl flex-col gap-6">
                       {activeMessages.map((msg, index) => {
                         if (msg.role === "system" || msg.role === "tool") return null;
@@ -1054,6 +1071,11 @@ export default function AgentPage() {
                                 />
                               </div>
                             )}
+                            {msg.role === "model" && msg.reportCard && (
+                              <div className="pl-10">
+                                <ChatReportCard report={msg.reportCard} />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -1072,72 +1094,72 @@ export default function AgentPage() {
                         </div>
                       )}
                     </div>
-                  </ScrollArea>
-                </div>
-
-                <div className="border-t border-[#d9e3f7] bg-[#f7f9ff] px-4 py-4 md:px-6">
-                  <div className="mx-auto max-w-5xl">
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSend();
-                      }}
-                      className="space-y-3"
-                    >
-                      <div className="rounded-xl border border-[#0f6f80] bg-[#0e2033] p-2 shadow-lg">
-                        <div className="flex items-center gap-2">
-                          <button type="button" className="rounded-lg p-2 text-slate-400 hover:text-white" aria-label="Attach">
-                            <Wand2 className="h-4 w-4" />
-                          </button>
-                          <Input
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ask a question about your finances..."
-                            className="h-12 border-0 bg-transparent text-white placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                            disabled={isLoading}
-                          />
-                          <button
-                            type="button"
-                            onClick={isListening ? stopListening : startListening}
-                            className={`rounded-lg p-2 transition ${isListening
-                              ? "text-green-400 bg-green-400/10 animate-pulse"
-                              : "text-slate-400 hover:text-white"
-                              }`}
-                            aria-label={isListening ? "Stop listening" : "Voice input"}
-                          >
-                            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                          </button>
-                          <Button
-                            type="submit"
-                            disabled={isLoading || !input.trim()}
-                            className="h-10 w-10 rounded-lg bg-[#11b7d5] p-0 text-slate-950 hover:bg-[#18c5e4]"
-                          >
-                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {quickPrompts.map((prompt) => (
-                          <button
-                            key={prompt.label}
-                            type="button"
-                            onClick={() => setInput(prompt.text)}
-                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 shadow-sm hover:border-[#0f6f80]/30 hover:text-[#0f6f80]"
-                          >
-                            {prompt.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <p className="text-center text-[10px] text-slate-500">
-                        BizRoom AI can make mistakes. Check important financial info before exporting.
-                      </p>
-                    </form>
                   </div>
                 </div>
               </div>
             )}
+
+            <div className="border-t border-[#d9e3f7] bg-[#f7f9ff] px-4 py-4 md:px-6">
+              <div className="mx-auto max-w-5xl">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSend();
+                  }}
+                  className="space-y-3"
+                >
+                  <div className="rounded-xl border border-[#0f6f80] bg-[#0e2033] p-2 shadow-lg">
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="rounded-lg p-2 text-slate-400 hover:text-white" aria-label="Attach">
+                        <Wand2 className="h-4 w-4" />
+                      </button>
+                      <Input
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Ask a question about your finances..."
+                        className="h-12 border-0 bg-transparent text-white placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={isListening ? stopListening : startListening}
+                        className={`rounded-lg p-2 transition ${isListening
+                          ? "text-green-400 bg-green-400/10 animate-pulse"
+                          : "text-slate-400 hover:text-white"
+                          }`}
+                        aria-label={isListening ? "Stop listening" : "Voice input"}
+                      >
+                        {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                      </button>
+                      <Button
+                        type="submit"
+                        disabled={isLoading || !input.trim()}
+                        className="h-10 w-10 rounded-lg bg-[#11b7d5] p-0 text-slate-950 hover:bg-[#18c5e4]"
+                      >
+                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {quickPrompts.map((prompt) => (
+                      <button
+                        key={prompt.label}
+                        type="button"
+                        onClick={() => setInput(prompt.text)}
+                        className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 shadow-sm hover:border-[#0f6f80]/30 hover:text-[#0f6f80]"
+                      >
+                        {prompt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-center text-[10px] text-slate-500">
+                    BizRoom AI can make mistakes. Check important financial info before exporting.
+                  </p>
+                </form>
+              </div>
+            </div>
           </div>
         </main>
       </div>

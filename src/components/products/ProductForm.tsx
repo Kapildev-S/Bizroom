@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -22,10 +22,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Product } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { Package, Archive, Loader2 } from "lucide-react";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, storage } from "@/lib/firebase";
 import type { User } from "firebase/auth";
 import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import Image from "next/image";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 const productFormSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters."),
@@ -36,6 +38,12 @@ const productFormSchema = z.object({
   unit: z.string().optional(),
   hsnCode: z.string().optional(),
   gstRate: z.coerce.number().min(0).max(100).optional().default(0),
+  category: z.string().optional(),
+  soldBy: z.enum(['piece', 'weight']).optional().default('piece'),
+  imageUrl: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url("Enter a valid image URL.").optional()
+  ),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -49,6 +57,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
@@ -66,6 +76,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
       unit: initialData.unit || "",
       hsnCode: initialData.hsnCode || "",
       gstRate: initialData.gstRate || 0,
+      category: initialData.category || "",
+      soldBy: initialData.soldBy || 'piece',
+      imageUrl: initialData.imageUrl || "",
     } : {
       name: "",
       description: "",
@@ -75,8 +88,40 @@ export function ProductForm({ initialData }: ProductFormProps) {
       unit: "",
       hsnCode: "",
       gstRate: 0,
+      category: "",
+      soldBy: 'piece',
+      imageUrl: "",
     },
   });
+
+  const uploadedImageUrl = form.watch("imageUrl")?.trim() || "";
+
+  const handleImagePick = async (file?: File | null) => {
+    if (!file) return;
+    if (!currentUser) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast({ variant: "destructive", title: "Invalid file", description: "Please choose an image file." });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const imageRef = ref(storage, `users/${currentUser.uid}/products/${Date.now()}-${safeName}`);
+      const snapshot = await uploadBytes(imageRef, file);
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      form.setValue("imageUrl", downloadUrl, { shouldDirty: true, shouldValidate: true });
+      toast({ title: "Image uploaded", description: "The product image is ready to save." });
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      toast({ variant: "destructive", title: "Upload failed", description: "Could not upload the image. Please try again." });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const onSubmit = async (values: ProductFormValues) => {
     if (!currentUser) {
@@ -94,6 +139,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
       unit: values.unit || '',
       hsnCode: values.hsnCode || '',
       gstRate: values.gstRate ?? 0,
+      category: values.category || "",
+      soldBy: values.soldBy || 'piece',
+      imageUrl: values.imageUrl?.trim() || "",
     };
 
     try {
@@ -107,9 +155,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
       } else {
         const collectionRef = collection(db, `users/${currentUser.uid}/products`);
         await addDoc(collectionRef, {
-            ...dataToSubmit,
-            userId: currentUser.uid,
-            createdAt: Timestamp.now(),
+          ...dataToSubmit,
+          userId: currentUser.uid,
+          createdAt: Timestamp.now(),
         });
         toast({
           title: "Product Added",
@@ -156,61 +204,143 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Snacks, Beverages, Icecream" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imageUrl"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Product Image</FormLabel>
+                  <FormControl>
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                        <div className="relative h-32 w-full overflow-hidden rounded-xl bg-white sm:w-40 sm:flex-shrink-0">
+                          {uploadedImageUrl ? (
+                            <Image
+                              src={uploadedImageUrl}
+                              alt={form.watch("name") || "Product preview"}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-medium text-gray-400">
+                              No image selected
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <p className="text-sm text-gray-600">
+                            Upload a product photo and it will automatically appear in POS.
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploadingImage}
+                            >
+                              {isUploadingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              {uploadedImageUrl ? "Change Image" : "Upload Image"}
+                            </Button>
+                            {uploadedImageUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => form.setValue("imageUrl", "", { shouldDirty: true, shouldValidate: true })}
+                                disabled={isUploadingImage}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              void handleImagePick(e.target.files?.[0]);
+                              e.currentTarget.value = "";
+                            }}
+                          />
+                          <FormDescription>
+                            JPG, PNG, WebP, or GIF. The image is uploaded to Firebase Storage.
+                          </FormDescription>
+                        </div>
+                      </div>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="grid grid-cols-2 gap-4">
-                <FormField
+              <FormField
                 control={form.control}
                 name="price"
                 render={({ field }) => (
-                    <FormItem>
+                  <FormItem>
                     <FormLabel>Selling Price</FormLabel>
                     <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
-                        <FormControl>
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                      <FormControl>
                         <Input type="number" step="0.01" placeholder="0.00" {...field} className="pl-7" />
-                        </FormControl>
+                      </FormControl>
                     </div>
                     <FormMessage />
-                    </FormItem>
+                  </FormItem>
                 )}
-                />
-                <FormField
+              />
+              <FormField
                 control={form.control}
                 name="mrp"
                 render={({ field }) => (
-                    <FormItem>
+                  <FormItem>
                     <FormLabel>MRP (Optional)</FormLabel>
                     <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
-                        <FormControl>
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                      <FormControl>
                         <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)}
-                            value={field.value ?? ''}
-                            className="pl-7"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)}
+                          value={field.value ?? ''}
+                          className="pl-7"
                         />
-                        </FormControl>
+                      </FormControl>
                     </div>
                     <FormDescription>Maximum Retail Price — shown on invoice, no effect on totals.</FormDescription>
                     <FormMessage />
-                    </FormItem>
+                  </FormItem>
                 )}
-                />
-                <FormField
+              />
+              <FormField
                 control={form.control}
                 name="unit"
                 render={({ field }) => (
-                    <FormItem>
+                  <FormItem>
                     <FormLabel>Unit of Measurement (Optional)</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                        <FormControl>
+                      <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select a unit (e.g. pcs, kg)" />
+                          <SelectValue placeholder="Select a unit (e.g. pcs, kg)" />
                         </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
+                      </FormControl>
+                      <SelectContent>
                         <SelectItem value="pcs">PCS</SelectItem>
                         <SelectItem value="unt">UNT</SelectItem>
                         <SelectItem value="kg">KG</SelectItem>
@@ -221,12 +351,42 @@ export function ProductForm({ initialData }: ProductFormProps) {
                         <SelectItem value="box">BOX</SelectItem>
                         <SelectItem value="set">SET</SelectItem>
                         <SelectItem value="dz">DZ</SelectItem>
-                        </SelectContent>
+                      </SelectContent>
                     </Select>
                     <FormMessage />
-                    </FormItem>
+                  </FormItem>
                 )}
-                />
+              />
+              <FormField
+                control={form.control}
+                name="soldBy"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sold By</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || 'piece'}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="How is this sold?" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="piece">
+                          <span className="flex items-center gap-2">Piece / Unit</span>
+                        </SelectItem>
+                        <SelectItem value="weight">
+                          <span className="flex items-center gap-2">Weight (kg/g)</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {field.value === 'weight'
+                        ? 'Customer will enter grams/kg in POS. Amount is auto-calculated.'
+                        : 'Customer adds by unit/piece count.'}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -268,7 +428,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 )}
               />
             </div>
-             <FormField
+            <FormField
               control={form.control}
               name="stock"
               render={({ field }) => (
@@ -277,13 +437,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
                   <div className="relative">
                     <Archive className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="e.g. 100 or leave blank for N/A" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        placeholder="e.g. 100 or leave blank for N/A"
+                        {...field}
                         onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)}
                         value={field.value ?? ''}
-                        className="pl-10" 
+                        className="pl-10"
                       />
                     </FormControl>
                   </div>
