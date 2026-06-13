@@ -34,26 +34,29 @@ export default function EditProductPage() {
             const docSnap = await getDoc(productDocRef);
 
             if (docSnap.exists()) {
-               const data = docSnap.data();
-                const fetchedProduct: Product = {
-                 id: docSnap.id,
-                 name: data.name,
-                 description: data.description || "",
-                 price: data.price,
-                 mrp: data.mrp ?? null,
-                 stock: data.stock === null ? Infinity : data.stock,
-                 unit: data.unit || "",
-                 hsnCode: data.hsnCode || "",
-                 gstRate: data.gstRate || 0,
-               };
+              const data = docSnap.data();
+              const fetchedProduct: Product = {
+                id: docSnap.id,
+                name: data.name,
+                description: data.description || "",
+                price: data.price,
+                mrp: data.mrp ?? null,
+                stock: data.stock === null ? Infinity : data.stock,
+                unit: data.unit || "",
+                hsnCode: data.hsnCode || "",
+                gstRate: data.gstRate || 0,
+                imageUrl: data.imageUrl || "",
+                category: data.category || "",
+                soldBy: data.soldBy || 'piece',
+              };
               setProduct(fetchedProduct);
             } else {
-                toast({ variant: "destructive", title: "Not Found", description: "Product not found."});
-                setProduct(null);
+              toast({ variant: "destructive", title: "Not Found", description: "Product not found." });
+              setProduct(null);
             }
           } catch (error) {
             console.error("Failed to fetch product:", error);
-            toast({ variant: "destructive", title: "Error", description: "Could not load product details."});
+            toast({ variant: "destructive", title: "Error", description: "Could not load product details." });
             setProduct(null);
           } finally {
             setLoading(false);
@@ -81,8 +84,8 @@ export default function EditProductPage() {
 
   if (!product) {
     return (
-       <div>
-        <PageHeader 
+      <div>
+        <PageHeader
           title="Product Not Found"
           description="The product you are looking for does not exist or you do not have permission to view it."
         />
@@ -93,7 +96,7 @@ export default function EditProductPage() {
 
   return (
     <div>
-      <PageHeader 
+      <PageHeader
         title="Edit Product/Service"
         description={`Update the details for ${product.name}.`}
       />
