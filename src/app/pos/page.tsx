@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, addDoc, doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, updateDoc, Timestamp, getDocsFromCache, getDocFromCache, setDoc } from 'firebase/firestore';
 import type { Product, Invoice, InvoiceItem, AppSettings } from '@/lib/mockData';
 import { useAuth } from "@/lib/useAuth";
 import { getCurrencySymbol } from '@/lib/utils';
@@ -99,40 +99,55 @@ export default function POSPage() {
   // ── Load data on mount ───────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
-    const fetchData = async () => {
-      try {
-        const productsSnap = await getDocs(query(collection(db, `users/${currentUser.uid}/products`)));
-        setProducts(productsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
 
-        const settingsSnap = await getDoc(doc(db, `users/${currentUser.uid}/settings`, 'appSettings'));
-        if (settingsSnap.exists()) setSettings(settingsSnap.data() as AppSettings);
-
-        // Load saved printer credentials from localStorage
-        const mac = localStorage.getItem(STORAGE_KEYS.PRINTER_MAC);
-        const name = localStorage.getItem(STORAGE_KEYS.PRINTER_NAME);
-        if (mac) {
-          setSavedPrinterMac(mac);
-          if (name) setSavedPrinterName(name);
-          // ── AUTO-RECONNECT: silently try to reconnect on startup ──────────
-          if (isBluetoothAvailable()) {
+    // Load printer connection independently
+    const initPrinter = async () => {
+      const mac = localStorage.getItem(STORAGE_KEYS.PRINTER_MAC);
+      const name = localStorage.getItem(STORAGE_KEYS.PRINTER_NAME);
+      if (mac) {
+        setSavedPrinterMac(mac);
+        if (name) setSavedPrinterName(name);
+        // ── AUTO-RECONNECT: silently try to reconnect on startup ──────────
+        if (isBluetoothAvailable()) {
+          try {
             const alreadyConnected = await isPrinterConnected();
             if (alreadyConnected) {
               setConnectionStatus('connected');
             } else {
-              try {
-                setConnectionStatus('connecting');
-                await connectPrinter(mac);
-                setConnectionStatus('connected');
-              } catch {
-                // Silent fail — user can reconnect manually from settings
-                setConnectionStatus('disconnected');
-              }
+              setConnectionStatus('connecting');
+              await connectPrinter(mac);
+              setConnectionStatus('connected');
             }
+          } catch {
+            // Silent fail — user can reconnect manually from settings
+            setConnectionStatus('disconnected');
           }
         }
+      }
+    };
+    initPrinter();
+
+    const fetchData = async () => {
+      try {
+        let productsSnap;
+        try {
+          productsSnap = await getDocs(query(collection(db, `users/${currentUser.uid}/products`)));
+        } catch (e) {
+          productsSnap = await getDocsFromCache(query(collection(db, `users/${currentUser.uid}/products`)));
+        }
+        setProducts(productsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+
+        let settingsSnap;
+        try {
+          settingsSnap = await getDoc(doc(db, `users/${currentUser.uid}/settings`, 'appSettings'));
+        } catch (e) {
+          settingsSnap = await getDocFromCache(doc(db, `users/${currentUser.uid}/settings`, 'appSettings'));
+        }
+        if (settingsSnap.exists()) setSettings(settingsSnap.data() as AppSettings);
+
       } catch (err) {
         console.error("POS init error:", err);
-        toast({ variant: "destructive", title: "Error", description: "Failed to load POS data." });
+        toast({ variant: "destructive", title: "Offline Data Unavailable", description: "Failed to load POS data from server or cache." });
       } finally {
         setLoading(false);
       }
@@ -433,15 +448,18 @@ export default function POSPage() {
         notes: `POS Sale – Paid via ${paymentMode.toUpperCase()}`,
         createdAt: Timestamp.now(),
       };
-      await addDoc(collection(db, `users/${currentUser.uid}/invoices`), newInvoice);
+      
+      const newInvoiceRef = doc(collection(db, `users/${currentUser.uid}/invoices`));
+      // Save locally and sync in background to unblock printing when offline
+      setDoc(newInvoiceRef, newInvoice).catch(console.error);
 
       // 2. Increment nextInvoiceSequence in Firestore and local state so the
       //    next sale always gets the next sequential invoice number.
       const nextSeq = seq + 1;
-      await updateDoc(
+      updateDoc(
         doc(db, `users/${currentUser.uid}/settings`, 'appSettings'),
         { 'invoiceSettings.nextInvoiceSequence': nextSeq }
-      );
+      ).catch(console.error);
       setSettings(prev =>
         prev
           ? {
