@@ -82,6 +82,10 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
           unit: data.unit || "",
           hsnCode: data.hsnCode || "",
           gstRate: data.gstRate || 0,
+          category: data.category || "",
+          soldBy: data.soldBy || 'piece',
+          pricePerPiece: data.pricePerPiece ?? null,
+          pricePerKg: data.pricePerKg ?? null,
         };
       });
       setProducts(userProducts);
@@ -148,8 +152,41 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
   };
 
   const filteredProducts = useMemo(() => products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (product.category || '').toLowerCase().includes(searchTerm.toLowerCase())
   ), [products, searchTerm]);
+
+  const groupedProducts = useMemo(() => {
+    const groups: Record<string, Product[]> = {};
+    filteredProducts.forEach(p => {
+      const cat = p.category || 'Uncategorized';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(p);
+    });
+    // Sort categories alphabetically, but keep Uncategorized at the end
+    return Object.fromEntries(
+      Object.entries(groups).sort(([a], [b]) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
+        return a.localeCompare(b);
+      })
+    );
+  }, [filteredProducts]);
+
+  const renderPrice = (product: Product) => {
+    if (product.soldBy === 'both') {
+      return (
+        <div className="flex flex-col text-sm leading-tight">
+          <span>{currencySymbol}{(product.pricePerPiece || product.price).toFixed(2)} / pc</span>
+          <span className="text-muted-foreground">{currencySymbol}{(product.pricePerKg || product.price).toFixed(2)} / kg</span>
+        </div>
+      );
+    }
+    if (product.soldBy === 'weight') {
+      return <span>{currencySymbol}{(product.pricePerKg || product.price).toFixed(2)} / kg</span>;
+    }
+    return <span>{currencySymbol}{product.price.toFixed(2)}</span>;
+  };
 
   if (loading) {
     return (
@@ -277,27 +314,32 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
                   animate="visible"
                   exit="hidden"
                 >
-                    {filteredProducts.map((product) => (
-                       <motion.div key={product.id} variants={itemVariants}>
-                         <Card onClick={() => handleViewDetails(product)} className="cursor-pointer">
-                            <CardHeader className="flex flex-row items-start justify-between pb-2">
-                              <CardTitle className="text-base font-medium">{product.name}</CardTitle>
-                              {renderActions(product)}
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-end justify-between">
-                                  <span className="text-lg font-bold text-primary">{currencySymbol}{product.price.toFixed(2)}</span>
-                                  <div className="text-right text-xs space-y-1">
-                                    {product.hsnCode && <div>HSN: {product.hsnCode}</div>}
-                                    <div>GST: {product.gstRate || 0}%</div>
-                                  </div>
-                                </div>
-                                 <p className="text-xs text-muted-foreground mt-2">
-                                  Stock: <span className="font-semibold">{product.stock === Infinity ? 'Unlimited' : product.stock}</span> | Unit: <span className="font-semibold">{product.unit || 'N/A'}</span>
-                                </p>
-                            </CardContent>
-                         </Card>
-                       </motion.div>
+                    {Object.entries(groupedProducts).map(([category, prods]) => (
+                      <div key={category} className="space-y-4">
+                        <h3 className="font-semibold text-lg text-primary bg-primary/5 p-2 rounded-md">{category}</h3>
+                        {prods.map((product) => (
+                          <motion.div key={product.id} variants={itemVariants}>
+                            <Card onClick={() => handleViewDetails(product)} className="cursor-pointer">
+                                <CardHeader className="flex flex-row items-start justify-between pb-2">
+                                  <CardTitle className="text-base font-medium">{product.name}</CardTitle>
+                                  {renderActions(product)}
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex items-end justify-between">
+                                      <div className="font-bold text-primary">{renderPrice(product)}</div>
+                                      <div className="text-right text-xs space-y-1">
+                                        {product.hsnCode && <div>HSN: {product.hsnCode}</div>}
+                                        <div>GST: {product.gstRate || 0}%</div>
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                      Stock: <span className="font-semibold">{product.stock === Infinity ? 'Unlimited' : product.stock}</span> | Unit: <span className="font-semibold">{product.unit || 'N/A'}</span>
+                                    </p>
+                                </CardContent>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
                     ))}
                 </motion.div>
               ) : (
@@ -321,24 +363,31 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
                       </TableRow>
                     </TableHeader>
                     <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
-                      {filteredProducts.map((product) => (
-                        <motion.tr
-                          key={product.id}
-                          variants={itemVariants}
-                          layout
-                          whileHover={{ scale: 1.01, backgroundColor: "hsl(var(--muted))" }}
-                          className="cursor-pointer"
-                        >
-                          <TableCell className="font-medium" onClick={() => handleViewDetails(product)}>{product.name}</TableCell>
-                          <TableCell onClick={() => handleViewDetails(product)}>{product.hsnCode || '-'}</TableCell>
-                          <TableCell onClick={() => handleViewDetails(product)}>{product.gstRate || 0}%</TableCell>
-                          <TableCell onClick={() => handleViewDetails(product)}>{currencySymbol}{product.price.toFixed(2)}</TableCell>
-                          <TableCell onClick={() => handleViewDetails(product)}>{product.unit || 'N/A'}</TableCell>
-                          <TableCell onClick={() => handleViewDetails(product)}>{product.stock === Infinity ? 'N/A' : product.stock}</TableCell>
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            {renderActions(product)}
-                          </TableCell>
-                        </motion.tr>
+                      {Object.entries(groupedProducts).map(([category, prods]) => (
+                        <React.Fragment key={category}>
+                          <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableCell colSpan={7} className="font-semibold text-primary">{category}</TableCell>
+                          </TableRow>
+                          {prods.map((product) => (
+                            <motion.tr
+                              key={product.id}
+                              variants={itemVariants}
+                              layout
+                              whileHover={{ scale: 1.01, backgroundColor: "hsl(var(--muted))" }}
+                              className="cursor-pointer"
+                            >
+                              <TableCell className="font-medium" onClick={() => handleViewDetails(product)}>{product.name}</TableCell>
+                              <TableCell onClick={() => handleViewDetails(product)}>{product.hsnCode || '-'}</TableCell>
+                              <TableCell onClick={() => handleViewDetails(product)}>{product.gstRate || 0}%</TableCell>
+                              <TableCell onClick={() => handleViewDetails(product)}>{renderPrice(product)}</TableCell>
+                              <TableCell onClick={() => handleViewDetails(product)}>{product.unit || 'N/A'}</TableCell>
+                              <TableCell onClick={() => handleViewDetails(product)}>{product.stock === Infinity ? 'N/A' : product.stock}</TableCell>
+                              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                {renderActions(product)}
+                              </TableCell>
+                            </motion.tr>
+                          ))}
+                        </React.Fragment>
                       ))}
                     </motion.tbody>
                   </Table>

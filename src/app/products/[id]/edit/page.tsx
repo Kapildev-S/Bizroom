@@ -48,6 +48,8 @@ export default function EditProductPage() {
                 imageUrl: data.imageUrl || "",
                 category: data.category || "",
                 soldBy: data.soldBy || 'piece',
+                pricePerPiece: data.pricePerPiece ?? null,
+                pricePerKg: data.pricePerKg ?? null,
               };
               setProduct(fetchedProduct);
             } else {

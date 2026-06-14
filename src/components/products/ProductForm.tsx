@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Package, Archive, Loader2 } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
 import type { User } from "firebase/auth";
-import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, Timestamp, updateDoc, getDocs, query } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Image from "next/image";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -33,13 +33,15 @@ const productFormSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters."),
   description: z.string().optional(),
   price: z.coerce.number().min(0, "Price cannot be negative."),
+  pricePerPiece: z.coerce.number().min(0).optional().nullable(),
+  pricePerKg: z.coerce.number().min(0).optional().nullable(),
   mrp: z.coerce.number().min(0, "MRP cannot be negative.").optional().nullable(),
   stock: z.coerce.number().min(0, "Stock cannot be negative.").optional().nullable(),
   unit: z.string().optional(),
   hsnCode: z.string().optional(),
   gstRate: z.coerce.number().min(0).max(100).optional().default(0),
   category: z.string().optional(),
-  soldBy: z.enum(['piece', 'weight']).optional().default('piece'),
+  soldBy: z.enum(['piece', 'weight', 'both']).optional().default('piece'),
   imageUrl: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().url("Enter a valid image URL.").optional()
@@ -60,9 +62,24 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [categories, setCategories] = useState<string[]>([]);
+
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
+    const unsubscribe = auth.onAuthStateChanged(async user => {
       setCurrentUser(user);
+      if (user) {
+        try {
+          const snap = await getDocs(query(collection(db, `users/${user.uid}/products`)));
+          const cats = new Set<string>();
+          snap.forEach(d => {
+            const cat = d.data().category;
+            if (cat) cats.add(cat);
+          });
+          setCategories(Array.from(cats));
+        } catch (e) {
+          console.error("Failed to load categories", e);
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -79,6 +96,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
       category: initialData.category || "",
       soldBy: initialData.soldBy || 'piece',
       imageUrl: initialData.imageUrl || "",
+      pricePerPiece: initialData.pricePerPiece ?? null,
+      pricePerKg: initialData.pricePerKg ?? null,
     } : {
       name: "",
       description: "",
@@ -91,6 +110,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
       category: "",
       soldBy: 'piece',
       imageUrl: "",
+      pricePerPiece: null,
+      pricePerKg: null,
     },
   });
 
@@ -142,6 +163,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
       category: values.category || "",
       soldBy: values.soldBy || 'piece',
       imageUrl: values.imageUrl?.trim() || "",
+      pricePerPiece: values.pricePerPiece ?? null,
+      pricePerKg: values.pricePerKg ?? null,
     };
 
     try {
@@ -211,7 +234,14 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Category (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Snacks, Beverages, Icecream" {...field} />
+                    <div>
+                      <Input placeholder="e.g. Snacks, Beverages, Icecream" {...field} list="category-options" />
+                      <datalist id="category-options">
+                        {categories.map(cat => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -291,7 +321,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 control={form.control}
                 name="price"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className={form.watch("soldBy") === 'both' ? 'hidden' : ''}>
                     <FormLabel>Selling Price</FormLabel>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
@@ -376,10 +406,15 @@ export function ProductForm({ initialData }: ProductFormProps) {
                         <SelectItem value="weight">
                           <span className="flex items-center gap-2">Weight (kg/g)</span>
                         </SelectItem>
+                        <SelectItem value="both">
+                          <span className="flex items-center gap-2">Both (Piece & Weight)</span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      {field.value === 'weight'
+                      {field.value === 'both'
+                        ? 'Customer will choose Unit or Weight in POS.'
+                        : field.value === 'weight'
                         ? 'Customer will enter grams/kg in POS. Amount is auto-calculated.'
                         : 'Customer adds by unit/piece count.'}
                     </FormDescription>
@@ -388,6 +423,43 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 )}
               />
             </div>
+
+            {form.watch("soldBy") === 'both' && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="pricePerPiece"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price per Piece</FormLabel>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)} className="pl-7 border-purple-300 bg-purple-50 focus-visible:ring-purple-500" />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pricePerKg"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price per Kg</FormLabel>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">₹</span>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? null : +e.target.value)} className="pl-7 border-purple-300 bg-purple-50 focus-visible:ring-purple-500" />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

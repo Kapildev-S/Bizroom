@@ -21,7 +21,9 @@ export type Product = {
   gstRate?: number;
   imageUrl?: string; // Image for POS
   category?: string; // e.g., Snacks, Beverages, Icecream
-  soldBy?: 'piece' | 'weight'; // 'piece' = unit-based, 'weight' = grams/kg based
+  soldBy?: 'piece' | 'weight' | 'both'; // 'piece' = unit-based, 'weight' = grams/kg based, 'both' = allows selection
+  pricePerPiece?: number; // Used if soldBy is 'both'
+  pricePerKg?: number; // Used if soldBy is 'both'
 };
 
 export type InvoiceItem = {

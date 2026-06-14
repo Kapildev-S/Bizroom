@@ -8,6 +8,7 @@ import {
   Loader2, Plus, Minus, Search, Printer, Banknote, Smartphone,
   ArrowLeft, ArrowRight, Trash, Settings, Bluetooth, BluetoothConnected,
   BluetoothOff, RefreshCw, Zap, CheckCircle2, XCircle, WifiOff, Weight,
+  Scale, Package
 } from "lucide-react";
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
@@ -76,6 +77,9 @@ export default function POSPage() {
   const [weightProduct, setWeightProduct] = useState<Product | null>(null);
   const [weightInput, setWeightInput] = useState('');
   const [weightUnit, setWeightUnit] = useState<'g' | 'kg'>('g');
+
+  // ── Dual-unit product state ───────────────────────────────────────────────
+  const [dualUnitProduct, setDualUnitProduct] = useState<Product | null>(null);
 
   // ── Printer state ─────────────────────────────────────────────────────────
   const [devices, setDevices] = useState<BluetoothPrinterDevice[]>([]);
@@ -259,7 +263,8 @@ export default function POSPage() {
   const getCalculatedAmount = useCallback((product: Product, grams: number): number => {
     // price is per kg, convert grams to kg
     const kg = grams / 1000;
-    return kg * product.price;
+    const pricePerKg = product.soldBy === 'both' ? (product.pricePerKg || product.price) : product.price;
+    return kg * pricePerKg;
   }, []);
 
   const addWeightToCart = useCallback(() => {
@@ -286,7 +291,7 @@ export default function POSPage() {
         productId: weightProduct.id,
         productName: weightProduct.name,
         quantity: kg,
-        unitPrice: weightProduct.price,
+        unitPrice: weightProduct.soldBy === 'both' ? (weightProduct.pricePerKg || weightProduct.price) : weightProduct.price,
         totalPrice: calculatedAmount,
         image: weightProduct.imageUrl,
         soldBy: 'weight',
@@ -298,30 +303,59 @@ export default function POSPage() {
   }, [weightProduct, weightInput, weightUnit, getWeightInGrams, getCalculatedAmount, closeWeightDialog]);
 
   // ── Cart helpers ──────────────────────────────────────────────────────────
-  const addToCart = useCallback((product: Product) => {
-    // Weight-based products open weight dialog instead
-    if (product.soldBy === 'weight') {
-      openWeightDialog(product);
-      return;
-    }
+  const openDualUnitDialog = useCallback((product: Product) => {
+    setDualUnitProduct(product);
+  }, []);
+
+  const closeDualUnitDialog = useCallback(() => {
+    setDualUnitProduct(null);
+  }, []);
+
+  const addPieceToCart = useCallback((product: Product) => {
+    const priceToUse = product.soldBy === 'both' ? (product.pricePerPiece || product.price) : product.price;
+    const idKey = product.soldBy === 'both' ? `${product.id}_p` : product.id;
 
     setCart(prev => {
-      const existing = prev.find(i => i.id === product.id);
+      const existing = prev.find(i => i.id === idKey);
       if (existing) {
         return prev.map(i =>
-          i.id === product.id
+          i.id === idKey
             ? { ...i, quantity: i.quantity + 1, totalPrice: (i.quantity + 1) * i.unitPrice }
             : i
         );
       }
       return [...prev, {
-        id: product.id, productId: product.id, productName: product.name,
-        quantity: 1, unitPrice: product.price, totalPrice: product.price,
+        id: idKey, productId: product.id, productName: product.name,
+        quantity: 1, unitPrice: priceToUse, totalPrice: priceToUse,
         image: product.imageUrl,
         soldBy: 'piece',
       }];
     });
-  }, [openWeightDialog]);
+  }, []);
+
+  const selectUnitForDual = useCallback((type: 'piece' | 'weight') => {
+    if (!dualUnitProduct) return;
+    const prod = dualUnitProduct;
+    closeDualUnitDialog();
+    
+    if (type === 'weight') {
+      openWeightDialog(prod);
+    } else {
+      addPieceToCart(prod);
+    }
+  }, [dualUnitProduct, closeDualUnitDialog, openWeightDialog, addPieceToCart]);
+
+  const addToCart = useCallback((product: Product) => {
+    if (product.soldBy === 'both') {
+      openDualUnitDialog(product);
+      return;
+    }
+    if (product.soldBy === 'weight') {
+      openWeightDialog(product);
+      return;
+    }
+    addPieceToCart(product);
+  }, [openDualUnitDialog, openWeightDialog, addPieceToCart]);
 
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => prev.map(i => {
@@ -869,7 +903,7 @@ export default function POSPage() {
               Enter Weight — {weightProduct?.name || ''}
             </DialogTitle>
             <DialogDescription>
-              Weight-based product · Price: {currencySymbol}{(weightProduct?.price || 0).toFixed(2)} / kg
+              Weight-based product · Price: {currencySymbol}{(weightProduct?.soldBy === 'both' ? (weightProduct.pricePerKg || weightProduct.price) : (weightProduct?.price || 0)).toFixed(2)} / kg
             </DialogDescription>
           </DialogHeader>
 
@@ -934,6 +968,45 @@ export default function POSPage() {
         </DialogContent>
       </Dialog>
       {/* ── End Weight Entry Dialog ────────────────────────────────────── */}
+
+      {/* Dual Unit Selection Dialog */}
+      <Dialog open={!!dualUnitProduct} onOpenChange={(open) => !open && closeDualUnitDialog()}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl text-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">How are you selling this?</DialogTitle>
+          </DialogHeader>
+          {dualUnitProduct && (
+            <div className="py-6 space-y-4">
+              <div className="flex flex-col gap-3">
+                <Button 
+                  variant="outline" 
+                  className="h-16 text-lg justify-between px-6 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                  onClick={() => selectUnitForDual('piece')}
+                >
+                  <span className="flex items-center gap-3">
+                    <Package className="h-5 w-5" /> By Piece
+                  </span>
+                  <span className="text-sm font-normal text-gray-500">
+                    ₹{(dualUnitProduct.pricePerPiece || dualUnitProduct.price).toFixed(2)}/pc
+                  </span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-16 text-lg justify-between px-6 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                  onClick={() => selectUnitForDual('weight')}
+                >
+                  <span className="flex items-center gap-3">
+                    <Scale className="h-5 w-5" /> By Weight
+                  </span>
+                  <span className="text-sm font-normal text-gray-500">
+                    ₹{(dualUnitProduct.pricePerKg || dualUnitProduct.price).toFixed(2)}/kg
+                  </span>
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
