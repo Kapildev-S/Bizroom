@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { isSupported, getMessaging, type Messaging } from "firebase/messaging";
 
@@ -28,7 +28,9 @@ if (!getApps().length) {
 }
 
 auth = getAuth(app);
-db = getFirestore(app);
+db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 storage = getStorage(app);
 
 /**
