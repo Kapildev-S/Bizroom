@@ -25,6 +25,7 @@ const businessProfileSchema = z.object({
   email: z.string().email("Invalid email address.").optional().or(z.literal('')),
   phone: z.string().optional(),
   logoUrl: z.string().optional().or(z.literal('')),
+  enclaimQrUrl: z.string().optional().or(z.literal('')),
   invoicePrefix: z.string().optional(),
   state: z.string().optional(),
 });
@@ -37,10 +38,14 @@ interface BusinessProfileSettingsProps {
 export default function BusinessProfileSettings({ settings, onSave }: BusinessProfileSettingsProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
+  const [selectedQrFile, setSelectedQrFile] = useState<File | null>(null);
+  const [isQrDragging, setIsQrDragging] = useState(false);
 
   const form = useForm<z.infer<typeof businessProfileSchema>>({
     resolver: zodResolver(businessProfileSchema),
@@ -51,6 +56,7 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
       email: settings.email || '',
       phone: settings.phone || '',
       logoUrl: settings.logoUrl || '',
+      enclaimQrUrl: settings.enclaimQrUrl || '',
       invoicePrefix: settings.invoicePrefix || '',
       state: settings.state || 'Tamil Nadu',
     },
@@ -64,6 +70,7 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
       email: settings.email || '',
       phone: settings.phone || '',
       logoUrl: settings.logoUrl || '',
+      enclaimQrUrl: settings.enclaimQrUrl || '',
       invoicePrefix: settings.invoicePrefix || '',
       state: settings.state || 'Tamil Nadu',
     });
@@ -135,12 +142,79 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
     form.setValue('logoUrl', '');
   };
 
+  const processQrFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid file type',
+        description: 'Please upload an image file (PNG, JPG, etc.)',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'File too large',
+        description: 'Please upload an image smaller than 5MB.',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setQrPreviewUrl(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+    setSelectedQrFile(file);
+
+    toast({
+      title: 'Image selected',
+      description: 'Click "Save Business Profile" to apply changes.',
+    });
+  };
+
+  const handleQrFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      processQrFile(file);
+    }
+    if (qrFileInputRef.current) {
+      qrFileInputRef.current.value = '';
+    }
+  };
+
+  const handleQrDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsQrDragging(false);
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      processQrFile(file);
+    }
+  };
+
+  const handleQrDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsQrDragging(true);
+  };
+
+  const handleQrDragLeave = () => {
+    setIsQrDragging(false);
+  };
+
+  const handleRemoveQr = () => {
+    setQrPreviewUrl(null);
+    setSelectedQrFile(null);
+    form.setValue('enclaimQrUrl', '');
+  };
+
   const onSubmit = async (values: z.infer<typeof businessProfileSchema>) => {
     console.log('[BusinessProfile] onSubmit called');
     setIsSaving(true);
 
     try {
       let logoUrl = values.logoUrl || '';
+      let enclaimQrUrl = values.enclaimQrUrl || '';
 
       // If a new file is selected, use its base64 preview URL directly
       // This bypasses Firebase Storage and stores in Firestore
@@ -148,15 +222,24 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
         console.log('[BusinessProfile] Using base64 preview URL for logo');
         logoUrl = previewUrl;
       }
+      
+      if (selectedQrFile && qrPreviewUrl) {
+        console.log('[BusinessProfile] Using base64 preview URL for QR');
+        enclaimQrUrl = qrPreviewUrl;
+      }
 
       console.log('[BusinessProfile] Calling onSave');
-      await onSave({ businessProfile: { ...values, logoUrl } });
+      await onSave({ businessProfile: { ...values, logoUrl, enclaimQrUrl } });
       console.log('[BusinessProfile] onSave completed successfully');
 
       // Clear state after successful save
       setSelectedFile(null);
       setPreviewUrl(null);
       form.setValue('logoUrl', logoUrl);
+      
+      setSelectedQrFile(null);
+      setQrPreviewUrl(null);
+      form.setValue('enclaimQrUrl', enclaimQrUrl);
 
       toast({
         title: 'Profile Saved',
@@ -178,6 +261,9 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
 
   const displayLogoUrl = previewUrl || form.watch('logoUrl');
   const hasNewImage = !!selectedFile;
+  
+  const displayQrUrl = qrPreviewUrl || form.watch('enclaimQrUrl');
+  const hasNewQrImage = !!selectedQrFile;
 
   return (
     <Card className="shadow-lg">
@@ -191,87 +277,166 @@ export default function BusinessProfileSettings({ settings, onSave }: BusinessPr
             <CardDescription>This information will appear on your invoices.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Logo Upload Section - Minimal Design */}
-            <div className="flex items-center gap-6 p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-              <div
-                className={cn(
-                  "relative group flex-shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 flex items-center justify-center transition-colors cursor-pointer",
-                  isDragging ? "border-primary bg-primary/5" : "border-muted bg-muted/30",
-                  !displayLogoUrl && "border-dashed hover:border-muted-foreground/50"
-                )}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {displayLogoUrl ? (
-                  <>
-                    <Image
-                      src={displayLogoUrl}
-                      alt="Business Logo"
-                      fill
-                      className="object-cover"
-                      unoptimized={!!previewUrl}
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Camera className="h-6 w-6 text-white" />
-                    </div>
-                  </>
-                ) : (
-                  <Upload className="h-8 w-8 text-muted-foreground/50" />
-                )}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Logo Upload Section - Minimal Design */}
+              <div className="flex items-center gap-6 p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                <div
+                  className={cn(
+                    "relative group flex-shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 flex items-center justify-center transition-colors cursor-pointer",
+                    isDragging ? "border-primary bg-primary/5" : "border-muted bg-muted/30",
+                    !displayLogoUrl && "border-dashed hover:border-muted-foreground/50"
+                  )}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {displayLogoUrl ? (
+                    <>
+                      <Image
+                        src={displayLogoUrl}
+                        alt="Business Logo"
+                        fill
+                        className="object-cover"
+                        unoptimized={!!previewUrl}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="h-6 w-6 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <Upload className="h-8 w-8 text-muted-foreground/50" />
+                  )}
 
-                {hasNewImage && (
-                  <div className="absolute bottom-0 inset-x-0 bg-green-500/90 h-1.5" />
-                )}
-              </div>
-
-              <div className="flex-1 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">Business Logo</h4>
-                    <p className="text-xs text-muted-foreground">Appears on your invoices and documents.</p>
-                  </div>
                   {hasNewImage && (
-                    <span className="text-[10px] font-medium bg-primary/10 text-primary px-2 py-1 rounded-full animate-in fade-in slide-in-from-left-2">
-                      Ready to save
-                    </span>
+                    <div className="absolute bottom-0 inset-x-0 bg-green-500/90 h-1.5" />
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 pt-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-8 text-xs"
-                  >
-                    {displayLogoUrl ? 'Change Logo' : 'Upload Logo'}
-                  </Button>
+                <div className="flex-1 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground">Business Logo</h4>
+                      <p className="text-xs text-muted-foreground">Appears on your invoices and documents.</p>
+                    </div>
+                    {hasNewImage && (
+                      <span className="text-[10px] font-medium bg-primary/10 text-primary px-2 py-1 rounded-full animate-in fade-in slide-in-from-left-2">
+                        Ready to save
+                      </span>
+                    )}
+                  </div>
 
-                  {displayLogoUrl && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={handleRemoveLogo}
-                      className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-8 text-xs"
                     >
-                      Remove
+                      {displayLogoUrl ? 'Change Logo' : 'Upload Logo'}
                     </Button>
+
+                    {displayLogoUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveLogo}
+                        className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Enclaim QR Upload Section */}
+              <div className="flex items-center gap-6 p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                <div
+                  className={cn(
+                    "relative group flex-shrink-0 h-20 w-20 overflow-hidden border-2 flex items-center justify-center transition-colors cursor-pointer",
+                    isQrDragging ? "border-primary bg-primary/5" : "border-muted bg-muted/30",
+                    !displayQrUrl && "border-dashed hover:border-muted-foreground/50"
+                  )}
+                  onDrop={handleQrDrop}
+                  onDragOver={handleQrDragOver}
+                  onDragLeave={handleQrDragLeave}
+                  onClick={() => qrFileInputRef.current?.click()}
+                >
+                  {displayQrUrl ? (
+                    <>
+                      <Image
+                        src={displayQrUrl}
+                        alt="Enclaim QR Code"
+                        fill
+                        className="object-cover"
+                        unoptimized={!!qrPreviewUrl}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="h-6 w-6 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <Upload className="h-8 w-8 text-muted-foreground/50" />
                   )}
 
-                  <span className="text-[10px] text-muted-foreground ml-auto hidden sm:inline-block">
-                    Max 5MB • Square recommended
-                  </span>
+                  {hasNewQrImage && (
+                    <div className="absolute bottom-0 inset-x-0 bg-green-500/90 h-1.5" />
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground">Enclaim QR</h4>
+                      <p className="text-xs text-muted-foreground">Appears at the bottom right of POS bill.</p>
+                    </div>
+                    {hasNewQrImage && (
+                      <span className="text-[10px] font-medium bg-primary/10 text-primary px-2 py-1 rounded-full animate-in fade-in slide-in-from-left-2">
+                        Ready to save
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <input
+                      ref={qrFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQrFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => qrFileInputRef.current?.click()}
+                      className="h-8 text-xs"
+                    >
+                      {displayQrUrl ? 'Change QR' : 'Upload QR'}
+                    </Button>
+
+                    {displayQrUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveQr}
+                        className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

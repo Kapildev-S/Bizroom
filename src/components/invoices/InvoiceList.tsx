@@ -70,8 +70,8 @@ export function InvoiceList() {
         return {
           id: doc.id,
           ...data,
-          issueDate: (data.issueDate as Timestamp).toDate().toISOString(),
-          dueDate: (data.dueDate as Timestamp).toDate().toISOString(),
+          issueDate: data.issueDate?.toDate ? data.issueDate.toDate().toISOString() : data.issueDate,
+          dueDate: data.dueDate?.toDate ? data.dueDate.toDate().toISOString() : data.dueDate,
         } as Invoice;
       });
 

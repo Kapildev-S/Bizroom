@@ -384,7 +384,7 @@ export default function POSPage() {
       const prefix = settings?.businessProfile?.invoicePrefix ?? 'INV-';
       const invoiceNumber = `${prefix}${seq.toString().padStart(4, '0')}`;
 
-      const newInvoice: Partial<Invoice> = {
+      const newInvoice: Partial<Invoice> & { createdAt: Timestamp } = {
         invoiceNumber,
         customerName: 'Walk-in Customer',
         issueDate: now.toISOString(),
@@ -397,6 +397,7 @@ export default function POSPage() {
         subtotal, taxRate, taxAmount, totalAmount: total,
         status: 'paid', currency,
         notes: `POS Sale – Paid via ${paymentMode.toUpperCase()}`,
+        createdAt: Timestamp.now(),
       };
       await addDoc(collection(db, `users/${currentUser.uid}/invoices`), newInvoice);
 
@@ -421,7 +422,16 @@ export default function POSPage() {
 
       // 3. Print receipt
       try {
-        const payload = generateReceiptPayload(businessName, cart, subtotal, taxAmount, total, paymentMode, currencySymbol);
+        const payload = generateReceiptPayload(
+          settings?.businessProfile || { businessName },
+          invoiceNumber,
+          cart,
+          subtotal,
+          taxAmount,
+          total,
+          paymentMode,
+          currencySymbol
+        );
         await writeToPrinter(payload);
       } catch (printErr: any) {
         console.error('Print failed:', printErr);
@@ -452,12 +462,12 @@ export default function POSPage() {
     <div className="flex flex-col h-screen w-full bg-[#F8F9FB] overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── Top Header ─────────────────────────────────────────────────────── */}
-      <div className="h-16 bg-white border-b flex items-center px-6 justify-between shrink-0 shadow-sm z-10">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="rounded-full hover:bg-gray-100">
+      <div className="h-16 bg-white border-b flex items-center px-4 md:px-6 justify-between shrink-0 shadow-sm z-10">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button variant="ghost" size="icon" asChild className="rounded-full hover:bg-gray-100 shrink-0">
             <Link href="/dashboard"><ArrowLeft className="h-5 w-5 text-[#1a2b4b]" /></Link>
           </Button>
-          <div className="relative w-64 md:w-80">
+          <div className="relative w-40 sm:w-64 md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="search"
@@ -669,11 +679,11 @@ export default function POSPage() {
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────────────── */}
-      <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] w-full overflow-hidden">
 
         {/* ── Left: Products ────────────────────────────────────────────── */}
-        <div className="flex-grow flex flex-col h-full overflow-hidden">
-          <div className="px-8 pt-6 pb-2 flex flex-col gap-4 shrink-0">
+        <div className="w-full md:w-[70%] flex flex-col h-[55%] md:h-full overflow-hidden">
+          <div className="px-4 md:px-8 pt-4 md:pt-6 pb-2 flex flex-col gap-4 shrink-0">
             {/* ── Categories at the top for quick filtering ── */}
             {categories.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
@@ -708,12 +718,13 @@ export default function POSPage() {
             </div>
           </div>
 
-          <ScrollArea className="flex-grow px-8 pb-8">
-            <div className={`grid gap-5 pt-4 ${viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+          <ScrollArea className="flex-grow px-4 md:px-8 pb-4 md:pb-8">
+            <div className={`grid gap-3 md:gap-5 pt-4 ${viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
               {filteredProducts.map(product => (
                 <div
                   key={product.id}
-                  className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group flex ${viewMode === 'list' ? 'flex-row items-center p-3 gap-4' : 'flex-col'}`}
+                  onClick={() => addToCart(product)}
+                  className={`cursor-pointer bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group flex ${viewMode === 'list' ? 'flex-row items-center p-3 gap-4' : 'flex-col'}`}
                 >
                   <div className={`${viewMode === 'list' ? 'w-16 h-16 rounded-xl shrink-0' : 'w-full aspect-[4/3]'} bg-gray-100 relative overflow-hidden`}>
                     {product.imageUrl
@@ -732,8 +743,7 @@ export default function POSPage() {
                     <div className="flex justify-between items-center mt-auto pt-1">
                       <span className="font-bold text-[#E87B1E]">{currencySymbol}{product.price.toFixed(2)}</span>
                       <button
-                        onClick={() => addToCart(product)}
-                        className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-[#E87B1E] hover:text-white transition-colors"
+                        className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-[#E87B1E] group-hover:text-white transition-colors"
                       >
                         {product.soldBy === 'weight' ? <Weight className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                       </button>
@@ -749,8 +759,8 @@ export default function POSPage() {
         </div>
 
         {/* ── Right: Cart ───────────────────────────────────────────────── */}
-        <div className="w-[380px] lg:w-[420px] bg-white border-l shadow-xl flex flex-col shrink-0 h-full z-20">
-          <div className="p-6 border-b flex justify-between items-center shrink-0">
+        <div className="w-full md:w-[30%] bg-white border-t md:border-t-0 md:border-l shadow-xl flex flex-col shrink-0 h-[45%] md:h-full z-20">
+          <div className="p-4 md:p-6 border-b flex justify-between items-center shrink-0">
             <div>
               <h2 className="font-bold text-2xl text-[#1a2b4b]">Current Order</h2>
               <p className="text-xs text-gray-400 mt-0.5">{cart.length} item{cart.length !== 1 ? 's' : ''} · Walk-in Customer</p>
@@ -760,7 +770,7 @@ export default function POSPage() {
             </button>
           </div>
 
-          <ScrollArea className="flex-grow p-6">
+          <ScrollArea className="flex-grow p-4 md:p-6">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-300 pt-10">
                 <Printer className="h-16 w-16 mb-4 opacity-20" />
@@ -783,9 +793,9 @@ export default function POSPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-1.5">
                         <button onClick={() => updateQuantity(item.id, -1)} className="h-6 w-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100"><Minus className="h-3 w-3" /></button>
-                        <span className="text-xs font-bold w-10 text-center text-[#1a2b4b]">
-                          {item.soldBy === 'weight' && item.weightInGrams
-                            ? `${(item.weightInGrams >= 1000 ? (item.weightInGrams / 1000).toFixed(2) + ' kg' : item.weightInGrams + ' g')}`
+                        <span className="text-xs font-bold w-12 text-center text-[#1a2b4b]">
+                          {item.soldBy === 'weight'
+                            ? `${Number(item.quantity.toFixed(3))}kg`
                             : item.quantity
                           }
                         </span>
@@ -799,8 +809,8 @@ export default function POSPage() {
           </ScrollArea>
 
           {/* Cart footer */}
-          <div className="p-6 bg-[#fafafa] border-t shrink-0">
-            <div className="space-y-1.5 mb-5">
+          <div className="p-4 md:p-6 bg-[#fafafa] border-t shrink-0">
+            <div className="space-y-1.5 mb-3 md:mb-5">
               <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{subtotal.toFixed(2)}</span></div>
               {taxRate > 0 && (
                 <div className="flex justify-between text-sm"><span className="text-gray-500">Tax ({taxRate}%)</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span></div>
@@ -812,18 +822,18 @@ export default function POSPage() {
             </div>
 
             {/* Payment mode */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-4">
               {(['cash', 'upi'] as const).map(mode => (
                 <button
                   key={mode}
                   onClick={() => setPaymentMode(mode)}
-                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMode === mode
+                  className={`py-2 md:py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMode === mode
                     ? 'border-[#E87B1E] bg-[#fff8f3] text-[#E87B1E]'
                     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                     }`}
                 >
-                  {mode === 'cash' ? <Banknote className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
-                  <span className="text-xs font-bold uppercase tracking-wider">{mode}</span>
+                  {mode === 'cash' ? <Banknote className="h-5 w-5 md:h-6 md:w-6" /> : <Smartphone className="h-5 w-5 md:h-6 md:w-6" />}
+                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider">{mode}</span>
                 </button>
               ))}
             </div>

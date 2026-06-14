@@ -94,6 +94,7 @@ export type BusinessProfile = {
   email?: string;
   phone?: string;
   logoUrl?: string;
+  enclaimQrUrl?: string;
   invoicePrefix?: string;
   state?: string;
 };

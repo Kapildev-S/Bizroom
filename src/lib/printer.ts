@@ -105,6 +105,9 @@ export const connectWebBluetooth = async (): Promise<{ name: string; id: string 
 
   const server = await device.gatt.connect();
   webBluetoothDevice = device;
+  
+  // Wait a moment for GATT server to fully initialize (prevents "GATT operation failed for unknown reason")
+  await new Promise(r => setTimeout(r, 1000));
 
   // Try each known service UUID until we find a writable characteristic
   let foundChar: BluetoothRemoteGATTCharacteristic | null = null;
@@ -189,7 +192,7 @@ export const disconnectPrinter = async (): Promise<void> => {
 
 // ─── Write Data ───────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 512; // Avoid MTU overflow on BLE
+const CHUNK_SIZE = 100; // Reduced from 512 to prevent MTU overflow on BLE
 
 /** Write raw bytes to the connected printer. */
 export const writeToPrinter = async (data: Uint8Array): Promise<void> => {
@@ -206,13 +209,23 @@ export const writeToPrinter = async (data: Uint8Array): Promise<void> => {
 
   for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
     const chunk = data.slice(offset, offset + CHUNK_SIZE);
-    if (useWriteWithoutResponse) {
-      await webBluetoothChar.writeValueWithoutResponse(chunk);
-    } else {
-      await webBluetoothChar.writeValueWithResponse(chunk);
+    try {
+      if (useWriteWithoutResponse) {
+        await webBluetoothChar.writeValueWithoutResponse(chunk);
+      } else {
+        await webBluetoothChar.writeValueWithResponse(chunk);
+      }
+    } catch (e) {
+      console.warn('Write chunk failed, retrying...', e);
+      await new Promise(r => setTimeout(r, 100)); // Wait before retry
+      if (useWriteWithoutResponse) {
+        await webBluetoothChar.writeValueWithoutResponse(chunk);
+      } else {
+        await webBluetoothChar.writeValueWithResponse(chunk);
+      }
     }
-    // Small delay to prevent buffer overflow on slow printers
-    await new Promise(r => setTimeout(r, 20));
+    // Delay to prevent buffer overflow on slow printers
+    await new Promise(r => setTimeout(r, 50));
   }
 };
 
@@ -222,19 +235,26 @@ export const writeToPrinter = async (data: Uint8Array): Promise<void> => {
 export const generateTestPrintPayload = (businessName: string): Uint8Array => {
   const encoder = new ReceiptPrinterEncoder({ language: 'esc-pos', width: 48 });
   const divider = '='.repeat(48);
+
+  // Manual centering — spaces prefix to visually centre the name
+  const centerAt = (text: string, width: number) => {
+    const pad = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(pad) + text;
+  };
+
   return encoder
     .initialize()
-    .align('center')
-    .bold(true).size(2, 1).line('TEST PRINT').size(1, 1).bold(false)
+    .align('left')
+    .bold(true).size(2, 1).line(centerAt('TEST PRINT', 24)).size(1, 1).bold(false)
     .newline()
-    .line(businessName)
+    .line(centerAt(businessName, 48))
     .line(divider)
     .newline()
-    .line('Printer connected successfully!')
-    .line(`Date: ${new Date().toLocaleString()}`)
+    .line(centerAt('Printer connected successfully!', 48))
+    .line(centerAt(`Date: ${new Date().toLocaleString()}`, 48))
     .newline()
     .line(divider)
-    .bold(true).line('80mm Thermal Printer Ready').bold(false)
+    .bold(true).line(centerAt('80mm Thermal Printer Ready', 48)).bold(false)
     .newline().newline().newline()
     .cut()
     .encode();
@@ -242,8 +262,9 @@ export const generateTestPrintPayload = (businessName: string): Uint8Array => {
 
 /** Generate a full POS sale receipt payload. */
 export const generateReceiptPayload = (
-  businessName: string,
-  cartItems: { quantity: number; productName: string; totalPrice: number }[],
+  businessProfile: { businessName?: string; address?: string; phone?: string; },
+  invoiceNo: string,
+  cartItems: { quantity: number; productName: string; totalPrice: number; soldBy?: string }[],
   subtotal: number,
   taxAmount: number,
   total: number,
@@ -251,36 +272,94 @@ export const generateReceiptPayload = (
   currency: string
 ): Uint8Array => {
   const encoder = new ReceiptPrinterEncoder({ language: 'esc-pos', width: 48 });
+  const dashedLine = '-'.repeat(48);
+
+  const now = new Date();
+  const displayDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+  const displayTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  const bName = businessProfile?.businessName || "My Business";
+  const bAddress = businessProfile?.address || "";
+  const bPhone = businessProfile?.phone ? `Phone: ${businessProfile.phone}` : "";
+  
+  // Clean currency symbol if it's ₹ to avoid ESC/POS '?' rendering
+  const safeCurrency = currency.includes('₹') ? 'Rs.' : currency;
+
+  // ── Manual centering helper (bypasses unreliable ESC/POS align command) ───
+  // In size(2,2) mode the effective line width is 24 chars (48/2).
+  // In normal size the line width is 48 chars.
+  const centerAt = (text: string, width: number) => {
+    const pad = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(pad) + text;
+  };
 
   let receipt = encoder
     .initialize()
-    .align('center')
-    .bold(true).size(2, 2).line(businessName).bold(false).size(1, 1)
-    .newline()
-    .line(`Date: ${new Date().toLocaleString()}`)
-    .line('Walk-in Customer')
-    .newline()
-    .align('left')
-    .rule({ style: 'single' });
+    .align('left')                                // stay left; we pad manually
+    .size(2, 2)
+    .bold(true)
+    .line(centerAt(bName, 24))                    // 24 = 48 ÷ 2 (double-width mode)
+    .size(1, 1)
+    .bold(false)
+    .newline();                                   // blank line after business name
 
-  cartItems.forEach(item => {
-    const qtyName = `${item.quantity}x ${item.productName}`;
-    const price = item.totalPrice.toFixed(2);
-    const spaces = Math.max(1, 48 - qtyName.length - price.length);
-    receipt = receipt.line(qtyName + ' '.repeat(spaces) + price);
+  if (bAddress) {
+    receipt = receipt.line(centerAt(bAddress, 48));
+  }
+  if (bPhone) {
+    receipt = receipt.line(centerAt(bPhone, 48));
+  }
+
+  
+  receipt = receipt
+    .line(dashedLine)
+    .bold(true).line("INVOICE").bold(false)
+    .line(`Invoice No: ${invoiceNo} | Date: ${displayDate}`)
+    .line(`Time: ${displayTime}`)
+    .line(dashedLine)
+    .align('left')
+    .bold(true);
+
+  // Table Header
+  const headerSno = "S.No".padEnd(5, ' ');
+  const headerName = "Item Name".padEnd(21, ' ');
+  const headerQty = "Qty".padStart(3, ' ') + '   ';
+  const headerPrice = "Price".padStart(7, ' ') + ' ';
+  const headerAmount = "Amount".padStart(8, ' ');
+  
+  receipt = receipt.line(headerSno + headerName + headerQty + headerPrice + headerAmount);
+  receipt = receipt.bold(false).rule({ style: 'single' });
+
+  // Table Items
+  cartItems.forEach((item, index) => {
+    const snoStr = String(index + 1).padEnd(5, ' ');
+    const nameStr = item.productName.substring(0, 20).padEnd(21, ' ');
+    const displayQty = item.soldBy === 'weight' ? `${Number(item.quantity.toFixed(3))}kg` : String(item.quantity);
+    const qtyStr = displayQty.padStart(5, ' ') + ' ';
+    const priceStr = item.totalPrice.toFixed(2).padStart(7, ' ') + ' ';
+    const amountStr = (item.quantity * item.totalPrice).toFixed(2).padStart(8, ' ');
+
+    receipt = receipt.line(snoStr + nameStr + qtyStr + priceStr + amountStr);
+    receipt = receipt.line(dashedLine);
   });
 
+  // Footer / Total
+  const totalLabel = "TOTAL";
+  const totalValue = `${safeCurrency} ${total.toFixed(2)}`;
+  const spaces = Math.max(1, 48 - totalLabel.length - totalValue.length);
+
   receipt = receipt
-    .rule({ style: 'single' })
-    .align('right')
-    .line(`Subtotal: ${subtotal.toFixed(2)}`)
-    .line(`Tax:      ${taxAmount.toFixed(2)}`)
-    .bold(true).size(1, 2).line(`Total: ${currency} ${total.toFixed(2)}`).bold(false).size(1, 1)
+    .newline()
+    .bold(true)
+    .line(totalLabel + ' '.repeat(spaces) + totalValue)
+    .bold(false)
+    .line(dashedLine)
     .newline()
     .align('center')
-    .line(`Paid via ${paymentMode.toUpperCase()}`)
-    .newline().newline()
-    .line('Thank you for your business!')
+    .bold(true).line("THANK YOU!").bold(false)
+    .line("* VISIT AGAIN *")
+    .newline()
+    .line("Powered by Bizroom")
     .newline().newline().newline()
     .cut();
 

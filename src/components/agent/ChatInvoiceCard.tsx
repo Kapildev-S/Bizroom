@@ -59,12 +59,12 @@ export default function ChatInvoiceCard({
           setInvoice({
             id: snap.id,
             ...data,
-            issueDate: data.issueDate
-              ? (data.issueDate as Timestamp).toDate().toISOString()
-              : new Date().toISOString(),
-            dueDate: data.dueDate
-              ? (data.dueDate as Timestamp).toDate().toISOString()
-              : new Date().toISOString(),
+            issueDate: data.issueDate?.toDate 
+              ? data.issueDate.toDate().toISOString() 
+              : data.issueDate,
+            dueDate: data.dueDate?.toDate 
+              ? data.dueDate.toDate().toISOString() 
+              : data.dueDate,
           } as Invoice);
         }
       } catch (err) {
