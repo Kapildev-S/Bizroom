@@ -104,24 +104,29 @@ export default function POSPage() {
     const initPrinter = async () => {
       const mac = localStorage.getItem(STORAGE_KEYS.PRINTER_MAC);
       const name = localStorage.getItem(STORAGE_KEYS.PRINTER_NAME);
-      if (mac) {
-        setSavedPrinterMac(mac);
-        if (name) setSavedPrinterName(name);
-        // ── AUTO-RECONNECT: silently try to reconnect on startup ──────────
-        if (isBluetoothAvailable()) {
-          try {
-            const alreadyConnected = await isPrinterConnected();
-            if (alreadyConnected) {
-              setConnectionStatus('connected');
-            } else {
-              setConnectionStatus('connecting');
-              await connectPrinter(mac);
-              setConnectionStatus('connected');
+      
+      if (mac) setSavedPrinterMac(mac);
+      if (name) setSavedPrinterName(name);
+
+      if (isBluetoothAvailable()) {
+        try {
+          const alreadyConnected = await isPrinterConnected();
+          if (alreadyConnected) {
+            setConnectionStatus('connected');
+            if (!isCapacitorBluetooth()) {
+               const webName = getWebBluetoothDeviceName();
+               if (webName) setWebDeviceName(webName);
             }
-          } catch {
-            // Silent fail — user can reconnect manually from settings
+          } else if (mac && isCapacitorBluetooth()) {
+            // Only auto-reconnect on Capacitor. Web Bluetooth requires a user gesture!
+            setConnectionStatus('connecting');
+            await connectPrinter(mac);
+            setConnectionStatus('connected');
+          } else {
             setConnectionStatus('disconnected');
           }
+        } catch {
+          setConnectionStatus('disconnected');
         }
       }
     };
@@ -300,6 +305,7 @@ export default function POSPage() {
             ? { ...i, quantity: i.quantity + kg, totalPrice: i.totalPrice + calculatedAmount, weightInGrams: (i.weightInGrams || 0) + grams }
             : i
         );
+      }
       return [...prev, {
         id: weightKey,
         productId: weightProduct.id,
@@ -339,6 +345,7 @@ export default function POSPage() {
             ? { ...i, quantity: i.quantity + 1, totalPrice: (i.quantity + 1) * i.unitPrice }
             : i
         );
+      }
       return [...prev, {
         id: idKey, productId: product.id, productName: product.name,
         quantity: 1, unitPrice: priceToUse, totalPrice: priceToUse,
