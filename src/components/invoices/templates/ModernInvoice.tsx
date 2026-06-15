@@ -73,7 +73,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
             <table className="w-full text-left text-sm table-fixed border-collapse">
                 <thead>
                     <tr style={{ color: themeColor }}>
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left w-[35%]">Descriptions</th>
+                        <th className={`p-2 pb-3 font-bold uppercase tracking-wider text-left ${settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? 'w-[35%]' : 'w-[53%]'}`}>Descriptions</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left w-[12%]">HSN</th>}
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center w-[10%]">QTY</th>
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[12%]">MRP</th>

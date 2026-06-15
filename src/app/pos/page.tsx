@@ -300,7 +300,6 @@ export default function POSPage() {
             ? { ...i, quantity: i.quantity + kg, totalPrice: i.totalPrice + calculatedAmount, weightInGrams: (i.weightInGrams || 0) + grams }
             : i
         );
-      }
       return [...prev, {
         id: weightKey,
         productId: weightProduct.id,
@@ -311,6 +310,8 @@ export default function POSPage() {
         image: weightProduct.imageUrl,
         soldBy: 'weight',
         weightInGrams: grams,
+        gstRate: weightProduct.gstRate,
+        hsnCode: weightProduct.hsnCode,
       }];
     });
 
@@ -338,12 +339,13 @@ export default function POSPage() {
             ? { ...i, quantity: i.quantity + 1, totalPrice: (i.quantity + 1) * i.unitPrice }
             : i
         );
-      }
       return [...prev, {
         id: idKey, productId: product.id, productName: product.name,
         quantity: 1, unitPrice: priceToUse, totalPrice: priceToUse,
         image: product.imageUrl,
         soldBy: 'piece',
+        gstRate: product.gstRate,
+        hsnCode: product.hsnCode,
       }];
     });
   }, []);
@@ -396,9 +398,9 @@ export default function POSPage() {
 
   // ── Derived values ────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.totalPrice, 0);
-  const taxRate = settings?.invoiceSettings?.defaultTaxRate ?? 0;
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
+  const taxAmount = 0;
+  const total = subtotal;
+
   const currency = settings?.invoiceSettings?.currency || 'INR';
   const currencySymbol = getCurrencySymbol(currency);
   const businessName = settings?.businessProfile?.businessName || 'My Bakery';
@@ -442,8 +444,9 @@ export default function POSPage() {
         items: cart.map(c => ({
           productId: c.productId, productName: c.productName,
           quantity: c.quantity, unitPrice: c.unitPrice, totalPrice: c.totalPrice,
+          gstRate: 0, taxAmount: 0
         })),
-        subtotal, taxRate, taxAmount, totalAmount: total,
+        subtotal, taxRate: 0, taxAmount: 0, totalAmount: total,
         status: 'paid', currency,
         notes: `POS Sale – Paid via ${paymentMode.toUpperCase()}`,
         createdAt: Timestamp.now(),
@@ -864,8 +867,8 @@ export default function POSPage() {
           <div className="p-4 md:p-6 bg-[#fafafa] border-t shrink-0">
             <div className="space-y-1.5 mb-3 md:mb-5">
               <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{subtotal.toFixed(2)}</span></div>
-              {taxRate > 0 && (
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Tax ({taxRate}%)</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span></div>
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Tax {enableAdvancedInvoiceSystem ? '' : `(${taxRate}%)`}</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span></div>
               )}
               <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
                 <span className="text-lg font-bold text-[#1a2b4b]">Total</span>

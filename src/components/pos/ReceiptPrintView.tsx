@@ -88,8 +88,8 @@ export function ReceiptPrintView({
                 {/* @ts-expect-error - CartItem has soldBy property when passed from POS */}
                 {item.soldBy === 'weight' ? `${Number(item.quantity.toFixed(3))}kg` : item.quantity}
               </td>
+              <td className="py-2.5 align-top text-right">{item.unitPrice.toFixed(2)}</td>
               <td className="py-2.5 align-top text-right">{item.totalPrice.toFixed(2)}</td>
-              <td className="py-2.5 align-top text-right">{(item.quantity * item.totalPrice).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>

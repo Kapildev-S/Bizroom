@@ -264,7 +264,7 @@ export const generateTestPrintPayload = (businessName: string): Uint8Array => {
 export const generateReceiptPayload = (
   businessProfile: { businessName?: string; address?: string; phone?: string; },
   invoiceNo: string,
-  cartItems: { quantity: number; productName: string; totalPrice: number; soldBy?: string }[],
+  cartItems: { quantity: number; productName: string; unitPrice: number; totalPrice: number; soldBy?: string }[],
   subtotal: number,
   taxAmount: number,
   total: number,
@@ -336,8 +336,8 @@ export const generateReceiptPayload = (
     const nameStr = item.productName.substring(0, 20).padEnd(21, ' ');
     const displayQty = item.soldBy === 'weight' ? `${Number(item.quantity.toFixed(3))}kg` : String(item.quantity);
     const qtyStr = displayQty.padStart(5, ' ') + ' ';
-    const priceStr = item.totalPrice.toFixed(2).padStart(7, ' ') + ' ';
-    const amountStr = (item.quantity * item.totalPrice).toFixed(2).padStart(8, ' ');
+    const priceStr = item.unitPrice.toFixed(2).padStart(7, ' ') + ' ';
+    const amountStr = item.totalPrice.toFixed(2).padStart(8, ' ');
 
     receipt = receipt.line(snoStr + nameStr + qtyStr + priceStr + amountStr);
     receipt = receipt.line(dashedLine);

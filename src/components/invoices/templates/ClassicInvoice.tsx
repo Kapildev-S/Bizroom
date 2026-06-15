@@ -75,7 +75,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
           <thead>
             <tr className="bg-gray-100">
               <th className="p-2 font-semibold text-gray-600 w-[6%] text-left">S.NO.</th>
-              <th className="p-2 font-semibold text-gray-600 w-[30%] text-left">Descriptions</th>
+              <th className={`p-2 font-semibold text-gray-600 text-left ${settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? 'w-[30%]' : 'w-[48%]'}`}>Descriptions</th>
               {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600 w-[10%] text-left">HSN</th>}
               <th className="p-2 font-semibold text-gray-600 w-[10%] text-left">QTY.</th>
               <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">MRP</th>

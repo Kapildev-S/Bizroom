@@ -84,7 +84,7 @@ export default function StylishInvoice({ invoice, customer, settings, logoDataUr
             <div className="p-8">
                 <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                        <col style={{ width: '32%' }} />
+                        <col style={{ width: settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '32%' : '50%' }} />
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '10%' }} />}
                         <col style={{ width: '8%' }} />
                         <col style={{ width: '12%' }} />

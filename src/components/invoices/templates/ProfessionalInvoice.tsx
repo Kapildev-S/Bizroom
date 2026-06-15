@@ -95,7 +95,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                 {/* Items Table - using the compact version */}
                 <table className="w-full text-left text-xs" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                        <col style={{ width: '32%' }} />
+                        <col style={{ width: settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '32%' : '50%' }} />
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '10%' }} />}
                         <col style={{ width: '8%' }} />
                         <col style={{ width: '12%' }} />
