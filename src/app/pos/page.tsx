@@ -383,6 +383,8 @@ export default function POSPage() {
 
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => prev.map(i => {
+      if (i.id !== id) return i;
+
       // For weight-based items, adjust weight in grams instead of quantity
       if (i.soldBy === 'weight' && i.weightInGrams) {
         const newGrams = Math.max(100, i.weightInGrams + delta * 100); // +/- adjusts by 100g
@@ -395,9 +397,7 @@ export default function POSPage() {
         };
       }
       // Piece-based items: adjust by whole units
-      return i.id === id
-        ? { ...i, quantity: Math.max(1, i.quantity + delta), totalPrice: Math.max(1, i.quantity + delta) * i.unitPrice }
-        : i;
+      return { ...i, quantity: Math.max(1, i.quantity + delta), totalPrice: Math.max(1, i.quantity + delta) * i.unitPrice };
     }));
   }, []);
 
