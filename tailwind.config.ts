@@ -11,7 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['var(--font-body)', 'sans-serif'],
+        body: ["'Barlow'", 'sans-serif'],
+        heading: ["'Instrument Serif'", 'serif'],
         headline: ['var(--font-display)', 'serif'],
         sans: ['var(--font-sans)', 'sans-serif'],
         display: ['var(--font-display)', 'sans-serif'],

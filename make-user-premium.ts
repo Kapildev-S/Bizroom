@@ -37,6 +37,15 @@ async function makeUserPremium(userId: string) {
     }
 }
 
-// Run the script
-const userId = 'vfWYfOZZOLeSs3VmIZrgpoDbl3u1';
-makeUserPremium(userId);
+const userIds = [
+    '5wGzMInxYde6rIPp4WJ0jZ4HwgI2',
+    '2vq5mHzgN1MIoJWv63DRE90yTQq2'
+];
+
+async function upgradeAll() {
+    for (const id of userIds) {
+        await makeUserPremium(id);
+    }
+}
+
+upgradeAll();

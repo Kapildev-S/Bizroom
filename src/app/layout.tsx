@@ -1,11 +1,9 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter as FontSans, Playfair_Display, Noto_Sans } from "next/font/google"
 import { cn } from "@/lib/utils"
 import { PWAInstallPrompt } from "@/components/shared/PWAInstallPrompt"
-import { SupportChatbot } from "@/components/support/SupportChatbot"
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -71,7 +69,6 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
-        <SupportChatbot />
         <PWAInstallPrompt />
         <Toaster />
       </body>

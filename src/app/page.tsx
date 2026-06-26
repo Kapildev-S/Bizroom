@@ -11,6 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { BillEaseLogo } from "@/components/icons/BillEaseLogo";
 import { PricingSection } from "@/components/shared/PricingSection";
+import { FreedomSection } from "@/components/FreedomSection";
+import { KresnaFooter } from "@/components/KresnaFooter";
+import CtaFooter from "@/components/CtaFooter";
+import { TubesBackground } from "@/components/ui/TubesBackground";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -25,6 +29,12 @@ import {
   Loader2,
   Calculator,
   Smartphone,
+  Fingerprint,
+  Sparkles,
+  Paperclip,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -35,31 +45,37 @@ const mainFeatures = [
     icon: FileText,
     title: "GST Invoicing & Billing",
     description: "Create professional GST-compliant invoices in seconds. Share via PDF or WhatsApp.",
+    image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&q=80",
   },
   {
     icon: Package,
     title: "Inventory Management",
     description: "Track stock levels, manage products with custom units, and never run out of stock.",
+    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&q=80",
   },
   {
     icon: Briefcase,
     title: "Staff Management",
     description: "Monitor daily attendance and log expenses for your team with detailed monthly reports.",
+    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80",
   },
   {
     icon: HandCoins,
     title: "Daily Ledger",
     description: "Easily record all your cash-in and cash-out transactions for a clear financial overview.",
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80",
   },
   {
     icon: Users,
     title: "Customer Management",
     description: "Keep all your client information organized in one place for easy access.",
+    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80",
   },
   {
     icon: Smartphone,
     title: "Mobile Recharge",
     description: "Recharge mobile numbers for all major operators instantly.",
+    image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&q=80",
   },
 ];
 
@@ -101,7 +117,22 @@ const fadeInFromRight = {
 export default function HomePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
   const isMobile = useIsMobile();
+
+  const testimonials = [
+    { name: "Rajesh Kumar", role: "Grocery Store Owner", text: "This app is a lifesaver! I can create invoices in seconds and track all my sales. My accounting is so much easier now.", avatar: "RK" },
+    { name: "Priya Sharma", role: "Boutique Owner", text: "Managing my inventory used to be a headache. With BizRoom, I know exactly what I have in stock. The reports are also very helpful for planning.", avatar: "PS" },
+    { name: "Amit Singh", role: "Contractor", text: "Finally, a simple app that does everything I need. Client management, invoicing, and even staff attendance. Highly recommended!", avatar: "AS" }
+  ];
+
+  const handleNextTestimonial = () => {
+    setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
+  };
+
+  const handlePrevTestimonial = () => {
+    setActiveTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -130,26 +161,23 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="container mx-auto py-6 px-4 md:px-6 flex justify-between items-center sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
-        <Link href="/" className="text-2xl font-headline font-bold text-foreground">Bizroom</Link>
-        <nav className="hidden md:flex space-x-8 items-center font-medium text-sm">
-          <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-          <Link href="#" className="hover:text-primary transition-colors">About</Link>
-          <Link href="#pricing" className="hover:text-primary transition-colors">Pricing</Link>
-          <Link href="#contact" className="hover:text-primary transition-colors">Contact</Link>
+      <header className="absolute top-0 w-full py-6 px-4 md:px-8 flex justify-between items-center z-50 pointer-events-auto">
+        <Link href="/" className="flex items-center gap-2 text-white hover:text-white/80 transition-colors">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+            <path d="M12 2L2 22h20L12 2z" />
+          </svg>
+          <span className="text-lg font-bold tracking-tight">BizRoom<sup className="text-[10px] font-normal ml-0.5 text-white/50">BETA</sup></span>
+        </Link>
+        <nav className="hidden md:flex bg-[#1a1a1a]/60 backdrop-blur-md rounded-full p-1 border border-white/10 items-center">
+          <Link href="#pricing" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Pricing</Link>
+          <Link href="#features" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Features</Link>
+          <Link href="#contact" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors flex items-center gap-1">
+            Contact
+          </Link>
         </nav>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" asChild className="flex gap-1.5 border-primary/20 hover:bg-primary/5 px-3 h-10">
-            <Link href="/recharge">
-              <Smartphone className="w-4 h-4" />
-              <span className="text-xs sm:text-sm">Recharge</span>
-            </Link>
-          </Button>
-          <Button variant="ghost" asChild className="flex text-foreground hover:text-primary px-3 h-10">
-            <Link href="/auth/login" className="text-xs sm:text-sm">Login</Link>
-          </Button>
-          <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg rounded-md px-6">
-            <Link href="/auth/signup">Sign Up</Link>
+        <div className="flex items-center">
+          <Button asChild className="bg-white hover:bg-white/90 text-black rounded-full px-5 h-9 text-xs font-medium">
+            <Link href="/auth/login">Sign in / Sign up</Link>
           </Button>
         </div>
       </header>
@@ -160,182 +188,179 @@ export default function HomePage() {
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
         {/* Hero Section */}
-        <section className="container mx-auto pt-32 pb-20 md:pt-40 md:pb-32 px-4 md:px-6 relative z-10">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <motion.div initial="hidden" animate="visible" variants={fadeInFromLeft}>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-headline font-bold mb-6 text-foreground tracking-tight leading-tight">
-                The Simplest Way to Manage Your Business
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-lg mb-8 leading-relaxed">
-                Contact with the simplest way to manage your business to get in custom mouthis.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" asChild className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl transition-transform hover:scale-105 rounded-md px-8 py-6 text-lg font-medium">
-                  <Link href="/auth/signup">Create FREE Invoice</Link>
-                </Button>
-              </div>
-            </motion.div>
-            <motion.div initial="hidden" animate="visible" variants={fadeInFromRight} className="relative">
-              {/* Decorative floating elements */}
-              <motion.div
-                animate={{ y: [0, -20, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-10 -right-10 z-20"
-              >
-                <div className="w-16 h-16 bg-yellow-400 rounded-full shadow-lg flex items-center justify-center text-yellow-600 font-bold border-4 border-white opacity-80 rotate-12">₹</div>
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, 20, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute bottom-10 -left-10 z-20"
-              >
-                <div className="w-12 h-12 bg-yellow-400 rounded-full shadow-lg flex items-center justify-center text-yellow-600 font-bold border-4 border-white opacity-80 -rotate-12">₹</div>
-              </motion.div>
+        <section className="relative w-full z-10 overflow-hidden">
+          <TubesBackground className="min-h-[80vh] md:min-h-[90vh]">
+            <div className="container mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center pt-32 pb-20 md:pt-40 md:pb-32 pointer-events-none text-center relative z-10">
+              <motion.div initial="hidden" animate="visible" variants={fadeInFromLeft} className="pointer-events-auto flex flex-col items-center w-full max-w-5xl mx-auto relative">
+                
+                {/* Top Badge */}
+                <Link href="/auth/signup" className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full pl-1 pr-4 py-1 mb-8 backdrop-blur-md cursor-pointer hover:bg-white/10 transition-colors">
+                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">NEW</span>
+                  <span className="text-white/80 text-xs font-medium">BizRoom AI Invoice is here &rarr;</span>
+                </Link>
 
-              <Image
-                src="https://images.unsplash.com/photo-1735825764485-93a381fd5779?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxNHx8JTIwQSUyMHBlcnNvbiUyMGJhbGFuY2luZyUyMHRyYWRpdGlvbmFsJTIwZG9jdW1lbnRzJTIwd2l0aCUyMGFuJTIwb25saW5lJTIwaW52b2ljZSUyMHN5c3RlbS4lMjBTdW1VcCUyMGNvbWJpbmVzJTIwY29udmVuaWVuY2UlMjBhbmQlMjBlZmZpY2llbmN5JTIwZm9yJTIwYnVzaW5lc3Nlcy58ZW58MHx8fHwxNzUwNzAyNDM4fDA&ixlib=rb-4.1.0&q=80&w=1080"
-                alt="BizRoom Dashboard"
-                width={800}
-                height={600}
-                className="rounded-xl shadow-2xl border-8 border-white/50 backdrop-blur-sm transform rotate-y-12 floating-object"
-                data-ai-hint="business dashboard"
-                priority
-              />
-            </motion.div>
-          </div>
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium mb-6 tracking-tight text-white select-none relative z-10">
+                  Create Invoice Using AI
+                </h1>
+                <p className="text-sm md:text-lg text-white/60 max-w-2xl mb-12 leading-relaxed font-light mx-auto relative z-10">
+                  Generate professional, GST-ready digital invoices from your business details instantly.
+                </p>
+
+                {/* Prompt Box */}
+                <div className="w-full max-w-3xl bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col gap-4 relative z-10">
+                  <textarea 
+                    className="w-full bg-transparent text-white placeholder-white/40 resize-none outline-none text-base md:text-lg min-h-[80px]"
+                    placeholder="Describe the invoice you want... e.g., an invoice for website design services at $1000 with 18% GST"
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    <button className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors text-sm font-medium">
+                      <Paperclip className="w-4 h-4" />
+                      Import
+                    </button>
+                    <Link href="/auth/signup" className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors border border-white/10">
+                      <ArrowUp className="w-5 h-5" />
+                    </Link>
+                  </div>
+                </div>
+
+              </motion.div>
+            </div>
+          </TubesBackground>
         </section>
+
+        {/* Freedom Section */}
+        <FreedomSection />
 
         {/* Pricing Section */}
         <div id="pricing">
           <PricingSection titleOverride="Choose Your Plan" />
         </div>
 
-
-
-        {/* Features Grid Section */}
-        <section className="py-20 md:py-28 relative">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-headline font-bold text-foreground mb-4">
-                A Complete Toolkit for Your Business
-              </h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Build yoursecutions and consover your business
-              </p>
-            </div>
-            <motion.div
-              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.1 }}
-              variants={containerVariants}
-            >
-              {mainFeatures.map((feature, idx) => (
-                <motion.div key={feature.title} variants={itemVariants} className={idx === 1 || idx === 2 ? "" : ""}>
-                  <div className="group relative overflow-hidden rounded-2xl bg-white/50 border border-white/60 p-6 transition-all hover:shadow-lg hover:-translate-y-1 glass-card">
-                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      <feature.icon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mb-2 text-xl font-bold text-foreground">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-
-
-
-        {/* Testimonials */}
-        <section className="py-20 md:py-28">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-headline font-semibold text-primary">Loved by Business Owners Like You</h2>
-              <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">See what our users are saying about how BizRoom has simplified their work.</p>
-            </div>
-            <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.1 }}
-              variants={containerVariants}
-            >
-              {[
-                { name: "Rajesh Kumar", role: "Grocery Store Owner", text: "This app is a lifesaver! I can create invoices in seconds and track all my sales. My accounting is so much easier now." },
-                { name: "Priya Sharma", role: "Boutique Owner", text: "Managing my inventory used to be a headache. With BizRoom, I know exactly what I have in stock. The reports are also very helpful for planning." },
-                { name: "Amit Singh", role: "Contractor", text: "Finally, a simple app that does everything I need. Client management, invoicing, and even staff attendance. Highly recommended!" }
-              ].map((testimonial) => (
-                <motion.div key={testimonial.name} variants={itemVariants}>
-                  <Card className="h-full flex flex-col bg-background">
-                    <CardContent className="pt-6 flex-grow">
-                      <div className="flex mb-2">
-                        {[...Array(5)].map((_, i) => <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />)}
-                      </div>
-                      <p className="text-muted-foreground italic">"{testimonial.text}"</p>
-                    </CardContent>
-                    <CardHeader>
-                      <CardTitle className="text-base font-semibold">{testimonial.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                    </CardHeader>
-                  </Card>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="py-20 md:py-28 bg-primary/5">
-          <div className="container mx-auto px-4 md:px-6 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold font-headline mb-4">Ready to simplify your business?</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-              Join thousands of small business owners who trust BizRoom to manage their operations. Get started for free, no credit card required.
+        {/* Features Stacking Cards Section */}
+        <section className="py-20 md:py-28 relative bg-background" id="features">
+          <div className="container mx-auto px-4 md:px-6 mb-16 text-center">
+            <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
+              A Complete Toolkit for Your Business
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Everything you need to execute and control your business operations.
             </p>
-            <Button size="lg" asChild className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform hover:scale-105 rounded-full px-8 py-6 text-lg">
-              <Link href="/auth/signup">Start for Free Now</Link>
-            </Button>
+          </div>
+          
+          <div className="container mx-auto px-4 md:px-6 pb-32">
+            <div className="flex flex-col relative space-y-24 md:space-y-32">
+              {mainFeatures.map((feature, idx) => (
+                <div 
+                  key={feature.title} 
+                  className="sticky w-full"
+                  style={{ 
+                    top: `calc(6rem + ${idx * 1.5}rem)`,
+                    zIndex: idx 
+                  }}
+                >
+                  <div className="bg-[#0f1115] border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col md:flex-row min-h-[450px] w-full max-w-5xl mx-auto transform transition-all duration-500 group hover:-translate-y-2">
+                    <div className="flex-1 w-full h-[250px] md:h-[unset] md:min-h-[450px] relative order-1 md:order-1 border-r border-white/5">
+                      <Image 
+                        src={feature.image} 
+                        alt={feature.title}
+                        fill
+                        unoptimized={true}
+                        className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"
+                      />
+                    </div>
+                    <div className="flex-1 text-left order-2 md:order-2 p-10 md:p-16 flex flex-col justify-center relative overflow-hidden">
+                      {/* Neon glow effect in the background */}
+                      <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-primary/40 transition-colors duration-700" />
+                      
+                      <div className="relative z-10 flex flex-col h-full">
+                        <div className="flex items-center gap-4 mb-8">
+                          <span className="text-primary text-xs font-bold tracking-widest uppercase">{feature.title.split(' ')[0]}</span>
+                          <span className="text-white/20 text-xs font-mono">0{idx + 1} / 06</span>
+                        </div>
+                        
+                        <h3 className="mb-4 text-3xl md:text-4xl font-bold text-white tracking-tight">{feature.title}</h3>
+                        <p className="text-base md:text-lg text-white/50 leading-relaxed mb-12">{feature.description}</p>
+                        
+                        <div className="mt-auto pt-4 flex justify-between items-center border-t border-white/10">
+                          <div className="flex gap-2">
+                            <span className="text-[10px] text-white/40 border border-white/10 px-2 py-1 rounded bg-white/5">AI Powered</span>
+                            <span className="text-[10px] text-white/40 border border-white/10 px-2 py-1 rounded bg-white/5">Automated</span>
+                          </div>
+                          <Link href="/auth/signup" className="text-white hover:text-primary transition-colors text-sm font-medium flex items-center gap-2 mt-2 md:mt-0">
+                            Try Now &rarr;
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-      </main>
 
-      {/* Footer */}
-      <footer id="contact" className="py-12 border-t bg-muted/20">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <BillEaseLogo />
-              <p className="mt-4 text-muted-foreground text-sm">
-                Simplifying business management for retailers and service providers.
-              </p>
+
+
+        {/* Arceage Style Testimonial Slider */}
+        <section className="bg-[#f5f5f5] py-24 px-6 md:px-12 lg:px-24 flex items-center justify-center min-h-[600px] border-t border-gray-200">
+          <div className="w-full max-w-5xl mx-auto flex flex-col h-full">
+            <h4 className="text-gray-500 font-medium text-sm mb-12 tracking-wide uppercase">Customer Feedback</h4>
+            
+            <div className="flex-grow flex items-center justify-center min-h-[250px] mb-12">
+              <motion.div
+                key={activeTestimonial}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="text-center"
+              >
+                <p className="text-2xl md:text-3xl lg:text-4xl text-gray-700 font-light leading-relaxed max-w-4xl mx-auto">
+                  «{testimonials[activeTestimonial].text}»
+                </p>
+              </motion.div>
             </div>
 
-            <div>
-              <h3 className="font-semibold mb-4">Quick Links</h3>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <Link href="/#pricing" className="hover:text-primary transition-colors">Pricing</Link>
-                <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
-                <Link href="/terms" className="hover:text-primary transition-colors">Terms & Conditions</Link>
-                <Link href="/refund" className="hover:text-primary transition-colors">Refund Policy</Link>
-              </nav>
-            </div>
+            <div className="w-full border-t border-gray-300 pt-8 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-lg border border-gray-300 shadow-sm">
+                  {testimonials[activeTestimonial].avatar}
+                </div>
+                <div>
+                  <h5 className="font-semibold text-gray-900 text-base">{testimonials[activeTestimonial].name}</h5>
+                  <p className="text-sm text-gray-500 font-medium">{testimonials[activeTestimonial].role}</p>
+                </div>
+              </div>
 
-            <div>
-              <h3 className="font-semibold mb-4">Get in Touch</h3>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Mobile: <a href="tel:+919655613399" className="hover:text-primary transition-colors font-medium">+91 9655613399</a></p>
-                <p>Email: <a href="mailto:info@bizroom.in" className="hover:text-primary transition-colors">info@bizroom.in</a></p>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={handlePrevTestimonial}
+                  className="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors border border-gray-300/50 focus:outline-none"
+                >
+                  <ChevronLeft size={20} strokeWidth={2} />
+                </button>
+                <button 
+                  onClick={handleNextTestimonial}
+                  className="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors border border-gray-300/50 focus:outline-none"
+                >
+                  <ChevronRight size={20} strokeWidth={2} />
+                </button>
               </div>
             </div>
           </div>
+        </section>
 
-          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} BizRoom. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+
+      </main>
+
+      {/* CTA Section */}
+      <CtaFooter />
+
+      {/* Footer */}
+      <div id="contact">
+        <KresnaFooter />
+      </div>
     </div>
   );
 }

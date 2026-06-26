@@ -37,13 +37,22 @@ async function makeUserPremium(userId) {
         console.log('\n📋 Current user settings:');
         console.log(JSON.stringify(doc.data(), null, 2));
 
-        process.exit(0);
     } catch (error) {
-        console.error('❌ Error upgrading user:', error);
-        process.exit(1);
+        console.error(`❌ Error upgrading user ${userId}:`, error);
     }
 }
 
 // Run the script
-const userId = 'vfWYfOZZOLeSs3VmIZrgpoDbl3u1';
-makeUserPremium(userId);
+const userIds = [
+    '5wGzMInxYde6rIPp4WJ0jZ4HwgI2',
+    '2vq5mHzgN1MIoJWv63DRE90yTQq2'
+];
+
+async function upgradeAll() {
+    for (const id of userIds) {
+        await makeUserPremium(id);
+    }
+    process.exit(0);
+}
+
+upgradeAll();
