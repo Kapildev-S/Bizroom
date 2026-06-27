@@ -68,26 +68,26 @@ export default function AuthenticatedLayout({
         <FirebaseErrorListener />
 
         {/* Desktop Sidebar - Hidden on Mobile */}
-        <Sidebar variant="sidebar" collapsible="icon" side="left" className="shadow-lg no-print hidden md:flex">
+        <Sidebar variant="sidebar" collapsible="icon" side="left" className="shadow-lg no-print hidden lg:flex">
           <SidebarNav />
         </Sidebar>
 
         <SidebarInset className="bg-background">
           {/* Mobile Header - Only visible on mobile */}
           {showMobileHeader && (
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <MobileHeader title={pageTitle || "BizRoom"} showSidebarTrigger={true} />
             </div>
           )}
 
           {/* Desktop Header - Only visible on desktop with sidebar trigger */}
-          <header className="sticky top-0 z-10 hidden md:flex h-14 items-center gap-4 border-b bg-background px-4">
+          <header className="sticky top-0 z-10 hidden lg:flex h-14 items-center gap-4 border-b bg-background px-4">
             <SidebarTrigger />
             <h1 className="text-lg font-semibold">{pageTitle}</h1>
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">
+          <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6">
             {children}
           </main>
 

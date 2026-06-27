@@ -501,7 +501,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid xl:grid-cols-2 gap-6">
               <FormField
                 control={control}
                 name="invoiceNumber"
@@ -701,7 +701,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                 </>
               )}
             </div>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid xl:grid-cols-2 gap-6">
               <FormField
                 control={control}
                 name="customerName"
@@ -731,7 +731,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
                 )}
               />
             </div>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid xl:grid-cols-2 gap-6">
               <FormField
                 control={control}
                 name="issueDate"
@@ -793,7 +793,7 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
               isTaxInclusive={watchedIsTaxInclusive}
             />
 
-            <div className="grid md:grid-cols-2 gap-6 pt-6 border-t">
+            <div className="grid xl:grid-cols-2 gap-6 pt-6 border-t">
               {enableDiscounts && (
                 <FormField
                   control={control}

@@ -335,19 +335,19 @@ export function InvoiceFormItems({ products, currencySymbol, enableAdvancedInvoi
           ))}
         </div>
       ) : (
-        <div className="rounded-md border bg-card shadow-sm">
-          <Table>
+        <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow>
-                <TableHead className={enableAdvancedInvoiceSystem ? "w-[15%]" : "w-[25%]"}>Product/Service</TableHead>
-                {enableAdvancedInvoiceSystem && <TableHead className="w-[8%]">HSN</TableHead>}
-                <TableHead className="w-[10%]">Quantity</TableHead>
-                <TableHead className="w-[10%]">Unit</TableHead>
-                <TableHead className="w-[10%]">Unit Price ({currencySymbol})</TableHead>
-                {enableAdvancedInvoiceSystem && <TableHead className="w-[9%]">MRP ({currencySymbol})</TableHead>}
-                {enableAdvancedInvoiceSystem && <TableHead className="w-[8%]">GST %</TableHead>}
-                <TableHead className={enableAdvancedInvoiceSystem ? "w-[10%]" : "w-[20%]"}>Total ({currencySymbol})</TableHead>
-                <TableHead className={cn(enableAdvancedInvoiceSystem ? "w-[6%]" : "w-[15%]", "text-right")}>Action</TableHead>
+                <TableHead className={enableAdvancedInvoiceSystem ? "min-w-[200px]" : "min-w-[250px]"}>Product/Service</TableHead>
+                {enableAdvancedInvoiceSystem && <TableHead className="min-w-[100px]">HSN</TableHead>}
+                <TableHead className="min-w-[100px]">Quantity</TableHead>
+                <TableHead className="min-w-[120px]">Unit</TableHead>
+                <TableHead className="min-w-[150px]">Unit Price ({currencySymbol})</TableHead>
+                {enableAdvancedInvoiceSystem && <TableHead className="min-w-[150px]">MRP ({currencySymbol})</TableHead>}
+                {enableAdvancedInvoiceSystem && <TableHead className="min-w-[120px]">GST %</TableHead>}
+                <TableHead className={enableAdvancedInvoiceSystem ? "min-w-[150px]" : "min-w-[200px]"}>Total ({currencySymbol})</TableHead>
+                <TableHead className={cn(enableAdvancedInvoiceSystem ? "min-w-[80px]" : "min-w-[100px]", "text-right")}>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
