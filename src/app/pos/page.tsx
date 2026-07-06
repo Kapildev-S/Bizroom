@@ -15,6 +15,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, getDocs, doc, getDoc, updateDoc, Timestamp, getDocsFromCache, getDocFromCache, setDoc } from 'firebase/firestore';
 import type { Product, Invoice, InvoiceItem, AppSettings } from '@/lib/mockData';
 import { useAuth } from "@/lib/useAuth";
+import { useProducts, useSettings } from "@/lib/hooks/useData";
 import { getCurrencySymbol } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
@@ -62,14 +63,14 @@ function PrinterStatusBadge({ status }: { status: ConnectionStatus }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function POSPage() {
   // ── Product / App state ──────────────────────────────────────────────────
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products, isLoading: productsLoading } = useProducts();
+  const { settings, mutate: mutateSettings, isLoading: settingsLoading } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi'>('cash');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const loading = productsLoading || settingsLoading;
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // ── Weight-based product state ───────────────────────────────────────────
@@ -131,33 +132,6 @@ export default function POSPage() {
       }
     };
     initPrinter();
-
-    const fetchData = async () => {
-      try {
-        let productsSnap;
-        try {
-          productsSnap = await getDocs(query(collection(db, `users/${currentUser.uid}/products`)));
-        } catch (e) {
-          productsSnap = await getDocsFromCache(query(collection(db, `users/${currentUser.uid}/products`)));
-        }
-        setProducts(productsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
-
-        let settingsSnap;
-        try {
-          settingsSnap = await getDoc(doc(db, `users/${currentUser.uid}/settings`, 'appSettings'));
-        } catch (e) {
-          settingsSnap = await getDocFromCache(doc(db, `users/${currentUser.uid}/settings`, 'appSettings'));
-        }
-        if (settingsSnap.exists()) setSettings(settingsSnap.data() as AppSettings);
-
-      } catch (err) {
-        console.error("POS init error:", err);
-        toast({ variant: "destructive", title: "Offline Data Unavailable", description: "Failed to load POS data from server or cache." });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
@@ -469,18 +443,16 @@ export default function POSPage() {
       updateDoc(
         doc(db, `users/${currentUser.uid}/settings`, 'appSettings'),
         { 'invoiceSettings.nextInvoiceSequence': nextSeq }
-      ).catch(console.error);
-      setSettings(prev =>
-        prev
-          ? {
-            ...prev,
-            invoiceSettings: {
-              ...prev.invoiceSettings,
-              nextInvoiceSequence: nextSeq,
-            },
+      ).then(() => {
+        // Optimistically update settings cache
+        mutateSettings((prev) => prev ? {
+          ...prev,
+          invoiceSettings: {
+            ...prev.invoiceSettings,
+            nextInvoiceSequence: nextSeq,
           }
-          : prev
-      );
+        } : prev, false);
+      }).catch(console.error);
 
       // 3. Print receipt
       try {
@@ -875,7 +847,7 @@ export default function POSPage() {
             <div className="space-y-1.5 mb-3 md:mb-5">
               <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{subtotal.toFixed(2)}</span></div>
               {taxAmount > 0 && (
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Tax {enableAdvancedInvoiceSystem ? '' : `(${taxRate}%)`}</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Tax {settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '' : `(${(settings?.invoiceSettings as any)?.taxRate || 0}%)`}</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span></div>
               )}
               <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
                 <span className="text-lg font-bold text-[#1a2b4b]">Total</span>

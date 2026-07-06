@@ -24,6 +24,8 @@ export type Product = {
   soldBy?: 'piece' | 'weight' | 'both'; // 'piece' = unit-based, 'weight' = grams/kg based, 'both' = allows selection
   pricePerPiece?: number; // Used if soldBy is 'both'
   pricePerKg?: number; // Used if soldBy is 'both'
+  profitReferenceAmount?: number; // e.g. for ₹1000
+  profitReferenceProfit?: number; // profit is ₹30
 };
 
 export type InvoiceItem = {

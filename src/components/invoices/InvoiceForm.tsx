@@ -30,6 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 import { InvoiceFormItems } from "./InvoiceFormItems";
 import type { User as FirebaseUser } from 'firebase/auth';
 import { db } from '@/lib/firebase';
+import { saveInvoiceProfit } from '@/lib/firebase/profitActions';
+import type { InvoiceProfit, InvoiceProfitItem } from '@/lib/types/profit';
 import { addDoc, collection, doc, Timestamp, runTransaction } from 'firebase/firestore';
 import {
   Command,
@@ -349,6 +351,53 @@ export function InvoiceForm({ initialData, customers, products, settings, curren
       });
 
       toast({ title: initialData ? "Invoice Updated" : "Invoice Created", description: `Invoice ${nextInvoiceNumber} has been successfully ${initialData ? 'updated' : 'created'}.` });
+
+      // Auto-calculate profit
+      if (currentUser && finalInvoiceId) {
+        let totalProfit = 0;
+        let totalCost = 0;
+        let hasProfitRules = false;
+        
+        const profitItems: InvoiceProfitItem[] = values.items.map((item: any) => {
+          const productDef = products.find(p => p.id === item.productId);
+          let itemProfit = 0;
+          let itemCost = item.unitPrice * item.quantity;
+          
+          if (productDef && productDef.profitReferenceAmount && productDef.profitReferenceProfit) {
+            hasProfitRules = true;
+            const margin = productDef.profitReferenceProfit / productDef.profitReferenceAmount;
+            itemProfit = (item.unitPrice * margin) * item.quantity;
+            itemCost = (item.unitPrice * item.quantity) - itemProfit;
+          }
+          
+          totalProfit += itemProfit;
+          totalCost += itemCost;
+          
+          return {
+            productId: item.productId,
+            productName: productDef ? productDef.name : item.productName || 'Unknown Product',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            costPrice: item.quantity > 0 ? (itemCost / item.quantity) : 0,
+            profit: itemProfit
+          };
+        });
+
+        if (hasProfitRules) {
+          const profitData: InvoiceProfit = {
+            invoiceId: finalInvoiceId,
+            invoiceNumber: nextInvoiceNumber,
+            issueDate: values.issueDate.toISOString(),
+            customerName: values.customerName,
+            totalInvoiceAmount: values.totalAmount,
+            items: profitItems,
+            totalCost,
+            totalProfit,
+            updatedAt: new Date().toISOString()
+          };
+          saveInvoiceProfit(currentUser.uid, profitData).catch(err => console.error("Failed to auto-save profit:", err));
+        }
+      }
 
       if (finalInvoiceId) {
         router.refresh(); // Ensure the view page gets fresh data

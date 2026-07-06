@@ -511,6 +511,22 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     }
   };
 
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = document.getElementById('invoice-root');
+    if (!el) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContentHeight(entry.target.scrollHeight);
+      }
+    });
+    
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const template = settings?.customizationSettings?.template || 'classic';
 
   const renderInvoice = (forPrint: boolean = false) => {
@@ -555,13 +571,16 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       );
     }
 
+    const mmToPx = 3.7795275591;
+    
     return (
       <div
         className="flex-shrink-0 bg-transparent"
         style={{
           width: `${paperWidth * scale}mm`,
-          height: `${paperHeight * scale}mm`,
-          overflow: 'hidden'
+          height: contentHeight ? `${contentHeight * displayScale}px` : `${paperHeight * scale}mm`,
+          overflow: 'hidden',
+          transition: 'height 0.2s ease-out'
         }}
       >
         <Card
@@ -608,7 +627,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           <div
             className="w-full max-w-full overflow-x-auto pb-10 pt-4 flex justify-center bg-slate-50/50 rounded-3xl border border-slate-100 shadow-inner"
             style={{
-              minHeight: `${paperHeight * 3.7795275591 * scale}px`
+              minHeight: contentHeight ? `${contentHeight * scale}px` : `${paperHeight * 3.7795275591 * scale}px`
             }}
           >
             {renderInvoice(false)}

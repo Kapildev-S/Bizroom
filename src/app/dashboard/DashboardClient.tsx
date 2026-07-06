@@ -21,6 +21,7 @@ import { getCurrencySymbol } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import Image from 'next/image';
 import { useAuth } from "@/lib/useAuth";
+import { useInvoices, useCustomers, useSettings } from '@/lib/hooks/useData';
 
 // Helper to get status badge variant
 const getStatusBadgeVariant = (status: Invoice['status']) => {
@@ -35,63 +36,15 @@ const getStatusBadgeVariant = (status: Invoice['status']) => {
 };
 
 export default function DashboardClient() {
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [settings, setSettings] = useState<AppSettings | null>(null);
-
-    // Use the new useAuth hook
     const { user: currentUser, loading: authLoading } = useAuth();
-    const [dataLoading, setDataLoading] = useState(true);
-
     const router = useRouter();
+    
+    // Use SWR hooks for data fetching
+    const { invoices, isLoading: invoicesLoading } = useInvoices();
+    const { customers, isLoading: customersLoading } = useCustomers();
+    const { settings, isLoading: settingsLoading } = useSettings();
 
-    useEffect(() => {
-        // Only fetch data if we have a user
-        if (!authLoading && currentUser) {
-            const fetchData = async () => {
-                try {
-                    // Fetch all invoices for stats
-                    const allInvoicesQuery = query(collection(db, `users/${currentUser.uid}/invoices`), orderBy("issueDate", "desc"));
-                    const allInvoicesSnapshot = await getDocs(allInvoicesQuery);
-                    const allFetchedInvoices = allInvoicesSnapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return {
-                            id: doc.id,
-                            ...data,
-                            issueDate: typeof data.issueDate === 'string' ? data.issueDate : (data.issueDate?.toDate ? data.issueDate.toDate().toISOString() : new Date().toISOString()),
-                            dueDate: typeof data.dueDate === 'string' ? data.dueDate : (data.dueDate?.toDate ? data.dueDate.toDate().toISOString() : new Date().toISOString()),
-                        } as Invoice;
-                    });
-                    setInvoices(allFetchedInvoices);
-
-                    // Fetch all customers for stats
-                    const customersQuery = query(collection(db, `users/${currentUser.uid}/customers`));
-                    const customersSnapshot = await getDocs(customersQuery);
-                    const fetchedCustomers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
-                    setCustomers(fetchedCustomers);
-
-                    // Fetch settings
-                    const settingsDocRef = doc(db, `users/${currentUser.uid}/settings`, 'appSettings');
-                    const settingsSnap = await getDoc(settingsDocRef);
-                    if (settingsSnap.exists()) {
-                        setSettings(settingsSnap.data() as AppSettings);
-                    }
-                } catch (error) {
-                    console.error("Error fetching dashboard data:", error);
-                } finally {
-                    setDataLoading(false);
-                }
-            };
-
-            fetchData();
-        } else if (!authLoading && !currentUser) {
-            // Redirect or handle unauthenticated state?
-            // For now, loading state covers it until the hook resolves
-            setDataLoading(false);
-        }
-    }, [currentUser, authLoading]);
-
-    const loading = authLoading || (currentUser && dataLoading);
+    const loading = authLoading || invoicesLoading || customersLoading || settingsLoading;
 
     const stats = React.useMemo(() => {
         const totalRevenue = invoices

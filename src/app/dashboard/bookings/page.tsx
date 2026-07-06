@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getUserBookings, type BookingData } from "@/app/actions/bookingActions";
+import { getBookingsByUser, type BookingData } from "@/app/actions/bookingActions";
 import { QRCodeSVG } from "qrcode.react";
 import {
     Dialog,
@@ -31,7 +31,7 @@ export default function MyBookingsPage() {
             if (currentUser) {
                 setUser(currentUser);
                 try {
-                    const fetchedBookings = await getUserBookings(currentUser.uid);
+                    const fetchedBookings = await getBookingsByUser(currentUser.uid);
                     setBookings(fetchedBookings);
                 } catch (error) {
                     console.error("Failed to fetch bookings", error);

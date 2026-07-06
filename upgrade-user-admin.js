@@ -44,8 +44,7 @@ async function makeUserPremium(userId) {
 
 // Run the script
 const userIds = [
-    '5wGzMInxYde6rIPp4WJ0jZ4HwgI2',
-    '2vq5mHzgN1MIoJWv63DRE90yTQq2'
+    'c2tcCdNNTmMgnDIu3wmCxM2V73J2'
 ];
 
 async function upgradeAll() {

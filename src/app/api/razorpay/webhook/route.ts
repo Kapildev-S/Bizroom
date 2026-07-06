@@ -1,21 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import * as admin from 'firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: 'bill-7362b',
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: privateKey,
-        }),
-    });
-}
-
-const db = admin.firestore();
+const db = getAdminDb();
 const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || 'your_webhook_secret_here';
 
 export async function POST(req: Request) {
@@ -76,12 +63,59 @@ export async function POST(req: Request) {
 
                 await userSettingsRef.set(updateData, { merge: true });
 
+                // Update global premium subscriptions collection
+                if (subscription.id) {
+                    const globalSubRef = db.doc(`premium_subscriptions/${subscription.id}`);
+                    await globalSubRef.set({
+                        userId: userId,
+                        subscriptionId: subscription.id,
+                        status: 'active',
+                        planId: subscription.plan_id || '',
+                        premiumExpiry: newExpiry.toISOString(),
+                        lastPaymentAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                }
+
                 console.log(`✅ Successfully upgraded user ${userId} to premium until ${newExpiry.toISOString()}`);
                 console.log(`Event: ${event}, Subscription ID: ${subscription.id}`);
             } else {
                 console.warn(`⚠️ No userId found in subscription notes for event: ${event}`);
             }
+        } else if (
+            event === 'subscription.cancelled' ||
+            event === 'subscription.halted' ||
+            event === 'subscription.paused'
+        ) {
+            const subscription = payload.payload.subscription.entity;
+            const userId = subscription.notes?.userId;
+
+            if (userId) {
+                console.log(`Processing subscription cutoff event (${event}) for user: ${userId}`);
+                const userSettingsRef = db.doc(`users/${userId}/settings/appSettings`);
+
+                const updateData: any = {
+                    subscriptionStatus: 'basic',
+                    premiumExpiry: new Date().toISOString(), // Expire immediately
+                };
+
+                await userSettingsRef.set(updateData, { merge: true });
+
+                // Update global premium subscriptions collection
+                if (subscription.id) {
+                    const globalSubRef = db.doc(`premium_subscriptions/${subscription.id}`);
+                    await globalSubRef.set({
+                        status: event.replace('subscription.', ''),
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                }
+
+                console.log(`❌ Successfully downgraded user ${userId} to basic due to ${event}`);
+            } else {
+                console.warn(`⚠️ No userId found in subscription notes for cutoff event: ${event}`);
+            }
         }
+
 
         return NextResponse.json({ status: 'ok' });
 

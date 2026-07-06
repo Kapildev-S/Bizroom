@@ -30,7 +30,8 @@ import {
   FileImage,
   Smartphone,
   ShieldCheck,
-  Bot
+  Bot,
+  TrendingUp
 } from "lucide-react";
 import {
   SidebarMenu,
@@ -75,7 +76,7 @@ const businessToolsItems = [
   { href: "/sms-marketing", label: "SMS Marketing", icon: MessageSquareText },
   { href: "/deliveries", label: "Deliveries", icon: Truck },
   { href: "/recharge", label: "Mobile Recharge", icon: Smartphone },
-
+  { href: "/profit", label: "Profit Dashboard", icon: TrendingUp },
 ];
 
 const otherServicesItems = [
@@ -86,32 +87,17 @@ const otherServicesItems = [
   { href: "/create-posters", label: "Create Posters", icon: FileImage },
 ];
 
+import { useSubscription } from '@/lib/hooks/useSubscription';
+import { useAuth } from '@/lib/useAuth';
+
 export function SidebarNav() {
   const pathname = usePathname();
   const { toast } = useToast();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        const settingsDocRef = doc(db, `users/${user.uid}/settings`, 'appSettings');
-
-        // Use onSnapshot for realtime updates
-        const unsubscribeSettings = onSnapshot(settingsDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            setSettings(docSnap.data() as AppSettings);
-          }
-        });
-
-        return () => unsubscribeSettings();
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
+  
+  // Use SWR hook for settings
+  const { isPremium, isExpired, settings } = useSubscription();
+  const { user: currentUser } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -144,7 +130,7 @@ export function SidebarNav() {
                 <p className="text-xs text-sidebar-foreground/70">
                   {settings?.businessProfile?.phone || ''}
                 </p>
-                {settings?.subscriptionStatus === 'premium' && (
+                {isPremium && (
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold border border-amber-200 flex items-center gap-0.5">
                     <Sparkles className="w-3 h-3" /> Premium
                   </span>
@@ -155,9 +141,6 @@ export function SidebarNav() {
 
           {/* Upgrade/Renew Banner for Basic/Expired Users */}
           {(() => {
-            const isPremium = settings?.subscriptionStatus === 'premium';
-            const expiryDate = settings?.premiumExpiry ? new Date(settings.premiumExpiry) : null;
-            const isExpired = isPremium && expiryDate && new Date() > expiryDate;
             const showBanner = !isPremium || isExpired;
 
             if (showBanner) {
@@ -250,12 +233,9 @@ export function SidebarNav() {
       <div data-sidebar="content" className="flex-grow overflow-auto">
         {/* Render function for checking lock status */}
         {(() => {
-          const isPremiumStatus = settings?.subscriptionStatus === 'premium';
-          const expiryDate = settings?.premiumExpiry ? new Date(settings.premiumExpiry) : null;
-          const isExpired = isPremiumStatus && expiryDate && new Date() > expiryDate;
-          const isPremium = isPremiumStatus && !isExpired;
+          // isPremium is derived from useSubscription at the component level
 
-          const allowedPaths = ['/dashboard', '/invoices', '/products', '/settings', '/agent', '/pos'];
+          const allowedPaths = ['/dashboard', '/invoices', '/products', '/settings', '/agent', '/pos', '/profit'];
 
           const renderMenuItem = (item: any) => {
             const isLocked = !isPremium && !allowedPaths.some(path => item.href.startsWith(path));

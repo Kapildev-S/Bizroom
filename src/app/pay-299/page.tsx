@@ -10,6 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import type { AppSettings } from "@/lib/mockData";
 import { upgradeUserToPremium } from "@/app/actions/userActions";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 declare global {
     interface Window {
@@ -19,7 +20,7 @@ declare global {
 
 export default function Pay299Page() {
     const [loading, setLoading] = useState(false);
-    const [settings, setSettings] = useState<AppSettings | null>(null);
+    const { isExpired, mutateSettings } = useSubscription();
     const router = useRouter();
 
     useEffect(() => {
@@ -27,12 +28,6 @@ export default function Pay299Page() {
             if (!user) {
                 router.push("/auth/login");
                 return;
-            }
-
-            const settingsDocRef = doc(db, `users/${user.uid}/settings`, 'appSettings');
-            const docSnap = await getDoc(settingsDocRef);
-            if (docSnap.exists()) {
-                setSettings(docSnap.data() as AppSettings);
             }
         });
 
@@ -93,6 +88,7 @@ export default function Pay299Page() {
                             const result = await upgradeUserToPremium(user.uid);
                             if (result.success) {
                                 alert("Subscription Successful! Enjoy Premium Features.");
+                                await mutateSettings();
                                 router.push("/dashboard");
                             } else {
                                 throw new Error(result.error);
@@ -131,9 +127,7 @@ export default function Pay299Page() {
         }
     };
 
-    const isPremium = settings?.subscriptionStatus === 'premium';
-    const expiryDate = settings?.premiumExpiry ? new Date(settings.premiumExpiry) : null;
-    const isExpired = isPremium && expiryDate && new Date() > expiryDate;
+
 
     const features = [
         "Unlimited Invoices & Bills",

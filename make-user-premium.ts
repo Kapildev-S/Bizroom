@@ -30,6 +30,18 @@ async function makeUserPremium(userId: string) {
             lastPaymentId: 'manual_upgrade',
         }, { merge: true });
 
+        // Add to global premium_subscriptions collection for relation mapping
+        const globalSubRef = doc(db, `premium_subscriptions/manual_${userId}`);
+        await setDoc(globalSubRef, {
+            userId: userId,
+            subscriptionId: `manual_${userId}`,
+            status: 'active',
+            planId: 'manual_yearly',
+            premiumExpiry: premiumExpiry.toISOString(),
+            lastPaymentAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
         console.log(`✅ Successfully upgraded user ${userId} to premium`);
         console.log(`Premium expiry: ${premiumExpiry.toISOString()}`);
     } catch (error) {
@@ -38,14 +50,14 @@ async function makeUserPremium(userId: string) {
 }
 
 const userIds = [
-    '5wGzMInxYde6rIPp4WJ0jZ4HwgI2',
-    '2vq5mHzgN1MIoJWv63DRE90yTQq2'
+    'c2tcCdNNTmMgnDIu3wmCxM2V73J2'
 ];
 
 async function upgradeAll() {
     for (const id of userIds) {
         await makeUserPremium(id);
     }
+    process.exit(0);
 }
 
 upgradeAll();

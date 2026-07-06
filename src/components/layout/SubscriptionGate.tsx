@@ -10,54 +10,19 @@ import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 
 export function SubscriptionGate({ children, user }: { children: React.ReactNode, user: User }) {
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
-  const [modalMessage, setModalMessage] = useState('');
+  const { isPremium, isExpired, loading, settings } = useSubscription();
 
-  useEffect(() => {
-    const checkSubscription = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const settingsDocRef = doc(db, `users/${user.uid}/settings`, 'appSettings');
-        const docSnap = await getDoc(settingsDocRef);
-        if (docSnap.exists()) {
-          const appSettings = docSnap.data() as AppSettings;
-          setSettings(appSettings);
-
-          const isPremium = appSettings.subscriptionStatus === 'premium';
-          const expiryDate = appSettings.premiumExpiry ? new Date(appSettings.premiumExpiry) : null;
-          const isExpired = expiryDate ? new Date() > expiryDate : true;
-
-          if (isPremium && !isExpired) {
-            setIsSubscriptionActive(true);
-          } else if (isPremium && isExpired) {
-            setIsSubscriptionActive(false);
-            setModalMessage('Your premium subscription has expired. Please renew to continue.');
-          } else {
-            setIsSubscriptionActive(false);
-            setModalMessage('Your subscription is inactive. Please subscribe to continue.');
-          }
-        } else {
-          // No settings found - New users are basic by default
-          setIsSubscriptionActive(false);
-          setModalMessage('Please subscribe to access premium features.');
-        }
-      } catch (error) {
-        console.error("Error checking subscription status:", error);
-        setIsSubscriptionActive(true); // Fail open
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSubscription();
-  }, [user]);
+  let modalMessage = 'Please subscribe to access premium features.';
+  if (settings) {
+    if (settings.subscriptionStatus === 'premium' && isExpired) {
+      modalMessage = 'Your premium subscription has expired. Please renew to continue.';
+    } else if (settings.subscriptionStatus !== 'premium') {
+      modalMessage = 'Your subscription is inactive. Please subscribe to continue.';
+    }
+  }
 
   if (loading) {
     return (
@@ -68,7 +33,7 @@ export function SubscriptionGate({ children, user }: { children: React.ReactNode
     );
   }
 
-  if (!isSubscriptionActive) {
+  if (!isPremium) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm">
         <Card className="w-full max-w-md text-center">

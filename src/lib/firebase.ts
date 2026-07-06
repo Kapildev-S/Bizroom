@@ -29,7 +29,7 @@ if (!getApps().length) {
 
 auth = getAuth(app);
 
-db = typeof window !== 'undefined'
+db = typeof window !== 'undefined' && process.env.NODE_ENV !== 'development'
   ? initializeFirestore(app, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),

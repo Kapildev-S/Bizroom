@@ -3,9 +3,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { type Product, type AppSettings } from '@/lib/mockData';
-import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, getDocs, doc, deleteDoc, getDoc } from "firebase/firestore";
+import { db } from '@/lib/firebase';
+import { doc, deleteDoc } from "firebase/firestore";
+import { useAuth } from '@/lib/useAuth';
+import { useProducts, useSettings } from '@/lib/hooks/useData';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -55,68 +56,14 @@ const itemVariants = {
 export function ProductList({ searchTerm }: { searchTerm: string }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: currentUser } = useAuth();
+  const { products, mutate: mutateProducts, isLoading: productsLoading } = useProducts();
+  const { settings, isLoading: settingsLoading } = useSettings();
+  const loading = productsLoading || settingsLoading;
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const isMobile = useIsMobile();
 
   const currencySymbol = getCurrencySymbol(settings?.invoiceSettings?.currency);
-
-  const fetchProductsAndSettings = useCallback(async (userId: string) => {
-    setLoading(true);
-    try {
-      const productsCollectionRef = collection(db, `users/${userId}/products`);
-      const q = query(productsCollectionRef);
-      const querySnapshot = await getDocs(q);
-      const userProducts: Product[] = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.name,
-          description: data.description || "",
-          price: data.price,
-          mrp: data.mrp ?? null,
-          stock: data.stock === null ? Infinity : data.stock,
-          unit: data.unit || "",
-          hsnCode: data.hsnCode || "",
-          gstRate: data.gstRate || 0,
-          category: data.category || "",
-          soldBy: data.soldBy || 'piece',
-          pricePerPiece: data.pricePerPiece ?? null,
-          pricePerKg: data.pricePerKg ?? null,
-        };
-      });
-      setProducts(userProducts);
-
-      const settingsDocRef = doc(db, `users/${userId}/settings`, 'appSettings');
-      const settingsSnap = await getDoc(settingsDocRef);
-      if (settingsSnap.exists()) {
-        setSettings(settingsSnap.data() as AppSettings);
-      }
-
-    } catch (error) {
-      console.error("Failed to fetch products and settings:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not load products and settings." });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (user) {
-        fetchProductsAndSettings(user.uid);
-      } else {
-        setLoading(false);
-        setProducts([]);
-        setSettings(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [fetchProductsAndSettings]);
 
   const stats = useMemo(() => {
     const totalStockValue = products.reduce((acc, p) => {
@@ -138,7 +85,7 @@ export function ProductList({ searchTerm }: { searchTerm: string }) {
     if (!productToDelete || !currentUser) return;
     try {
       await deleteDoc(doc(db, `users/${currentUser.uid}/products`, productToDelete.id));
-      setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
+      mutateProducts((prev) => prev ? prev.filter(p => p.id !== productToDelete.id) : prev, false);
       toast({ title: "Product Deleted", description: `"${productToDelete.name}" has been deleted.` });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not delete product." });

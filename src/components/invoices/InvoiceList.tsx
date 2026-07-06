@@ -4,9 +4,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Invoice, AppSettings } from '@/lib/mockData';
-import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, getDocs, doc, deleteDoc, updateDoc, Timestamp, getDoc, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '@/lib/useAuth';
+import { useInvoices, useSettings } from '@/lib/hooks/useData';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -48,69 +49,16 @@ export function InvoiceList() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: currentUser } = useAuth();
+  const { invoices, mutate: mutateInvoices, isLoading: invoicesLoading } = useInvoices();
+  const { settings, isLoading: settingsLoading } = useSettings();
+  const loading = invoicesLoading || settingsLoading;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const isMobile = useIsMobile();
   const enableAdvancedInvoiceSystem = settings?.invoiceSettings?.enableAdvancedInvoiceSystem;
-
-  const fetchInvoicesAndSettings = useCallback(async (userId: string) => {
-    setLoading(true);
-    try {
-      const invoicesCollectionRef = collection(db, `users/${userId}/invoices`);
-      const q = query(invoicesCollectionRef, orderBy("createdAt", "desc"));
-      const querySnapshot = await getDocs(q);
-      const fetchedInvoices = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          issueDate: data.issueDate?.toDate ? data.issueDate.toDate().toISOString() : data.issueDate,
-          dueDate: data.dueDate?.toDate ? data.dueDate.toDate().toISOString() : data.dueDate,
-        } as Invoice;
-      });
-
-      // Default secondary sort by issueDate if createdAt is same
-      fetchedInvoices.sort((a, b) => {
-        const dateA = a.createdAt ? (a.createdAt as any).toDate?.()?.getTime() || new Date(a.issueDate).getTime() : new Date(a.issueDate).getTime();
-        const dateB = b.createdAt ? (b.createdAt as any).toDate?.()?.getTime() || new Date(b.issueDate).getTime() : new Date(b.issueDate).getTime();
-        return dateB - dateA;
-      });
-
-      setInvoices(fetchedInvoices);
-
-       const settingsDocRef = doc(db, `users/${userId}/settings`, 'appSettings');
-       const settingsSnap = await getDoc(settingsDocRef);
-       if (settingsSnap.exists()) {
-           setSettings(settingsSnap.data() as AppSettings);
-       }
-
-    } catch (error) {
-      console.error("Failed to fetch invoices:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not load invoices." });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (user) {
-        fetchInvoicesAndSettings(user.uid);
-      } else {
-        setLoading(false);
-        setInvoices([]);
-        setSettings(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [fetchInvoicesAndSettings]);
   
   const handleView = (id: string) => router.push(`/invoices/${id}`);
   const handleEdit = (id: string) => router.push(`/invoices/${id}/edit`);
@@ -120,7 +68,7 @@ export function InvoiceList() {
     if (!invoiceToDelete || !currentUser) return;
     try {
       await deleteDoc(doc(db, `users/${currentUser.uid}/invoices`, invoiceToDelete.id));
-      setInvoices(prev => prev.filter(inv => inv.id !== invoiceToDelete.id));
+      mutateInvoices((prev) => prev ? prev.filter(inv => inv.id !== invoiceToDelete.id) : prev, false);
       toast({ title: "Invoice Deleted", description: `Invoice "${invoiceToDelete.invoiceNumber}" has been deleted.` });
     } catch (error) {
        console.error("Failed to delete invoice:", error);
@@ -153,7 +101,7 @@ export function InvoiceList() {
     try {
       const invoiceDocRef = doc(db, `users/${currentUser.uid}/invoices`, id);
       await updateDoc(invoiceDocRef, { status });
-      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status } : inv));
+      mutateInvoices((prev) => prev ? prev.map(inv => inv.id === id ? { ...inv, status } : inv) : prev, false);
       toast({ title: "Status Updated", description: `Invoice marked as ${status}.` });
     } catch (error) {
        console.error("Failed to update status:", error);

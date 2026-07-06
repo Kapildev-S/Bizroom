@@ -41,7 +41,8 @@ export function EmailPreviewDialog({ invoice, isOpen, onOpenChange, businessName
   const body = `Dear ${invoice.customerName},\n\nPlease find your invoice attached.\n\nTotal Amount: ${getCurrencySymbol(invoice.currency)}${invoice.totalAmount.toFixed(2)}\nDue Date: ${new Date(invoice.dueDate).toLocaleDateString()}\n\nView your invoice here: ${origin}/invoices/${invoice.id}\n\nThank you for your business!`;
 
   const handleSend = () => {
-    const mailtoLink = `mailto:${invoice.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const email = (invoice as any).customerEmail || '';
+    const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     if (typeof window !== 'undefined') {
         window.location.href = mailtoLink;
     }
@@ -60,7 +61,7 @@ export function EmailPreviewDialog({ invoice, isOpen, onOpenChange, businessName
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="email-to">To</Label>
-            <Input id="email-to" value={invoice.customerEmail} readOnly />
+            <Input id="email-to" value={(invoice as any).customerEmail || ''} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email-subject">Subject</Label>

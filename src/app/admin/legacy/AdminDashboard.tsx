@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
     Dialog,
     DialogContent,
@@ -56,13 +56,17 @@ import {
     Phone,
     Mail,
     Hash,
-    Trash2
+    Trash2,
+    Crown,
+    Zap,
+    CalendarDays
 } from "lucide-react";
 import html2canvas from 'html2canvas';
 import { useAuth } from "@/lib/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrencySymbol } from '@/lib/utils';
 import Link from 'next/link';
+import { adminGrantPremium, adminRevokePremium } from "@/app/actions/adminSubscriptionActions";
 
 type ProductStat = {
     name: string;
@@ -82,6 +86,10 @@ type AdminUser = {
     ownerEmail: string;
     phone: string;
     subscriptionStatus: 'basic' | 'premium';
+    subscriptionId?: string;
+    lastPaymentAt?: string | null;
+    premiumExpiry?: string | null;
+    lastPaymentId?: string;
     currency: string;
     stats: {
         overall: ReportStats;
@@ -145,7 +153,10 @@ export default function AdminDashboard() {
     const [capturedImage, setCapturedImage] = useState<File | null>(null);
 
     // Ticket Analyse State
-    const [showTicketAnalyse, setShowTicketAnalyse] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview');
+    const [managingUser, setManagingUser] = useState<AdminUser | null>(null);
+    const [isGranting, setIsGranting] = useState(false);
+    const [isRevoking, setIsRevoking] = useState(false);
     const [ticketLoading, setTicketLoading] = useState(false);
     const [ticketSummary, setTicketSummary] = useState<TicketSummary | null>(null);
     const [eventBreakdown, setEventBreakdown] = useState<EventTicketStat[]>([]);
@@ -195,7 +206,7 @@ export default function AdminDashboard() {
     };
 
     const handleOpenTicketAnalyse = () => {
-        setShowTicketAnalyse(true);
+        setActiveTab('events');
         fetchTicketAnalytics();
     };
 
@@ -358,7 +369,45 @@ export default function AdminDashboard() {
         }
     };
 
-    if (authLoading || (currentUser && loading && users.length === 0)) {
+    
+    const handleGrantPremium = async (userId: string, durationDays: number) => {
+        if (!currentUser) return;
+        setIsGranting(true);
+        try {
+            const res = await adminGrantPremium(currentUser.uid, userId, durationDays);
+            if (res.success) {
+                toast({ title: 'Success', description: 'Premium granted successfully' });
+                fetchUsers();
+                setManagingUser(null);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: res.error || 'Failed to grant premium' });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Network error' });
+        } finally {
+            setIsGranting(false);
+        }
+    };
+
+    const handleRevokePremium = async (userId: string) => {
+        if (!currentUser) return;
+        setIsRevoking(true);
+        try {
+            const res = await adminRevokePremium(currentUser.uid, userId);
+            if (res.success) {
+                toast({ title: 'Success', description: 'Premium revoked successfully' });
+                fetchUsers();
+                setManagingUser(null);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: res.error || 'Failed to revoke premium' });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Network error' });
+        } finally {
+            setIsRevoking(false);
+        }
+    };
+if (authLoading || (currentUser && loading && users.length === 0)) {
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
                 {loadTimeout ? (
@@ -570,25 +619,287 @@ export default function AdminDashboard() {
         );
     }
 
-    // ---- TICKET ANALYSE PANEL ----
-    if (showTicketAnalyse) {
-        const filteredEvents = eventBreakdown.filter(e =>
-            e.eventTitle.toLowerCase().includes(ticketSearch.toLowerCase())
-        );
+    
+    
+    const filteredEvents = eventBreakdown.filter(e =>
+        e.eventTitle.toLowerCase().includes(ticketSearch.toLowerCase())
+    );
 
-        const statCards = ticketSummary ? [
-            { label: 'Total Bookings', value: ticketSummary.totalBookings, icon: <Ticket className="w-6 h-6" />, bg: 'linear-gradient(135deg, #4f46e5, #2563eb)', shadow: '0 8px 32px rgba(79,70,229,0.4)' },
-            { label: 'Confirmed', value: ticketSummary.confirmedBookings, icon: <CheckCircle2 className="w-6 h-6" />, bg: 'linear-gradient(135deg, #059669, #0d9488)', shadow: '0 8px 32px rgba(5,150,105,0.4)' },
-            { label: 'Pending', value: ticketSummary.pendingBookings, icon: <AlertCircle className="w-6 h-6" />, bg: 'linear-gradient(135deg, #d97706, #ea580c)', shadow: '0 8px 32px rgba(217,119,6,0.4)' },
-            { label: 'Cancelled', value: ticketSummary.cancelledBookings, icon: <XCircle className="w-6 h-6" />, bg: 'linear-gradient(135deg, #e11d48, #dc2626)', shadow: '0 8px 32px rgba(225,29,72,0.4)' },
-            { label: 'Checked In', value: ticketSummary.checkedInBookings, icon: <ScanLine className="w-6 h-6" />, bg: 'linear-gradient(135deg, #0ea5e9, #6366f1)', shadow: '0 8px 32px rgba(14,165,233,0.4)' },
-            { label: 'Paid Tickets', value: ticketSummary.paidBookings, icon: <CreditCard className="w-6 h-6" />, bg: 'linear-gradient(135deg, #7c3aed, #a21caf)', shadow: '0 8px 32px rgba(124,58,237,0.4)' },
-            { label: 'Free Tickets', value: ticketSummary.freeBookings, icon: <Gift className="w-6 h-6" />, bg: 'linear-gradient(135deg, #0891b2, #0284c7)', shadow: '0 8px 32px rgba(8,145,178,0.4)' },
-            { label: 'Total Revenue', value: `${RUPEE}${ticketSummary.totalRevenue.toLocaleString()}`, icon: <TrendingUp className="w-6 h-6" />, bg: 'linear-gradient(135deg, #065f46, #047857)', shadow: '0 8px 32px rgba(6,95,70,0.4)' },
-        ] : [];
+    const statCards = ticketSummary ? [
+        { label: 'Total Bookings', value: ticketSummary.totalBookings, icon: <Ticket className="w-6 h-6" />, bg: 'linear-gradient(135deg, #4f46e5, #2563eb)', shadow: '0 8px 32px rgba(79,70,229,0.4)' },
+        { label: 'Confirmed', value: ticketSummary.confirmedBookings, icon: <CheckCircle2 className="w-6 h-6" />, bg: 'linear-gradient(135deg, #059669, #0d9488)', shadow: '0 8px 32px rgba(5,150,105,0.4)' },
+        { label: 'Pending', value: ticketSummary.pendingBookings, icon: <AlertCircle className="w-6 h-6" />, bg: 'linear-gradient(135deg, #d97706, #ea580c)', shadow: '0 8px 32px rgba(217,119,6,0.4)' },
+        { label: 'Cancelled', value: ticketSummary.cancelledBookings, icon: <XCircle className="w-6 h-6" />, bg: 'linear-gradient(135deg, #e11d48, #dc2626)', shadow: '0 8px 32px rgba(225,29,72,0.4)' },
+        { label: 'Checked In', value: ticketSummary.checkedInBookings, icon: <ScanLine className="w-6 h-6" />, bg: 'linear-gradient(135deg, #0ea5e9, #6366f1)', shadow: '0 8px 32px rgba(14,165,233,0.4)' },
+        { label: 'Paid Tickets', value: ticketSummary.paidBookings, icon: <CreditCard className="w-6 h-6" />, bg: 'linear-gradient(135deg, #7c3aed, #a21caf)', shadow: '0 8px 32px rgba(124,58,237,0.4)' },
+        { label: 'Free Tickets', value: ticketSummary.freeBookings, icon: <Gift className="w-6 h-6" />, bg: 'linear-gradient(135deg, #0891b2, #0284c7)', shadow: '0 8px 32px rgba(8,145,178,0.4)' },
+        { label: 'Total Revenue', value: `${RUPEE}${ticketSummary.totalRevenue.toLocaleString()}`, icon: <TrendingUp className="w-6 h-6" />, bg: 'linear-gradient(135deg, #065f46, #047857)', shadow: '0 8px 32px rgba(6,95,70,0.4)' },
+    ] : [];
 
-        return (
-            <div style={{ background: 'linear-gradient(135deg, #0f0c29, #16213e, #0f3460)', minHeight: '100vh' }} className="px-4 py-10 animate-in fade-in duration-300">
+    return (
+        <div className="max-w-7xl mx-auto px-4 py-8 md:py-12 animate-in fade-in duration-700">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                <div>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-primary">Admin Command Center</h1>
+                    <p className="text-muted-foreground mt-2 text-lg font-medium opacity-80">Platform intelligence and subscription management.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button onClick={fetchUsers} disabled={loading} size="lg" className="rounded-2xl h-12 md:h-14 px-6 md:px-8 text-md md:text-lg font-bold shadow-xl hover:shadow-2xl transition-all">
+                        {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <TrendingUp className="mr-2 h-5 w-5" />}
+                        Sync Data
+                    </Button>
+                </div>
+            </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
+                <TabsList className="bg-muted/50 p-2 h-auto rounded-3xl grid grid-cols-3 w-full md:w-[600px]">
+                    <TabsTrigger value="overview" className="rounded-2xl py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-bold">
+                        Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="subscriptions" className="rounded-2xl py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-bold">
+                        Subscriptions
+                    </TabsTrigger>
+                    <TabsTrigger value="events" onClick={fetchTicketAnalytics} className="rounded-2xl py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg font-bold">
+                        Events
+                    </TabsTrigger>
+                </TabsList>
+
+                {/* OVERVIEW TAB */}
+                <TabsContent value="overview" className="space-y-10 focus-visible:outline-none focus-visible:ring-0">
+                    {/* Platform Stats Row */}
+                    <div className="grid gap-8 md:grid-cols-3">
+                        <Card className="bg-gradient-to-br from-indigo-600 to-blue-700 text-white border-none shadow-2xl rounded-3xl transform transition-all hover:scale-[1.03]">
+                            <CardHeader className="pb-2 pt-8">
+                                <CardTitle className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center justify-between">
+                                    Connected Brands <Users className="h-5 w-5" />
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pb-8">
+                                <div className="text-6xl font-black">{globalStats.totalBusinesses}</div>
+                                <div className="flex items-center gap-2 mt-4">
+                                    <Badge className="bg-white/20 text-white border-none px-3 font-bold">{globalStats.premiumCount} Premium Users</Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-none shadow-2xl rounded-3xl transform transition-all hover:scale-[1.03]">
+                            <CardHeader className="pb-2 pt-8">
+                                <CardTitle className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center justify-between">
+                                    Total Documents <FileText className="h-5 w-5" />
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pb-8">
+                                <div className="text-6xl font-black">{globalStats.totalInvoices.toLocaleString()}</div>
+                                <p className="text-xs mt-4 opacity-60 font-medium">Platform-wide billing events recorded</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-gradient-to-br from-amber-500 to-amber-700 text-white border-none shadow-2xl rounded-3xl transform transition-all hover:scale-[1.03]">
+                            <CardHeader className="pb-2 pt-8">
+                                <CardTitle className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center justify-between">
+                                    Platform GMV <TrendingUp className="h-5 w-5" />
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pb-8">
+                                <div className="text-6xl font-black">₹{globalStats.totalSales.toLocaleString()}</div>
+                                <p className="text-xs mt-4 opacity-60 font-medium italic">Calculated billing volume</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-card/60 backdrop-blur-md">
+                        <CardHeader className="bg-muted/10 border-b p-10">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                                <div>
+                                    <CardTitle className="text-3xl font-black italic tracking-tighter">Business Registry</CardTitle>
+                                    <CardDescription className="text-lg">Aggregate growth metrics for every partner business.</CardDescription>
+                                </div>
+                                <div className="relative w-full md:w-[28rem]">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Filter by Name, Email or Phone No..."
+                                        className="pl-14 h-14 bg-background/50 border-none shadow-inner text-xl rounded-2xl"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                                            <TableHead className="py-8 font-black text-xs uppercase tracking-widest pl-10 text-primary/70">Business Entity</TableHead>
+                                            <TableHead className="font-black text-xs uppercase tracking-widest text-primary/70">Subscription</TableHead>
+                                            <TableHead className="text-center font-black text-xs uppercase tracking-widest text-primary/70">Invoices</TableHead>
+                                            <TableHead className="text-right font-black text-xs uppercase tracking-widest text-primary/70">Bill Value</TableHead>
+                                            <TableHead className="text-right font-black text-xs uppercase tracking-widest pr-10 text-primary/70">Operations</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredUsers.map((user) => (
+                                            <TableRow key={user.userId} className="hover:bg-muted/30 transition-all border-b border-muted/20 py-4 group">
+                                                <TableCell className="py-8 pl-10">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-black text-2xl group-hover:text-primary transition-colors tracking-tight">{user.businessName}</span>
+                                                        <span className="text-sm text-muted-foreground mt-1 font-medium">{user.ownerEmail || 'No Email Record'} • {user.phone || 'No Phone Record'}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {user.subscriptionStatus === 'premium' ? (
+                                                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 font-black px-4 py-1 flex w-min items-center gap-1 shadow-sm">
+                                                            <Crown className="w-3 h-3" /> PREMIUM
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="text-muted-foreground font-bold px-4 py-1">BASIC</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <span className="text-2xl font-black font-mono">{user.stats.overall.count}</span>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="font-black text-emerald-600 text-xl tracking-tighter">
+                                                        {getCurrencySymbol(user.currency || 'INR')}{user.stats.overall.billValue.toLocaleString()}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-10">
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={() => setSelectedUser(user)}
+                                                        className="h-12 px-6 rounded-xl font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-md active:scale-95"
+                                                    >
+                                                        Analysis Report <ChevronRight className="ml-2 w-4 h-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {filteredUsers.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="h-80 text-center text-muted-foreground italic text-2xl font-light">
+                                                    No business entities found matching your search parameters.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* SUBSCRIPTIONS TAB */}
+                <TabsContent value="subscriptions" className="space-y-10 focus-visible:outline-none focus-visible:ring-0">
+                    <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-card/60 backdrop-blur-md">
+                        <CardHeader className="bg-muted/10 border-b p-10">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                                <div>
+                                    <CardTitle className="text-3xl font-black italic tracking-tighter text-amber-600 flex items-center gap-3">
+                                        <Crown className="w-8 h-8" /> Subscription Manager
+                                    </CardTitle>
+                                    <CardDescription className="text-lg">Detailed view of user subscription statuses and manual controls.</CardDescription>
+                                </div>
+                                <div className="relative w-full md:w-[28rem]">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Filter by Sub ID, Name, Email..."
+                                        className="pl-14 h-14 bg-background/50 border-none shadow-inner text-xl rounded-2xl"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                                            <TableHead className="py-6 font-black text-xs uppercase tracking-widest pl-10 text-primary/70">User & Contact</TableHead>
+                                            <TableHead className="font-black text-xs uppercase tracking-widest text-primary/70">Status</TableHead>
+                                            <TableHead className="font-black text-xs uppercase tracking-widest text-primary/70">Sub ID & Payment</TableHead>
+                                            <TableHead className="font-black text-xs uppercase tracking-widest text-primary/70">Expiry Date</TableHead>
+                                            <TableHead className="text-right font-black text-xs uppercase tracking-widest pr-10 text-primary/70">Management</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredUsers.map((user) => {
+                                            const isPremium = user.subscriptionStatus === 'premium';
+                                            const isExpired = user.premiumExpiry && new Date(user.premiumExpiry) < new Date();
+                                            
+                                            return (
+                                                <TableRow key={user.userId} className="hover:bg-muted/30 transition-all border-b border-muted/20 group">
+                                                    <TableCell className="py-6 pl-10">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-lg">{user.businessName}</span>
+                                                            <span className="text-xs text-muted-foreground mt-0.5">{user.ownerEmail || 'No Email'}</span>
+                                                            <span className="text-xs font-mono text-muted-foreground mt-0.5">UID: {user.userId}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {isPremium && !isExpired ? (
+                                                            <Badge className="bg-emerald-500 text-white hover:bg-emerald-600 font-bold px-3 py-1 flex w-min items-center gap-1 shadow-sm animate-pulse shadow-emerald-500/30">
+                                                                <CheckCircle2 className="w-3 h-3" /> ACTIVE
+                                                            </Badge>
+                                                        ) : isExpired && isPremium ? (
+                                                            <Badge className="bg-rose-500 text-white hover:bg-rose-600 font-bold px-3 py-1 flex w-min items-center gap-1 shadow-sm">
+                                                                <XCircle className="w-3 h-3" /> EXPIRED
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-slate-500 font-bold px-3 py-1 border-slate-300">
+                                                                BASIC
+                                                            </Badge>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs font-mono font-bold bg-muted/50 p-1 px-2 rounded-md w-max border">
+                                                                {user.subscriptionId || 'N/A'}
+                                                            </span>
+                                                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                                                <CreditCard className="w-3 h-3" /> {user.lastPaymentId || 'N/A'}
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col">
+                                                            <span className={`font-bold ${isExpired ? 'text-rose-500' : ''}`}>
+                                                                {user.premiumExpiry ? new Date(user.premiumExpiry).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                                                            </span>
+                                                            {user.lastPaymentAt && (
+                                                                <span className="text-[10px] text-muted-foreground">
+                                                                    Paid: {new Date(user.lastPaymentAt).toLocaleDateString('en-IN')}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-10">
+                                                        <Button
+                                                            variant={isPremium ? "destructive" : "default"}
+                                                            onClick={() => setManagingUser(user)}
+                                                            className={`h-10 px-4 rounded-xl font-bold shadow-md active:scale-95 ${!isPremium ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+                                                        >
+                                                            {isPremium ? 'Revoke Access' : 'Grant Premium'}
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        {filteredUsers.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="h-40 text-center text-muted-foreground italic text-lg">
+                                                    No records found.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* EVENTS TAB */}
+                <TabsContent value="events" className="focus-visible:outline-none focus-visible:ring-0 rounded-3xl overflow-hidden">
+                    <div style={{ background: 'linear-gradient(135deg, #0f0c29, #16213e, #0f3460)', minHeight: '100vh' }} className="px-4 py-10 animate-in fade-in duration-300">
                 <div className="max-w-7xl mx-auto space-y-8">
 
                     {/* Header */}
@@ -898,143 +1209,65 @@ export default function AdminDashboard() {
                     )}
                 </div>
             </div>
-        );
-    }
-    // ---- END TICKET ANALYSE PANEL ----
-    return (
-        <div className="space-y-10 max-w-7xl mx-auto px-4 py-12 animate-in fade-in duration-700">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                    <h1 className="text-5xl font-black tracking-tighter text-primary">Admin Control Center</h1>
-                    <p className="text-muted-foreground mt-2 text-xl font-medium opacity-80">Platform health and business intelligence dashboard.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button onClick={handleOpenTicketAnalyse} size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold shadow-xl hover:shadow-2xl transition-all bg-violet-600 hover:bg-violet-700 text-white gap-2">
-                        <Ticket className="h-5 w-5" /> Ticket Analyse
-                    </Button>
-                    <Button onClick={fetchUsers} disabled={loading} size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold shadow-xl hover:shadow-2xl transition-all">
-                        {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <TrendingUp className="mr-2 h-5 w-5" />}
-                        Sync Platform Data
-                    </Button>
-                </div>
-            </div>
+                </TabsContent>
+            </Tabs>
 
-            {/* Platform Stats Row */}
-            <div className="grid gap-8 md:grid-cols-3">
-                <Card className="bg-gradient-to-br from-indigo-600 to-blue-700 text-white border-none shadow-2xl rounded-3xl transform transition-all hover:scale-[1.03]">
-                    <CardHeader className="pb-2 pt-8">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center justify-between">
-                            Connected Brands <Users className="h-5 w-5" />
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-8">
-                        <div className="text-6xl font-black">{globalStats.totalBusinesses}</div>
-                        <div className="flex items-center gap-2 mt-4">
-                            <Badge className="bg-white/20 text-white border-none px-3 font-bold">{globalStats.premiumCount} Premium Users</Badge>
+            {/* Management Dialog */}
+            <Dialog open={!!managingUser} onOpenChange={(open) => !open && setManagingUser(null)}>
+                <DialogContent className="sm:max-w-md rounded-[2rem] p-8 bg-card">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black tracking-tighter flex items-center gap-2">
+                            {managingUser?.subscriptionStatus === 'premium' ? (
+                                <><XCircle className="text-rose-500" /> Revoke Premium Access</>
+                            ) : (
+                                <><Crown className="text-amber-500" /> Grant Premium Access</>
+                            )}
+                        </DialogTitle>
+                        <DialogDescription className="text-base pt-2">
+                            {managingUser?.subscriptionStatus === 'premium' ? (
+                                <>Are you sure you want to revoke premium access for <b>{managingUser.businessName}</b>? This will downgrade them immediately.</>
+                            ) : (
+                                <>You are about to manually grant Premium Access to <b>{managingUser?.businessName}</b>. This will bypass the payment gateway.</>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    {managingUser?.subscriptionStatus !== 'premium' && (
+                        <div className="py-4 border-y border-muted my-2">
+                            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Duration</p>
+                            <div className="flex items-center gap-3">
+                                <Button variant="outline" className="flex-1 rounded-xl font-bold h-12 bg-muted/50 border-primary text-primary">1 Year (365 days)</Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-3 italic">Currently, manual upgrades default to 1 year validity.</p>
                         </div>
-                    </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-none shadow-2xl rounded-3xl transform transition-all hover:scale-[1.03]">
-                    <CardHeader className="pb-2 pt-8">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center justify-between">
-                            Total Documents <FileText className="h-5 w-5" />
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-8">
-                        <div className="text-6xl font-black">{globalStats.totalInvoices.toLocaleString()}</div>
-                        <p className="text-xs mt-4 opacity-60 font-medium">Platform-wide billing events recorded</p>
-                    </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-amber-500 to-amber-700 text-white border-none shadow-2xl rounded-3xl transform transition-all hover:scale-[1.03]">
-                    <CardHeader className="pb-2 pt-8">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center justify-between">
-                            Platform GMV <TrendingUp className="h-5 w-5" />
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-8">
-                        <div className="text-6xl font-black">â‚¹{globalStats.totalSales.toLocaleString()}</div>
-                        <p className="text-xs mt-4 opacity-60 font-medium italic">Calculated billing volume</p>
-                    </CardContent>
-                </Card>
-            </div>
+                    )}
 
-            <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-card/60 backdrop-blur-md">
-                <CardHeader className="bg-muted/10 border-b p-10">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                        <div>
-                            <CardTitle className="text-3xl font-black italic tracking-tighter">Business Registry</CardTitle>
-                            <CardDescription className="text-lg">Aggregate growth metrics for every partner business.</CardDescription>
-                        </div>
-                        <div className="relative w-full md:w-[28rem]">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
-                            <Input
-                                placeholder="Filter by Name, Email or Phone No..."
-                                className="pl-14 h-14 bg-background/50 border-none shadow-inner text-xl rounded-2xl"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </div>
+                    <div className="flex gap-3 justify-end mt-4">
+                        <Button variant="ghost" onClick={() => setManagingUser(null)} className="rounded-xl font-bold px-6">Cancel</Button>
+                        
+                        {managingUser?.subscriptionStatus === 'premium' ? (
+                            <Button 
+                                variant="destructive" 
+                                onClick={() => handleRevokePremium(managingUser.userId)}
+                                disabled={isRevoking}
+                                className="rounded-xl font-bold px-6"
+                            >
+                                {isRevoking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                Revoke Now
+                            </Button>
+                        ) : (
+                            <Button 
+                                onClick={() => managingUser && handleGrantPremium(managingUser.userId, 365)}
+                                disabled={isGranting}
+                                className="rounded-xl font-bold px-6 bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                                {isGranting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                                Grant Premium
+                            </Button>
+                        )}
                     </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-muted/20 hover:bg-muted/20">
-                                    <TableHead className="py-8 font-black text-xs uppercase tracking-widest pl-10 text-primary/70">Business Entity</TableHead>
-                                    <TableHead className="font-black text-xs uppercase tracking-widest text-primary/70">Subscription</TableHead>
-                                    <TableHead className="text-center font-black text-xs uppercase tracking-widest text-primary/70">Invoices</TableHead>
-                                    <TableHead className="text-right font-black text-xs uppercase tracking-widest text-primary/70">Bill Value</TableHead>
-                                    <TableHead className="text-right font-black text-xs uppercase tracking-widest pr-10 text-primary/70">Operations</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredUsers.map((user) => (
-                                    <TableRow key={user.userId} className="hover:bg-muted/30 transition-all border-b border-muted/20 py-4 group">
-                                        <TableCell className="py-8 pl-10">
-                                            <div className="flex flex-col">
-                                                <span className="font-black text-2xl group-hover:text-primary transition-colors tracking-tight">{user.businessName}</span>
-                                                <span className="text-sm text-muted-foreground mt-1 font-medium">{user.ownerEmail || 'No Email Record'} â€¢ {user.phone || 'No Phone Record'}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {user.subscriptionStatus === 'premium' ? (
-                                                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 font-black px-4 py-1">PREMIUM</Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="text-muted-foreground font-bold px-4 py-1">BASIC</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <span className="text-2xl font-black font-mono">{user.stats.overall.count}</span>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="font-black text-emerald-600 text-xl tracking-tighter">
-                                                {getCurrencySymbol(user.currency || 'INR')}{user.stats.overall.billValue.toLocaleString()}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right pr-10">
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => setSelectedUser(user)}
-                                                className="h-12 px-6 rounded-xl font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-md active:scale-95"
-                                            >
-                                                Analysis Report <ChevronRight className="ml-2 w-4 h-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {filteredUsers.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-80 text-center text-muted-foreground italic text-2xl font-light">
-                                            No business entities found matching your search parameters.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

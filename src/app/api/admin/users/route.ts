@@ -108,6 +108,10 @@ export async function GET(req: Request) {
                     ownerEmail: business.email || 'N/A',
                     phone: business.phone || 'N/A',
                     subscriptionStatus: settings?.subscriptionStatus || 'basic',
+                    subscriptionId: settings?.subscriptionId || 'N/A',
+                    lastPaymentAt: settings?.lastPaymentAt || null,
+                    premiumExpiry: settings?.premiumExpiry || null,
+                    lastPaymentId: settings?.lastPaymentId || 'N/A',
                     currency: settings?.invoiceSettings?.currency || 'INR',
                     stats: {
                         overall,

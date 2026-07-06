@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, DollarSign, FileText, BarChart as BarChartIcon, AlertCircle, Download, Share2, PieChart, TrendingUp, Filter, Calendar, ArrowUpRight, RefreshCw, Users } from 'lucide-react';
+import { Loader2, DollarSign, FileText, BarChart as BarChartIcon, AlertCircle, Download, Share2, PieChart, TrendingUp, Filter, Calendar, ArrowUpRight, RefreshCw, Users, Package, ShoppingBag, ArrowUpDown } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -62,6 +62,7 @@ export default function ReportsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [totalProducts, setTotalProducts] = useState(0);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -71,6 +72,7 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
+  const [productSortKey, setProductSortKey] = useState<'revenue' | 'qty'>('revenue');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -96,6 +98,10 @@ export default function ReportsPage() {
             } as Invoice;
           });
           setInvoices(fetchedInvoices);
+
+          const productsCollectionRef = collection(db, `users/${user.uid}/products`);
+          const productsSnap = await getDocs(productsCollectionRef);
+          setTotalProducts(productsSnap.size);
         } catch (error) {
           console.error("Error fetching report data:", error);
         } finally {
@@ -177,6 +183,21 @@ export default function ReportsPage() {
     const totalPaid = filteredInvoices.filter(i => i.status === 'paid').reduce((a, i) => a + i.totalAmount, 0);
     const totalUnpaid = filteredInvoices.filter(i => i.status !== 'paid').reduce((a, i) => a + i.totalAmount, 0);
 
+    // Product sales aggregation (works for both regular invoices and POS bills)
+    const productMap: Record<string, { name: string; qty: number; revenue: number; invoiceCount: number }> = {};
+    filteredInvoices.forEach(inv => {
+      (inv.items || []).forEach(item => {
+        const key = item.productName || item.productId || 'Unknown';
+        if (!productMap[key]) {
+          productMap[key] = { name: key, qty: 0, revenue: 0, invoiceCount: 0 };
+        }
+        productMap[key].qty += Number(item.quantity) || 0;
+        productMap[key].revenue += Number(item.totalPrice) || 0;
+        productMap[key].invoiceCount += 1;
+      });
+    });
+    const productSales = Object.values(productMap).sort((a, b) => b.revenue - a.revenue);
+
     return {
       totalRevenue: totalCreatedValue,
       totalInvoices,
@@ -184,6 +205,7 @@ export default function ReportsPage() {
       overdueCount,
       paidCount,
       sentCount,
+      draftCount,
       paidRevenue,
       retailRevenue,
       wholesaleRevenue,
@@ -194,6 +216,7 @@ export default function ReportsPage() {
       statusDistribution,
       totalPaid,
       totalUnpaid,
+      productSales,
     };
   }, [filteredInvoices]);
 
@@ -362,7 +385,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <Card className="border-l-4 border-l-[#0f6f80] shadow-sm rounded-2xl">
             <CardContent className="p-5">
@@ -447,14 +470,34 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card className="border-l-4 border-l-[#14b8a6] shadow-sm rounded-2xl">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Products</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{totalProducts}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-teal-50 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-teal-500" />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">total in catalogue</p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       {/* Tabs for different views */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="rounded-2xl bg-slate-100 p-1">
+        <TabsList className="rounded-2xl bg-slate-100 p-1 flex-wrap h-auto">
           <TabsTrigger value="overview" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">Overview</TabsTrigger>
           <TabsTrigger value="revenue" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">Revenue Trend</TabsTrigger>
           <TabsTrigger value="distribution" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">Distribution</TabsTrigger>
+          <TabsTrigger value="products" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-1.5">
+            <ShoppingBag className="h-3.5 w-3.5" /> Products
+          </TabsTrigger>
           <TabsTrigger value="details" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
         </TabsList>
 
@@ -816,6 +859,141 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="products" className="space-y-4">
+          {reportData.productSales.length === 0 ? (
+            <Card className="shadow-sm rounded-2xl border-slate-200">
+              <CardContent className="py-16 text-center">
+                <ShoppingBag className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">No product sales data for the selected period.</p>
+                <p className="text-xs text-slate-400 mt-1">Try adjusting your date range or status filter.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Top Products Bar Chart */}
+              <Card className="shadow-sm rounded-2xl border-slate-200">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base font-bold text-slate-900">Top Products by Revenue</CardTitle>
+                      <CardDescription>Top 10 products sold in the selected period</CardDescription>
+                    </div>
+                    <Package className="h-5 w-5 text-[#14b8a6]" />
+                  </div>
+                </CardHeader>
+                <CardContent className="pl-2">
+                  <ChartContainer config={{ revenue: { label: 'Revenue', color: '#14b8a6' }, qty: { label: 'Qty', color: '#0f6f80' } }} className="h-[300px] w-full">
+                    <ResponsiveContainer>
+                      <BarChart
+                        data={reportData.productSales.slice(0, 10).map(p => ({ name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name, revenue: p.revenue, qty: p.qty, fullName: p.name }))}
+                        barCategoryGap="20%"
+                        margin={{ top: 10, right: 16, left: 0, bottom: 40 }}
+                      >
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#94a3b8" fontSize={11} angle={-35} textAnchor="end" interval={0} />
+                        <YAxis tickFormatter={(v) => `${currencySymbol}${(v / 1000).toFixed(0)}k`} stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          formatter={(value: any, name: string) => [
+                            name === 'revenue' ? `${currencySymbol}${Number(value).toFixed(2)}` : value,
+                            name === 'revenue' ? 'Revenue' : 'Qty Sold'
+                          ]}
+                          labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                          contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                        />
+                        <Bar dataKey="revenue" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                          {reportData.productSales.slice(0, 10).map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS.chart[index % COLORS.chart.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* Full Product Sales Table */}
+              <Card className="shadow-sm rounded-2xl border-slate-200">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <CardTitle className="text-base font-bold text-slate-900">All Product Sales</CardTitle>
+                      <CardDescription>{reportData.productSales.length} unique products sold in this period</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">Sort by:</span>
+                      <button
+                        onClick={() => setProductSortKey(productSortKey === 'revenue' ? 'qty' : 'revenue')}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          productSortKey === 'revenue'
+                            ? 'bg-[#14b8a6]/10 text-[#14b8a6] border-[#14b8a6]/30'
+                            : 'bg-[#0f6f80]/10 text-[#0f6f80] border-[#0f6f80]/30'
+                        }`}
+                      >
+                        <ArrowUpDown className="h-3 w-3" />
+                        {productSortKey === 'revenue' ? 'Revenue' : 'Qty Sold'}
+                      </button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50 hover:bg-slate-50">
+                          <TableHead className="font-semibold text-slate-700 w-8">#</TableHead>
+                          <TableHead className="font-semibold text-slate-700">Product Name</TableHead>
+                          <TableHead className="font-semibold text-slate-700 text-right">Qty Sold</TableHead>
+                          <TableHead className="font-semibold text-slate-700 text-right">Revenue</TableHead>
+                          <TableHead className="font-semibold text-slate-700 text-right">Avg Unit Price</TableHead>
+                          <TableHead className="font-semibold text-slate-700 text-right">Bills</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[...reportData.productSales]
+                          .sort((a, b) => productSortKey === 'qty' ? b.qty - a.qty : b.revenue - a.revenue)
+                          .map((product, index) => {
+                            const maxRevenue = reportData.productSales[0]?.revenue || 1;
+                            const barW = Math.round((product.revenue / maxRevenue) * 100);
+                            const avgPrice = product.qty > 0 ? product.revenue / product.qty : 0;
+                            return (
+                              <TableRow key={product.name} className="hover:bg-slate-50/70 transition-colors">
+                                <TableCell className="text-xs text-slate-400 font-medium">{index + 1}</TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium text-slate-800 text-sm">{product.name}</p>
+                                    <div className="mt-1 h-1.5 w-full max-w-[160px] rounded-full bg-slate-100 overflow-hidden">
+                                      <motion.div
+                                        className="h-full rounded-full bg-[#14b8a6]"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${barW}%` }}
+                                        transition={{ duration: 0.6, delay: index * 0.03, ease: 'easeOut' }}
+                                      />
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="secondary" className="rounded-full font-semibold tabular-nums">{product.qty % 1 === 0 ? product.qty : product.qty.toFixed(2)}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right font-bold text-slate-900 tabular-nums">
+                                  {currencySymbol}{product.revenue.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right text-slate-500 text-sm tabular-nums">
+                                  {currencySymbol}{avgPrice.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right text-slate-400 text-xs">{product.invoiceCount}</TableCell>
+                              </TableRow>
+                            );
+                          })
+                        }
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="details">

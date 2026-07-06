@@ -3,9 +3,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { type Customer } from '@/lib/mockData';
-import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, getDocs, doc, deleteDoc, type Timestamp } from "firebase/firestore";
+import { db } from '@/lib/firebase';
+import { doc, deleteDoc } from "firebase/firestore";
+import { useAuth } from '@/lib/useAuth';
+import { useCustomers } from '@/lib/hooks/useData';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -33,52 +34,11 @@ import Image from 'next/image';
 export function CustomerList() {
   const router = useRouter();
   const { toast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: currentUser } = useAuth();
+  const { customers, mutate: mutateCustomers, isLoading: loading } = useCustomers();
   const [searchTerm, setSearchTerm] = useState('');
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const isMobile = useIsMobile();
-
-  const fetchCustomers = useCallback(async (userId: string) => {
-    setLoading(true);
-    try {
-      const customersCollectionRef = collection(db, `users/${userId}/customers`);
-      const q = query(customersCollectionRef);
-      const querySnapshot = await getDocs(q);
-      const fetchedCustomers: Customer[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        fetchedCustomers.push({
-          id: doc.id,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          address: data.address,
-          createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-        });
-      });
-      setCustomers(fetchedCustomers);
-    } catch (error) {
-      console.error("Failed to fetch customers:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not load customers. Check your connection or permissions." });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (user) {
-        fetchCustomers(user.uid);
-      } else {
-        setLoading(false);
-        setCustomers([]);
-      }
-    });
-    return () => unsubscribe();
-  }, [fetchCustomers]);
 
   const handleEdit = (id: string) => {
     router.push(`/customers/${id}/edit`);
@@ -93,7 +53,7 @@ export function CustomerList() {
 
     try {
       await deleteDoc(doc(db, `users/${currentUser.uid}/customers`, customerToDelete.id));
-      setCustomers(prevCustomers => prevCustomers.filter(c => c.id !== customerToDelete.id));
+      mutateCustomers((prev) => prev ? prev.filter(c => c.id !== customerToDelete.id) : prev, false);
       toast({ title: "Customer Deleted", description: `Customer "${customerToDelete.name}" has been deleted.` });
     } catch (error) {
        console.error("Failed to delete customer:", error);
@@ -112,7 +72,7 @@ export function CustomerList() {
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (customer.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
