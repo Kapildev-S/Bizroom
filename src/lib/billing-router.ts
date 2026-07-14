@@ -1,4 +1,7 @@
-﻿import * as admin from 'firebase-admin';
+import * as admin from 'firebase-admin';
+
+const AI_USAGE_LOG_COLLECTION = 'ai_usage_logs';
+
 
 type ChatMessage = {
   role: 'user' | 'model' | 'tool' | 'system';
@@ -1099,46 +1102,98 @@ export async function handleBillingAgentRequest(messages: ChatMessage[], userId:
     };
   }
 
-  // 1. Handle mutations (add customer, add product, update stock)
-  const mutationResult = await routeMutation(userId, lastUserText);
-  if (mutationResult) return mutationResult as BillingRouterResult;
+  // Detect feature intent for logging
+  const detectFeature = (text: string): string => {
+    const t = text.toLowerCase();
+    if (/(create|make|generate|raise|prepare|new)\s*(bill|invoice)/.test(t) || /bill\s+for/.test(t)) return 'Invoice Creation';
+    if (/sales|revenue|total.*bill|bill.*total/.test(t)) return 'Sales Summary';
+    if (/stock|inventory|quantity/.test(t)) return 'Stock Lookup';
+    if (/customer/.test(t) && /(top|best|highest)/.test(t)) return 'Top Customer';
+    if (/product|top.*selling|best.*selling/.test(t)) return 'Top Product';
+    if (/invoice|bill.*no|bill.*number|lookup/.test(t)) return 'Invoice Lookup';
+    if (/add.*customer|new.*customer|create.*customer/.test(t)) return 'Add Customer';
+    if (/add.*product|new.*product|create.*product/.test(t)) return 'Add Product';
+    if (/update.*stock|stock.*to/.test(t)) return 'Update Stock';
+    return 'General Chat';
+  };
 
-  // 2. Handle invoice creation before any lookup-style routing.
-  if (isCreateInvoiceIntent(lastUserText)) {
-    const created = await createInvoiceFromText(userId, lastUserText);
-    if (created) return created;
-    // If parsing failed, return helpful message instead of falling through to OpenRouter
-    return {
-      message: {
-        role: 'model',
-        content: [{ text: 'I understood you want to create a bill, but I couldn\'t parse the items. Please try a format like: "create bill for John with Recharge 2 qty ₹199 and Domain 2 qty ₹399"' }],
-      },
-    };
-  }
+  const feature = detectFeature(lastUserText);
+  const estimatedTokens = Math.ceil(lastUserText.length / 4) + 50; // rough estimate
+  const startTime = Date.now();
 
-  // 3. Handle direct billing queries (sales, stock check, top customer, top product, invoice lookup)
-  const directQuery = await routeDirectBillingQuestion(userId, lastUserText);
-  if (directQuery) return directQuery as BillingRouterResult;
+  // Async log — don't block the response
+  const logUsage = async (status: 'success' | 'error', feature: string) => {
+    try {
+      if (!db) return;
+      await db.collection(AI_USAGE_LOG_COLLECTION).add({
+        userId,
+        feature,
+        status,
+        estimatedTokens,
+        promptLength: lastUserText.length,
+        durationMs: Date.now() - startTime,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date().toISOString(),
+      });
+    } catch (_) { /* non-critical */ }
+  };
 
-  // 4. Fallback to OpenRouter AI
   try {
-    const reply = await callOpenRouterText(messages);
-    return {
-      message: {
-        role: 'model',
-        content: [{ text: reply }],
-      },
-    };
-  } catch (error: any) {
-    const message = String(error?.message || '');
-    if (isRateLimitError(error) || message.includes('OPENROUTER_API_KEY') || message.includes('OpenRouter error')) {
+    // 1. Handle mutations (add customer, add product, update stock)
+    const mutationResult = await routeMutation(userId, lastUserText);
+    if (mutationResult) {
+      logUsage('success', feature);
+      return mutationResult as BillingRouterResult;
+    }
+
+    // 2. Handle invoice creation before any lookup-style routing.
+    if (isCreateInvoiceIntent(lastUserText)) {
+      const created = await createInvoiceFromText(userId, lastUserText);
+      if (created) {
+        logUsage('success', 'Invoice Creation');
+        return created;
+      }
+      logUsage('success', 'Invoice Creation');
       return {
         message: {
           role: 'model',
-          content: [{ text: 'I\'m having trouble with the chat provider right now, but billing lookups and bill creation still work. Please try again in a moment.' }],
+          content: [{ text: 'I understood you want to create a bill, but I couldn\'t parse the items. Please try a format like: "create bill for John with Recharge 2 qty ₹199 and Domain 2 qty ₹399"' }],
         },
       };
     }
-    throw error;
+
+    // 3. Handle direct billing queries (sales, stock check, top customer, top product, invoice lookup)
+    const directQuery = await routeDirectBillingQuestion(userId, lastUserText);
+    if (directQuery) {
+      logUsage('success', feature);
+      return directQuery as BillingRouterResult;
+    }
+
+    // 4. Fallback to OpenRouter AI
+    try {
+      const reply = await callOpenRouterText(messages);
+      logUsage('success', 'General Chat');
+      return {
+        message: {
+          role: 'model',
+          content: [{ text: reply }],
+        },
+      };
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      logUsage('error', 'General Chat');
+      if (isRateLimitError(error) || message.includes('OPENROUTER_API_KEY') || message.includes('OpenRouter error')) {
+        return {
+          message: {
+            role: 'model',
+            content: [{ text: 'I\'m having trouble with the chat provider right now, but billing lookups and bill creation still work. Please try again in a moment.' }],
+          },
+        };
+      }
+      throw error;
+    }
+  } catch (err: any) {
+    logUsage('error', feature);
+    throw err;
   }
 }

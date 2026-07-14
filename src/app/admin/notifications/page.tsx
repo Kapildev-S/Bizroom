@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/useAuth';
+import { dispatchNotification, fetchNotificationStats } from '@/app/actions/adminNotificationActions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,23 +14,57 @@ import { useToast } from '@/hooks/use-toast';
 import { AdminKPICard } from '@/components/admin/ui/AdminKPICard';
 
 export default function NotificationsAdminPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [audience, setAudience] = useState('all');
+  const [audienceValue, setAudienceValue] = useState('');
   const [channel, setChannel] = useState('push');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  
+  const [stats, setStats] = useState({
+    totalSent: 0,
+    deliveryRate: '0%',
+    openRate: '0%',
+    failedDeliveries: 0
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchNotificationStats(user.uid).then(setStats).catch(console.error);
+    }
+  }, [user]);
   
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+    
     setLoading(true);
     
-    // Simulate server action
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Notification Dispatched!",
-      description: `Successfully queued for sending via ${channel.toUpperCase()}.`,
-      variant: "default",
-    });
-    setLoading(false);
+      try {
+      const res = await dispatchNotification(user.uid, audience, audienceValue, title, body, channel);
+      
+      toast({
+        title: "Notification Dispatched!",
+        description: `${res.message} (Push: ${res.details.pushDelivered}, Errors: ${res.details.errors})`,
+        variant: "default",
+      });
+      
+      setTitle('');
+      setBody('');
+      setAudienceValue('');
+      // Refresh stats
+      fetchNotificationStats(user.uid).then(setStats).catch(console.error);
+    } catch (err: any) {
+      toast({
+        title: "Dispatch Failed",
+        description: err.message || "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,10 +77,10 @@ export default function NotificationsAdminPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <AdminKPICard title="Total Sent (This Month)" value="124,592" icon={Send} />
-        <AdminKPICard title="Avg Delivery Rate" value="98.2%" icon={CheckCircle2} iconColor="text-emerald-500" />
-        <AdminKPICard title="Avg Open Rate" value="45.1%" icon={Mail} iconColor="text-amber-500" />
-        <AdminKPICard title="Failed Deliveries" value="1,204" icon={AlertCircle} iconColor="text-rose-500" />
+        <AdminKPICard title="Total Sent (All Time)" value={stats.totalSent.toLocaleString()} icon={Send} />
+        <AdminKPICard title="Avg Delivery Rate" value={stats.deliveryRate} icon={CheckCircle2} iconColor="text-emerald-500" />
+        <AdminKPICard title="Avg Open Rate" value={stats.openRate} icon={Mail} iconColor="text-amber-500" />
+        <AdminKPICard title="Failed Deliveries" value={stats.failedDeliveries.toLocaleString()} icon={AlertCircle} iconColor="text-rose-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -58,7 +94,7 @@ export default function NotificationsAdminPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Target Audience</Label>
-                  <Select defaultValue="all">
+                  <Select value={audience} onValueChange={setAudience}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Audience" />
                     </SelectTrigger>
@@ -66,7 +102,7 @@ export default function NotificationsAdminPage() {
                       <SelectItem value="all">All Businesses</SelectItem>
                       <SelectItem value="premium">Premium Users</SelectItem>
                       <SelectItem value="trial">Trial Users</SelectItem>
-                      <SelectItem value="selected">Selected Businesses...</SelectItem>
+                      <SelectItem value="selected">Specific User...</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -77,23 +113,46 @@ export default function NotificationsAdminPage() {
                       <SelectValue placeholder="Select Channel" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="push">Push Notification</SelectItem>
-                      <SelectItem value="sms">SMS</SelectItem>
-                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="push">In-App + Push Notification</SelectItem>
+                      <SelectItem value="sms" disabled>SMS (Coming Soon)</SelectItem>
+                      <SelectItem value="whatsapp" disabled>WhatsApp (Coming Soon)</SelectItem>
+                      <SelectItem value="email" disabled>Email (Coming Soon)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
+              {audience === 'selected' && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <Label>Target User ID, Email, or Phone</Label>
+                  <Input 
+                    placeholder="Enter UID, email, or phone number..." 
+                    value={audienceValue}
+                    onChange={(e) => setAudienceValue(e.target.value)}
+                    required 
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label>Message Title (Optional for SMS/WhatsApp)</Label>
-                <Input placeholder="E.g., Huge Diwali Discount!" required={channel === 'push' || channel === 'email'} />
+                <Label>Message Title</Label>
+                <Input 
+                  placeholder="E.g., Huge Diwali Discount!" 
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required 
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>Message Body</Label>
-                <Textarea placeholder="Type your message here..." className="min-h-[150px]" required />
+                <Textarea 
+                  placeholder="Type your message here..." 
+                  className="min-h-[150px]" 
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  required 
+                />
               </div>
 
               <div className="flex gap-4 pt-4 border-t">
@@ -128,10 +187,10 @@ export default function NotificationsAdminPage() {
                      channel === 'email' ? <Mail className="h-4 w-4 text-white" /> :
                      <AlertCircle className="h-4 w-4 text-white" />}
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">BizRoom Update</p>
-                    <p className="text-[10px] text-slate-600 mt-0.5 line-clamp-3">
-                      This is a live preview of how your message will appear on a user's mobile screen.
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-bold text-slate-800 truncate">{title || 'BizRoom Update'}</p>
+                    <p className="text-[10px] text-slate-600 mt-0.5 line-clamp-3 break-words">
+                      {body || "This is a live preview of how your message will appear on a user's mobile screen."}
                     </p>
                   </div>
                 </div>

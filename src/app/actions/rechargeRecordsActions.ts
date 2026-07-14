@@ -16,6 +16,112 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const ADMIN_ID = '3l2SpTceF9Qany7x5IRHdHBPU9J3';
 
+// ─── STAFF ACTIONS (any logged-in user) ─────────────────────────────────────
+
+export async function staffGetRechargeRecords(userId: string): Promise<RechargeRecord[]> {
+    if (!userId) throw new Error('Not authenticated');
+
+    const snap = await db.collection('recharge_records')
+        .orderBy('createdAt', 'desc')
+        .limit(200)
+        .get();
+
+    return snap.docs.map(doc => {
+        const data = doc.data() as RechargeRecord;
+        return {
+            ...data,
+            id: doc.id,
+            daysRemaining: calcDaysRemaining(data.nextRechargeDate),
+        };
+    });
+}
+
+export async function staffAddRechargeRecord(
+    userId: string,
+    record: Omit<RechargeRecord, 'id' | 'sNo' | 'daysRemaining' | 'createdAt' | 'updatedAt'>
+): Promise<{ success: boolean; id?: string; error?: string }> {
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
+    try {
+        const countSnap = await db.collection('recharge_records').get();
+        const sNo = countSnap.size + 1;
+        const nextRechargeDate = record.nextRechargeDate || calcNextRechargeDate(record.date, record.packageDuration);
+
+        const docRef = await db.collection('recharge_records').add({
+            ...record,
+            nextRechargeDate,
+            sNo,
+            addedByUid: userId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        });
+
+        return { success: true, id: docRef.id };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function staffUpdateRechargeRecord(
+    userId: string,
+    id: string,
+    updates: Partial<RechargeRecord>
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
+    try {
+        // Only allow staff to update records they added, unless admin
+        if (userId !== ADMIN_ID) {
+            const doc = await db.collection('recharge_records').doc(id).get();
+            if (!doc.exists) return { success: false, error: 'Record not found' };
+            const data = doc.data();
+            if (data?.addedByUid && data.addedByUid !== userId) {
+                return { success: false, error: 'You can only edit records you added' };
+            }
+        }
+
+        if ((updates.date || updates.packageDuration) && !updates.nextRechargeDate) {
+            const existing = await db.collection('recharge_records').doc(id).get();
+            const data = existing.data() as RechargeRecord;
+            const date = updates.date || data.date;
+            const duration = updates.packageDuration || data.packageDuration;
+            updates.nextRechargeDate = calcNextRechargeDate(date, duration);
+        }
+
+        await db.collection('recharge_records').doc(id).update({
+            ...updates,
+            updatedAt: new Date().toISOString(),
+        });
+
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function staffDeleteRechargeRecord(
+    userId: string,
+    id: string,
+): Promise<{ success: boolean; error?: string }> {
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
+    try {
+        // Only allow staff to delete records they added, unless admin
+        if (userId !== ADMIN_ID) {
+            const doc = await db.collection('recharge_records').doc(id).get();
+            if (!doc.exists) return { success: false, error: 'Record not found' };
+            const data = doc.data();
+            if (data?.addedByUid && data.addedByUid !== userId) {
+                return { success: false, error: 'You can only delete records you added' };
+            }
+        }
+        await db.collection('recharge_records').doc(id).delete();
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 export interface RechargeRecord {
     id?: string;
     sNo?: number;

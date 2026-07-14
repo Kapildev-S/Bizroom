@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Bell, Search, Menu, PanelLeft } from 'lucide-react';
+import { Search, Menu, PanelLeft } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -56,11 +57,7 @@ export function MobileHeader({
                     </Button>
                 )}
                 {showNotification && (
-                    <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-                        <Bell className="h-5 w-5" />
-                        {/* Notification dot */}
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-                    </Button>
+                    <NotificationBell />
                 )}
                 {rightAction}
             </div>

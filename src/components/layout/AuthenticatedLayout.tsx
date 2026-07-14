@@ -16,7 +16,8 @@ import { MobileBottomNav } from './MobileBottomNav';
 import { MobileHeader } from './MobileHeader';
 import { Loader2 } from 'lucide-react';
 import FirebaseErrorListener from '../shared/FirebaseErrorListener';
-import NotificationProvider from './NotificationProvider';
+import NotificationProvider from '@/components/layout/NotificationProvider';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface AuthenticatedLayoutProps {
   children: ReactNode;
@@ -81,9 +82,14 @@ export default function AuthenticatedLayout({
           )}
 
           {/* Desktop Header - Only visible on desktop with sidebar trigger */}
-          <header className="sticky top-0 z-10 hidden lg:flex h-14 items-center gap-4 border-b bg-background px-4">
-            <SidebarTrigger />
-            <h1 className="text-lg font-semibold">{pageTitle}</h1>
+          <header className="sticky top-0 z-10 hidden lg:flex h-14 items-center justify-between border-b bg-background px-4">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
+              <h1 className="text-lg font-semibold">{pageTitle}</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+            </div>
           </header>
 
           {/* Main Content */}

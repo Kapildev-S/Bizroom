@@ -15,8 +15,7 @@ import {
   FileText, 
   Bell, 
   Settings,
-  Users,
-  Smartphone
+  Users
 } from 'lucide-react';
 
 const sidebarItems = [
@@ -27,7 +26,6 @@ const sidebarItems = [
   { name: 'Financial Dashboard', href: '/admin/financial', icon: LineChart },
   { name: 'AI Assistant', href: '/admin/ai-assistant', icon: Bot },
   { name: 'BizRecharge Analytics', href: '/admin/bizrecharge', icon: Zap },
-  { name: 'Recharge Records', href: '/admin/bizrecharge/records', icon: Smartphone },
   { name: 'Reports', href: '/admin/reports', icon: FileText },
   { name: 'Notifications', href: '/admin/notifications', icon: Bell },
   { name: 'Audit Logs', href: '/admin/audit-logs', icon: LayoutDashboard },
