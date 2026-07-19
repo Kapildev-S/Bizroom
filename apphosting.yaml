@@ -8,9 +8,9 @@ runConfig:
 
 env:
   - variable: RAZORPAY_KEY_ID
-    value: rzp_live_S9hQzqEYEPeaQ2
+    value: rzp_live_TFGYKws8cGCagS
   - variable: NEXT_PUBLIC_RAZORPAY_KEY_ID
-    value: rzp_live_S9hQzqEYEPeaQ2
+    value: rzp_live_TFGYKws8cGCagS
   - variable: RAZORPAY_PLAN_ID_MONTHLY
     value: plan_S9gpkD5cpZlCLG
   - variable: RAZORPAY_PLAN_ID_QUARTERLY
@@ -18,7 +18,7 @@ env:
   - variable: RAZORPAY_PLAN_ID_YEARLY
     value: plan_S9jHBprusLvyEj0
   - variable: RAZORPAY_KEY_SECRET
-    value: JrWHSiTtM6g2anHkgDbukLAI
+    value: AwrSHTx6ysoP1fo0HwDCIGfj
   - variable: RESEND_API_KEY
     value: re_fBwTV1pA_5nMxdZx7DBZ9GzCQY8L5LKpR
   - variable: GOOGLE_GENAI_API_KEY
@@ -29,3 +29,5 @@ env:
     value: firebase-adminsdk-fbsvc@bill-7362b.iam.gserviceaccount.com
   - variable: FIREBASE_PRIVATE_KEY
     value: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCb2Fs8XCgUsQLF\nnKQ3k8KbgM8w7XZPcM8lMvME3/Yoj8/HHqKFmyxDW8dYjNOTEYI0B21wOkg3buRC\ndM2i6pLRlDMTcwv9Xj3Lige2MDuqbZNJBklIAFpI/dZhUNhfVV4Kcnk3xeIAngJh\nN3OfLoFbuIexU455SdLwgypAtTAl4u5L/DXUBKdxh8tVXzINHZhDrWbTSP5MlKz1\n3HcND97ByRr8yQqPCPGXHz7brtK/4AjwEvJHKG2cpbLORiU4u1wPex2chhPx8OwR\n6jnnE+4VYGWe1zxFb9PPM/mq/snSkFGGFbdvC+mARtt1Jr0uemlK/a+qY/TwjliV\nIAYHZ1wdAgMBAAECggEACetYHfFnrll4lFyx/xpCirnvdhfHLgCUzrNS0H6eIQV2\nSMrkYUiiepm+3cio4XV91L3xnfENDlTakSL0wRKDzHR4WRvmKXb0IUkPJe4lU2Ws\nuDspiDxYLXPVT1W2pUATv5UlrgJvA3G13mY0em9FVdyFln3RAFtN4nfBcA5C8EZL\nSxs1ZNd3gd1kpvbRqxQlpIXSckidwQhi4ZX0EL+pNEMAmvMzqg7trfOFpW/pgVf6\nz6HFkHCjiHfsSU7qOTmFqZl+P5weikAZuZfmojy0aMvjbMuXWqSCk7di2r+gR7hz\nyU6YhEugnxP8VXKa7dnM7GPP+aUyb6VBf3j0s59SAQKBgQDNxZJuISxxAXHjQbjt\nF3TUR0qAPG7WiavireKKT4eGYhAfYFYOtIZE6nWKH/lF9NYgxBv9ju075Jt/nmCt\n0XJg9mcvEL2OQmyxihotbckynO20fRh0GrFcPEWKjBk/FSXORP6yRJerc5flDsse\nUOFQVmw8NZm0q2Rzh3GY+OwV3QKBgQDB4u4lzFJ71BDCsz9KXdaLkKa3xubrEPcI\nmFzBAD1PvurN1MJHWD6HD67tQjifQAs/YjjWD9tf9z6lge/4HGMHlvtPkVM2SheF\nbBiI4qVG0Fqz3zz+M0MzHFLNa2rmYwhZVP3eaAVj+X+UPZc1mzs71+yLYiSgHwzw\nbH4Yfg2bQQKBgHbabY/K/X5wVTXsmkHn0IVkgDW9sk+cyXlu8nDtKtyF+8YDwPFR\neFSKEEYt3a94kc3vODOmwIRdsStvcWw0lBpJeKQIyVRILbwGhsRCq3nehrY/o0Y8\nvMEH1ysFbPew4VtZIrwZPnm7lLqrZssl8F6U7IOCejuO28CXNRgkf0jJAoGALYGr\nz6dTPMkbXfdgRX4c2wkKeFvw2v9SW+wW6R27RjpTNhhXuRMXKfAeaIWAcLBBc5EE\nMgnqvW10gLgssJlJDQD830IGu9lMB/7FC2vWyvYgM9OTpz406YweSySJJKXd0cnH\nBCp6CWsH7K1ADk7u6i7V0Ckq24IuMUflmK4NV4ECgYEAyDBUJG0LqqCtmm3Ji/MR\nvvFmNmKVpjbTzyDz4F2BuObSJAWfsiTg4ABlgL3zvDSazw0043EqAEepSTS5gK6S\nMMAvc1L0k7I7NTf6BtXZyD4T6A9OZXxQ45zMsf5IbrzpKYi5OJnITwPEqPZgmPnI\nre9ErY+ZRsreVmCCKIdbl7o=\n-----END PRIVATE KEY-----\n"
+  - variable: CRON_SECRET
+    value: 23eee585961844f13be5e5fafb3885d8d9e911855f260bdf9f6e3d28cdcaeb5d
