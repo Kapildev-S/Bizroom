@@ -368,15 +368,25 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       // iOS Safari has much tighter canvas memory/rasterization limits than desktop
       // browsers - a scale of 3 on a full A4/landscape page can silently hang WebKit
       // instead of throwing, which is what caused capture to get stuck loading there.
+      // html2canvas also clones the *entire* document (not just #invoice-root) to
+      // preserve computed styles, so unrelated off-screen portals (toasts, dialogs)
+      // add to that clone's size - skip anything outside the invoice to keep it small.
       const canvas = await withTimeout(
         html2canvas(input, {
-          scale: isIOSDevice() ? 2 : 3,
+          scale: isIOSDevice() ? 1.5 : 3,
           useCORS: true,
           backgroundColor: "#ffffff",
           logging: false,
           allowTaint: true,
+          imageTimeout: 8000,
+          ignoreElements: (el) => !input.contains(el) && el !== input && (
+            el.getAttribute('role') === 'dialog' ||
+            el.getAttribute('role') === 'alertdialog' ||
+            el.hasAttribute('data-radix-toast-viewport') ||
+            el.tagName === 'SCRIPT'
+          ),
         }),
-        20000,
+        30000,
         'Rendering the invoice took too long.'
       );
 
@@ -435,12 +445,23 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     try {
       window.scrollTo(0, 0);
 
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
+      const canvas = await withTimeout(
+        html2canvas(input, {
+          scale: isIOSDevice() ? 1.5 : 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          imageTimeout: 8000,
+          ignoreElements: (el) => !input.contains(el) && el !== input && (
+            el.getAttribute('role') === 'dialog' ||
+            el.getAttribute('role') === 'alertdialog' ||
+            el.hasAttribute('data-radix-toast-viewport') ||
+            el.tagName === 'SCRIPT'
+          ),
+        }),
+        30000,
+        'Rendering the invoice took too long.'
+      );
 
       // Restore transform
       input.style.transform = originalTransform;
@@ -462,6 +483,11 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     } catch (error) {
       console.error("PDF failed:", error);
       input.style.transform = originalTransform;
+      toast({
+        variant: 'destructive',
+        title: 'Could not generate PDF',
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
     } finally {
       setIsDownloadingPdf(false);
     }
