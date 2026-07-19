@@ -93,6 +93,16 @@ const isIOSDevice = () => {
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 };
 
+// Guards against operations that can silently hang instead of rejecting (e.g. the
+// iOS canvas.toBlob() bug below) by racing them against a hard timeout, so the UI
+// can always recover with an error instead of spinning forever.
+const withTimeout = <T,>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(timeoutMessage)), ms)),
+  ]);
+};
+
 // iOS Safari (and any WebKit-based browser on iOS, since they all share the same
 // engine) does not honor the `download` attribute on anchor tags for blob: URLs -
 // clicking such a link just silently does nothing or navigates away. The only way
@@ -355,13 +365,20 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       // Ensure we are at the top to avoid capture offset bugs
       window.scrollTo(0, 0);
 
-      const canvas = await html2canvas(input, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        allowTaint: true,
-      });
+      // iOS Safari has much tighter canvas memory/rasterization limits than desktop
+      // browsers - a scale of 3 on a full A4/landscape page can silently hang WebKit
+      // instead of throwing, which is what caused capture to get stuck loading there.
+      const canvas = await withTimeout(
+        html2canvas(input, {
+          scale: isIOSDevice() ? 2 : 3,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          allowTaint: true,
+        }),
+        20000,
+        'Rendering the invoice took too long.'
+      );
 
       // Restore original styles immediately
       input.style.transform = originalTransform;
@@ -369,8 +386,12 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         parent.setAttribute('style', originalParentStyle);
       }
 
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
-      if (!blob) throw new Error('Could not create image blob.');
+      // canvas.toBlob() has a long-standing WebKit/iOS bug where its callback can
+      // simply never fire (the promise hangs forever, which is the "stuck loading"
+      // symptom). toDataURL() is synchronous and reliably supported everywhere,
+      // including iOS - converting that to a Blob via fetch() avoids toBlob entirely.
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const blob = await withTimeout(fetch(dataUrl).then(res => res.blob()), 10000, 'Could not finalize the image.');
 
       return new File([blob], `invoice-${invoice.invoiceNumber}.jpg`, { type: 'image/jpeg' });
     } catch (error) {
@@ -379,6 +400,11 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       if (parent && originalParentStyle !== null) {
         parent.setAttribute('style', originalParentStyle);
       }
+      toast({
+        variant: 'destructive',
+        title: 'Could not generate invoice image',
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
       return null;
     }
   };

@@ -28,7 +28,7 @@ import {
 import {
     Plus, Pencil, Trash2, Search, Download, RefreshCw, Smartphone,
     AlertTriangle, Bell, Wallet, Users, Check, X, Save,
-    ChevronUp, ChevronDown, ArrowUpDown, Calendar, Lock, Eye, EyeOff,
+    ChevronUp, ChevronDown, ArrowUpDown, Calendar, Lock, Eye, EyeOff, MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -220,7 +220,7 @@ function QuickAddForm({ onSaved }: { onSaved: () => void }) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
                 <div className="space-y-1 lg:col-span-1">
                     <Label className="text-xs font-semibold text-slate-600">Date</Label>
-                    <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="h-9 text-sm bg-white" />
+                    <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} onClick={e => (e.target as HTMLInputElement).showPicker?.()} className="h-9 text-sm bg-white cursor-pointer" />
                 </div>
                 <div className="space-y-1 lg:col-span-2">
                     <Label className="text-xs font-semibold text-slate-600">Customer Name *</Label>
@@ -301,7 +301,8 @@ function QuickAddForm({ onSaved }: { onSaved: () => void }) {
                         type="date"
                         value={form.nextRechargeDate}
                         onChange={e => setForm(f => ({ ...f, nextRechargeDate: e.target.value }))}
-                        className="h-9 text-sm bg-white"
+                        onClick={e => (e.target as HTMLInputElement).showPicker?.()}
+                        className="h-9 text-sm bg-white cursor-pointer"
                     />
                 </div>
                 <div className="space-y-1">
@@ -321,7 +322,8 @@ function QuickAddForm({ onSaved }: { onSaved: () => void }) {
                         type="date"
                         value={form.nextReminderDate}
                         onChange={e => setForm(f => ({ ...f, nextReminderDate: e.target.value }))}
-                        className="h-9 text-sm bg-white"
+                        onClick={e => (e.target as HTMLInputElement).showPicker?.()}
+                        className="h-9 text-sm bg-white cursor-pointer"
                     />
                 </div>
             </div>
@@ -369,6 +371,8 @@ export default function StaffRechargePage() {
     const [filterDue, setFilterDue] = useState('all');
     const [sortKey, setSortKey] = useState<SortKey>('sNo');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     const [editingRecord, setEditingRecord] = useState<RechargeRecord | null>(null);
     const [editForm, setEditForm] = useState(emptyForm());
@@ -432,10 +436,16 @@ export default function StaffRechargePage() {
                 r.billInvoiceNo?.toLowerCase().includes(q)
             );
         }
+        if (dateFrom) data = data.filter(r => r.date >= dateFrom);
+        if (dateTo) data = data.filter(r => r.date <= dateTo);
         if (filterNetwork !== 'all') data = data.filter(r => r.simNetwork === filterNetwork);
         if (filterDue === 'today') data = data.filter(r => {
             const d = r.daysRemaining ?? calcDaysRemaining(r.nextRechargeDate);
             return d <= 0 && d > -3;
+        });
+        if (filterDue === '1day') data = data.filter(r => {
+            const d = r.daysRemaining ?? calcDaysRemaining(r.nextRechargeDate);
+            return d === 1;
         });
         if (filterDue === '7days') data = data.filter(r => {
             const d = r.daysRemaining ?? calcDaysRemaining(r.nextRechargeDate);
@@ -457,7 +467,7 @@ export default function StaffRechargePage() {
             });
         }
         return data;
-    }, [records, search, filterNetwork, filterDue, sortKey, sortDir]);
+    }, [records, search, filterNetwork, filterDue, sortKey, sortDir, dateFrom, dateTo]);
 
     const handleSort = (key: SortKey) => {
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -661,10 +671,17 @@ export default function StaffRechargePage() {
                             <SelectContent>
                                 <SelectItem value="all">All Due</SelectItem>
                                 <SelectItem value="today">Due Today</SelectItem>
+                                <SelectItem value="1day">1 Day Left</SelectItem>
                                 <SelectItem value="7days">Due in 7 Days</SelectItem>
                                 <SelectItem value="expired">Expired</SelectItem>
                             </SelectContent>
                         </Select>
+                        <div className="flex items-center gap-1.5 ml-1">
+                            <span className="text-xs text-muted-foreground font-medium">From:</span>
+                            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} onClick={e => (e.target as HTMLInputElement).showPicker?.()} className="h-9 text-sm w-[150px] bg-white cursor-pointer" />
+                            <span className="text-xs text-muted-foreground font-medium ml-1">To:</span>
+                            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} onClick={e => (e.target as HTMLInputElement).showPicker?.()} className="h-9 text-sm w-[150px] bg-white cursor-pointer" />
+                        </div>
                         <span className="text-xs text-muted-foreground ml-auto">{filtered.length} of {records.length}</span>
                     </div>
 
@@ -759,6 +776,12 @@ export default function StaffRechargePage() {
                                             </td>
                                             <td className="px-3 py-2.5">
                                                 <div className="flex items-center gap-1">
+                                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-green-500 hover:text-green-700 hover:bg-green-50" onClick={() => {
+                                                        const msg = encodeURIComponent(`Hello ${record.name}, your recharge is due on ${record.nextRechargeDate ? new Date(record.nextRechargeDate).toLocaleDateString('en-IN') : ''}. Please recharge via BizRoom to enjoy uninterrupted services.`);
+                                                        window.open(`https://wa.me/91${record.mobileNumber}?text=${msg}`, '_blank');
+                                                    }}>
+                                                        <MessageCircle className="w-3.5 h-3.5" />
+                                                    </Button>
                                                     <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEdit(record)}>
                                                         <Pencil className="w-3.5 h-3.5" />
                                                     </Button>
