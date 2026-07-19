@@ -76,7 +76,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                         <th className={`p-2 pb-3 font-bold uppercase tracking-wider text-left ${settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? 'w-[35%]' : 'w-[53%]'}`}>Descriptions</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-left w-[12%]">HSN</th>}
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-center w-[10%]">QTY</th>
-                        <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[12%]">MRP</th>
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[12%]">MRP</th>}
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[15%]">PRICE</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[6%]">GST%</th>}
                         <th className="p-2 pb-3 font-bold uppercase tracking-wider text-right w-[10%]">TOTAL</th>
@@ -90,7 +90,7 @@ export default function ModernInvoice({ invoice, customer, settings, logoDataUri
                             </td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 break-all">{item.hsnCode}</td>}
                             <td className="p-2 py-3 text-center whitespace-nowrap">{item.quantity} {item.unit || ''}</td>
-                            <td className="p-2 py-3 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>}
                             <td className="p-2 py-3 text-right whitespace-nowrap">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 py-3 text-right whitespace-nowrap">{item.gstRate}%</td>}
                             <td className="p-2 py-3 text-right font-bold whitespace-nowrap">{currencySymbol}{item.totalPrice.toFixed(2)}</td>

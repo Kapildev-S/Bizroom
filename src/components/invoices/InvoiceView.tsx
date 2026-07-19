@@ -86,6 +86,38 @@ const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
 };
 
+const isIOSDevice = () => {
+  if (typeof window === 'undefined') return false;
+  // iPadOS 13+ reports as "MacIntel" but with touch support, unlike real Macs.
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+// iOS Safari (and any WebKit-based browser on iOS, since they all share the same
+// engine) does not honor the `download` attribute on anchor tags for blob: URLs -
+// clicking such a link just silently does nothing or navigates away. The only way
+// to let the user save the image there is to open it in a new tab so they can
+// long-press -> "Save Image" or "Add to Photos". Also, the object URL must stay
+// alive long enough for that new tab to actually load it, so it can't be revoked
+// synchronously like on other platforms.
+const saveGeneratedFile = (file: File) => {
+  const url = URL.createObjectURL(file);
+
+  if (isIOSDevice()) {
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, settings, logoDataUri, onUpdateStatus, onDelete, currentUser }) => {
   const { toast } = useToast();
   const invoiceContentRef = useRef<HTMLDivElement>(null);
@@ -356,11 +388,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     const file = await generateImageFile();
     setIsDownloading(false);
     if (file) {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(file);
-      link.download = file.name;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      saveGeneratedFile(file);
+      if (isIOSDevice()) {
+        toast({ title: 'Invoice opened in a new tab', description: 'Press and hold the image, then tap "Add to Photos" or "Save Image" to download it.' });
+      }
     }
   };
 
@@ -450,15 +481,14 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         return;
       }
 
-      // If file sharing isn't supported (e.g., iOS Safari), download first then trigger share
-      // Download the file to the device first
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(shareableFile);
-      link.download = shareableFile.name;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      // If file sharing isn't supported (e.g., older iOS Safari), fall back to opening/
+      // downloading the image so the user can save it, then let them share manually.
+      saveGeneratedFile(shareableFile);
+      if (isIOSDevice()) {
+        toast({ title: 'Invoice opened in a new tab', description: 'Press and hold the image to save it, then share it from Photos.' });
+      }
 
-      // Then try native share with text only (user can attach the downloaded image)
+      // Then try native share with text only (user can attach the saved image)
       if (navigator.share) {
         try {
           await navigator.share({

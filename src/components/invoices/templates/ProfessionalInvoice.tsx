@@ -108,7 +108,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                             <th className="p-2 pb-2 font-semibold text-left">Descriptions</th>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-2 font-semibold text-left">HSN</th>}
                             <th className="p-2 pb-2 font-semibold text-right">QTY/UNIT</th>
-                            <th className="p-2 pb-2 font-semibold text-right">MRP</th>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-2 font-semibold text-right">MRP</th>}
                             <th className="p-2 pb-2 font-semibold text-right">PRICE</th>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 pb-2 font-semibold text-right">GST %</th>}
                             <th className="p-2 pb-2 font-semibold text-right">AMOUNT</th>
@@ -121,7 +121,7 @@ export default function ProfessionalInvoice({ invoice, customer, settings, logoD
                                     <td className="p-2 font-medium">{item.productName}</td>
                                     {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 font-medium break-all">{item.hsnCode}</td>}
                                     <td className="p-2 text-right whitespace-nowrap">{item.quantity || 0} {item.unit || ''}</td>
-                                    <td className="p-2 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice || 0).toFixed(2)}`}</td>
+                                    {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice || 0).toFixed(2)}`}</td>}
                                     <td className="p-2 text-right whitespace-nowrap">{currencySymbol}{(item.unitPrice || 0).toFixed(2)}</td>
                                     {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 text-right whitespace-nowrap">{item.gstRate || 0}%</td>}
                                     <td className="p-2 text-right font-semibold whitespace-nowrap">{currencySymbol}{(item.totalPrice || 0).toFixed(2)}</td>

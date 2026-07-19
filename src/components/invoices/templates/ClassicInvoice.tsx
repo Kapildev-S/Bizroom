@@ -78,7 +78,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
               <th className={`p-2 font-semibold text-gray-600 text-left ${settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? 'w-[30%]' : 'w-[48%]'}`}>Descriptions</th>
               {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600 w-[10%] text-left">HSN</th>}
               <th className="p-2 font-semibold text-gray-600 w-[10%] text-left">QTY.</th>
-              <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">MRP</th>
+              {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">MRP</th>}
               <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">RATE</th>
               {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="p-2 font-semibold text-gray-600 w-[8%] text-right">GST %</th>}
               <th className="p-2 font-semibold text-gray-600 w-[12%] text-right">AMOUNT</th>
@@ -95,7 +95,7 @@ export default function ClassicInvoice({ invoice, customer, settings, logoDataUr
                   </td>
                   {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top text-left break-all">{item.hsnCode}</td>}
                   <td className="p-2 align-top text-left whitespace-nowrap">{item.quantity} {item.unit || ''}</td>
-                  <td className="p-2 align-top text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
+                  {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>}
                   <td className="p-2 align-top text-right whitespace-nowrap">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                   {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="p-2 align-top text-right whitespace-nowrap">{item.gstRate}%</td>}
                   <td className="p-2 font-semibold align-top text-right whitespace-nowrap">{currencySymbol}{itemTotalWithTax.toFixed(2)}</td>

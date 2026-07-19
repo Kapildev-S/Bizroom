@@ -171,7 +171,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                         <th className="border-r border-black p-1 w-[37%] text-left">Description</th>
                         <th className="border-r border-black p-1 w-[12%] text-center">HSN SAC</th>
                         <th className="border-r border-black p-1 w-[8%] text-center">QTY</th>
-                        <th className="border-r border-black p-1 w-[10%] text-right">MRP</th>
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="border-r border-black p-1 w-[10%] text-right">MRP</th>}
                         <th className="border-r border-black p-1 w-[10%] text-right">Rate</th>
                         <th className="border-r border-black p-1 w-[5%] text-center">Tax</th>
                         <th className="p-1 w-[12%] text-right">Amount</th>
@@ -184,7 +184,7 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                             <td className="border-r border-black px-1 text-left" style={{ wordBreak: 'break-word' }}>{item.productName}</td>
                             <td className="border-r border-black px-1 text-center" style={{ wordBreak: 'break-word' }}>{item.hsnCode || '-'}</td>
                             <td className="border-r border-black px-1 text-center">{item.quantity}</td>
-                            <td className="border-r border-black px-1 text-right">{(item.mrp || item.unitPrice).toFixed(2)}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border-r border-black px-1 text-right">{(item.mrp || item.unitPrice).toFixed(2)}</td>}
                             <td className="border-r border-black px-1 text-right">{item.unitPrice.toFixed(2)}</td>
                             <td className="border-r border-black px-1 text-center">{item.gstRate}%</td>
                             <td className="px-1 text-right font-bold">{item.totalPrice.toFixed(2)}</td>
@@ -197,10 +197,10 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                             <td className="border-r border-black"></td>
                             <td className="border-r border-black"></td>
                             <td className="border-r border-black"></td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border-r border-black"></td>}
                             <td className="border-r border-black"></td>
                             <td className="border-r border-black"></td>
-                            <td className="border-r border-black"></td>
-                            <td className=""></td>
+                            <td></td>
                         </tr>
                     ))}
                 </tbody>

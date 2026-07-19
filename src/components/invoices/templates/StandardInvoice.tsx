@@ -119,7 +119,7 @@ export default function StandardInvoice({ invoice, customer, settings, logoDataU
                         <th className="border border-black p-1 text-center font-bold">Descriptions</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="border border-black p-1 text-center font-bold w-20">HSN</th>}
                         <th className="border border-black p-1 text-center font-bold w-12 text-xs">Qty</th>
-                        <th className="border border-black p-1 text-center font-bold w-20">MRP</th>
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="border border-black p-1 text-center font-bold w-20">MRP</th>}
                         <th className="border border-black p-1 text-center font-bold w-20">Rate</th>
                         {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="border border-black p-1 text-center font-bold w-16">GST %</th>}
                         <th className="border border-black p-1 text-center font-bold w-24">Amount</th>
@@ -131,7 +131,7 @@ export default function StandardInvoice({ invoice, customer, settings, logoDataU
                             <td className="border border-black p-1">{item.productName}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-center break-all">{item.hsnCode}</td>}
                             <td className="border border-black p-1 text-center whitespace-nowrap">{item.quantity} {item.unit || ''}</td>
-                            <td className="border border-black p-1 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-right whitespace-nowrap">{`${currencySymbol}${(item.mrp || item.unitPrice).toFixed(2)}`}</td>}
                             <td className="border border-black p-1 text-right whitespace-nowrap">{currencySymbol}{item.unitPrice.toFixed(2)}</td>
                             {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border border-black p-1 text-right whitespace-nowrap">{item.gstRate}%</td>}
                             <td className="border border-black p-1 text-right whitespace-nowrap">{currencySymbol}{item.totalPrice.toFixed(2)}</td>
