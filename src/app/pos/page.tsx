@@ -72,6 +72,7 @@ export default function POSPage() {
   const [saving, setSaving] = useState(false);
   const loading = productsLoading || settingsLoading;
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // ── Weight-based product state ───────────────────────────────────────────
   const [isWeightDialogOpen, setIsWeightDialogOpen] = useState(false);
@@ -356,23 +357,28 @@ export default function POSPage() {
   }, [openDualUnitDialog, openWeightDialog, addPieceToCart]);
 
   const updateQuantity = useCallback((id: string, delta: number) => {
-    setCart(prev => prev.map(i => {
-      if (i.id !== id) return i;
+    setCart(prev => {
+      const updated = prev.map(i => {
+        if (i.id !== id) return i;
 
-      // For weight-based items, adjust weight in grams instead of quantity
-      if (i.soldBy === 'weight' && i.weightInGrams) {
-        const newGrams = Math.max(100, i.weightInGrams + delta * 100); // +/- adjusts by 100g
-        const kg = newGrams / 1000;
-        return {
-          ...i,
-          weightInGrams: newGrams,
-          quantity: kg,
-          totalPrice: kg * i.unitPrice,
-        };
-      }
-      // Piece-based items: adjust by whole units
-      return { ...i, quantity: Math.max(1, i.quantity + delta), totalPrice: Math.max(1, i.quantity + delta) * i.unitPrice };
-    }));
+        // For weight-based items, adjust weight in grams instead of quantity
+        if (i.soldBy === 'weight' && i.weightInGrams) {
+          const newGrams = i.weightInGrams + delta * 100; // +/- adjusts by 100g
+          const kg = newGrams / 1000;
+          return {
+            ...i,
+            weightInGrams: newGrams,
+            quantity: kg,
+            totalPrice: kg * i.unitPrice,
+          };
+        }
+        // Piece-based items: adjust by whole units
+        const newQuantity = i.quantity + delta;
+        return { ...i, quantity: newQuantity, totalPrice: newQuantity * i.unitPrice };
+      });
+      // Filter out items that reached 0 or less
+      return updated.filter(i => (i.soldBy === 'weight' && i.weightInGrams !== undefined ? i.weightInGrams > 0 : i.quantity > 0));
+    });
   }, []);
 
   const clearCart = useCallback(() => setCart([]), []);
@@ -713,10 +719,10 @@ export default function POSPage() {
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] w-full overflow-hidden">
+      <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden relative">
 
         {/* ── Left: Products ────────────────────────────────────────────── */}
-        <div className="w-full md:w-[70%] flex flex-col h-[55%] md:h-full overflow-hidden">
+        <div className="w-full md:w-[70%] flex flex-col h-full overflow-hidden pb-20 md:pb-0">
           <div className="px-4 md:px-8 pt-4 md:pt-6 pb-2 flex flex-col gap-4 shrink-0">
             {/* ── Categories at the top for quick filtering ── */}
             {categories.length > 1 && (
@@ -792,16 +798,43 @@ export default function POSPage() {
           </ScrollArea>
         </div>
 
+        {/* ── Mobile Floating Cart Summary Bar ────────────────────────────── */}
+        {!isMobileCartOpen && cart.length > 0 && (
+          <div 
+            className="md:hidden fixed bottom-4 left-4 right-4 bg-[#1a2b4b] text-white p-4 rounded-2xl shadow-2xl z-30 flex justify-between items-center cursor-pointer hover:bg-[#111c33] transition-colors" 
+            onClick={() => setIsMobileCartOpen(true)}
+          >
+            <div className="flex flex-col">
+              <span className="text-sm text-gray-300 font-medium">{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+              <span className="text-lg font-bold">{currencySymbol}{subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center gap-2 font-semibold">
+              View Order <ArrowRight className="h-5 w-5" />
+            </div>
+          </div>
+        )}
+
         {/* ── Right: Cart ───────────────────────────────────────────────── */}
-        <div className="w-full md:w-[30%] bg-white border-t md:border-t-0 md:border-l shadow-xl flex flex-col shrink-0 h-[45%] md:h-full z-20">
+        {isMobileCartOpen && (
+          <div 
+            className="md:hidden fixed inset-0 bg-black/60 z-30" 
+            onClick={() => setIsMobileCartOpen(false)} 
+          />
+        )}
+        <div className={`w-full md:w-[30%] bg-white border-l shadow-2xl flex flex-col shrink-0 h-full z-40 fixed inset-0 md:relative transition-transform duration-300 ease-in-out ${isMobileCartOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}`}>
           <div className="p-4 md:p-6 border-b flex justify-between items-center shrink-0">
             <div>
               <h2 className="font-bold text-2xl text-[#1a2b4b]">Current Order</h2>
               <p className="text-xs text-gray-400 mt-0.5">{cart.length} item{cart.length !== 1 ? 's' : ''} · Walk-in Customer</p>
             </div>
-            <button onClick={clearCart} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Clear order">
-              <Trash className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={clearCart} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Clear order">
+                <Trash className="h-5 w-5" />
+              </button>
+              <button onClick={() => setIsMobileCartOpen(false)} className="md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Close Cart">
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
           </div>
 
           <ScrollArea className="flex-grow p-4 md:p-6">
