@@ -2,12 +2,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Billing fields are only ever written by backend code (Admin SDK, which bypasses
+    // these rules) after verifying state with Razorpay directly. A client create/update
+    // that touches any of these keys is denied even on documents the owner can otherwise
+    // write to. `resource` is null on a create (no prior document to diff against), so
+    // that case is checked against the new document directly instead of a diff.
+    function touchesBillingFields() {
+      let billingFields = ['subscriptionStatus', 'premiumExpiry', 'premiumSince', 'subscriptionId', 'lastPaymentId', 'lastPaymentAt', 'lastSyncedAt'];
+      return resource == null
+        ? request.resource.data.keys().hasAny(billingFields)
+        : request.resource.data.diff(resource.data).affectedKeys().hasAny(billingFields);
+    }
+
     match /enclaimUsers/{userId} {
       allow read: if true;
     }
 
     match /users/{userId}/settings/appSettings {
       allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == userId && !touchesBillingFields();
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     match /users/{userId}/feedback/{document=**} {
@@ -16,7 +30,23 @@ service cloud.firestore {
     }
 
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && request.auth.uid == userId && !touchesBillingFields();
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Subscription/webhook/reconciliation records - read and written only by backend
+    // Admin SDK code (server actions / API routes), never directly by clients.
+    match /premium_subscriptions/{subscriptionId} {
+      allow read, write: if false;
+    }
+
+    match /razorpay_webhook_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /subscription_reconciliation_runs/{runId} {
+      allow read, write: if false;
     }
 
     // Public agent tasks can be read by anyone with the link

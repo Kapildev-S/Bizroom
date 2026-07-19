@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleBillingAgentRequest } from '@/lib/billing-router';
+import { billingAgentFlow } from '@/ai/billing-agent';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Bad Request: messages array is required' }, { status: 400 });
     }
 
-    const response = await handleBillingAgentRequest(messages, userId);
+    const response = await billingAgentFlow({ messages, userId });
     return NextResponse.json(response);
   } catch (error: any) {
     console.error('[Agent Route Error]', error?.message || error);

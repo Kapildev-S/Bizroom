@@ -5,18 +5,10 @@ import { Check, Sparkles, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import type { AppSettings } from "@/lib/mockData";
-import { upgradeUserToPremium } from "@/app/actions/userActions";
 import { useSubscription } from "@/lib/hooks/useSubscription";
-
-declare global {
-    interface Window {
-        Razorpay: any;
-    }
-}
+import { startSubscriptionCheckout } from "@/lib/razorpayCheckout";
 
 export default function Pay299Page() {
     const [loading, setLoading] = useState(false);
@@ -34,97 +26,42 @@ export default function Pay299Page() {
         return () => unsubscribe();
     }, [router]);
 
-    const loadRazorpay = () => {
-        return new Promise((resolve) => {
-            if (window.Razorpay) {
-                resolve(true);
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-            script.onload = () => resolve(true);
-            script.onerror = () => resolve(false);
-            document.body.appendChild(script);
-        });
-    };
-
     const handleSubscribe = async () => {
         setLoading(true);
-        const res = await loadRazorpay();
 
-        if (!res) {
-            alert('Razorpay SDK failed to load. Are you online?');
-            setLoading(false);
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/razorpay/subscription', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    planType: 'Monthly',
-                    userId: auth.currentUser?.uid
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to create subscription');
-            }
-
-            const options = {
-                key: data.keyId,
-                subscription_id: data.subscriptionId,
-                name: "BizRoom Premium",
-                description: "Monthly Subscription - ₹299",
-                handler: async function (response: any) {
-                    try {
-                        const user = auth.currentUser;
-                        if (user) {
-                            const result = await upgradeUserToPremium(user.uid);
-                            if (result.success) {
-                                alert("Subscription Successful! Enjoy Premium Features.");
-                                await mutateSettings();
-                                router.push("/dashboard");
-                            } else {
-                                throw new Error(result.error);
-                            }
-                        }
-                    } catch (error: any) {
-                        console.error("Success update error:", error);
-                        alert("Payment successful but failed to update status. Please contact support.");
-                    }
-                },
-                theme: {
-                    color: "#6366f1"
+        await startSubscriptionCheckout({
+            planType: 'Monthly',
+            name: 'BizRoom Premium',
+            description: 'Monthly Subscription - ₹299',
+            themeColor: '#6366f1',
+            onSuccess: async ({ isPremium }) => {
+                setLoading(false);
+                await mutateSettings();
+                if (isPremium) {
+                    alert("Subscription Successful! Enjoy Premium Features.");
+                    router.push("/dashboard");
+                } else {
+                    alert("Payment received - your account will update shortly.");
                 }
-            };
+            },
+            onError: (message) => {
+                console.error('Subscription Error:', message);
 
-            const paymentObject = new window.Razorpay(options);
-            paymentObject.open();
+                let errorMessage = message;
+                if (errorMessage.includes('Authentication failed') || errorMessage.includes('not configured')) {
+                    errorMessage = '⚠️ Razorpay Configuration Error\n\n' +
+                        'Please check your .env file and ensure:\n' +
+                        '1. RAZORPAY_KEY_ID is set to your actual Key ID\n' +
+                        '2. RAZORPAY_KEY_SECRET is set to your actual Secret\n' +
+                        '3. Plan IDs are configured correctly\n\n' +
+                        'Error: ' + errorMessage;
+                }
 
-        } catch (error: any) {
-            console.error('Subscription Error:', error);
-
-            let errorMessage = error.message || 'Something went wrong';
-
-            if (errorMessage.includes('Authentication failed') || errorMessage.includes('not configured')) {
-                errorMessage = '⚠️ Razorpay Configuration Error\n\n' +
-                    'Please check your .env file and ensure:\n' +
-                    '1. RAZORPAY_KEY_ID is set to your actual Key ID\n' +
-                    '2. RAZORPAY_KEY_SECRET is set to your actual Secret\n' +
-                    '3. Plan IDs are configured correctly\n\n' +
-                    'Error: ' + errorMessage;
-            }
-
-            alert(errorMessage);
-        } finally {
-            setLoading(false);
-        }
+                alert(errorMessage);
+                setLoading(false);
+            },
+            onDismiss: () => setLoading(false),
+        });
     };
 
 

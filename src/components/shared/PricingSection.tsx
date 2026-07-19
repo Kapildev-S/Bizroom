@@ -5,12 +5,7 @@ import { Check, Monitor, Palette, Zap } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
-
-declare global {
-    interface Window {
-        Razorpay: any;
-    }
-}
+import { startSubscriptionCheckout, type PlanType } from "@/lib/razorpayCheckout";
 
 const FeatureCard = ({ title, price, period, description, features, icon: Icon, isRecommended, delay, onClick, loading }: any) => {
     return (
@@ -107,20 +102,6 @@ export function PricingSection({ titleOverride }: { titleOverride?: string }) {
         }
     ];
 
-    const loadRazorpay = () => {
-        return new Promise((resolve) => {
-            if (window.Razorpay) {
-                resolve(true);
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-            script.onload = () => resolve(true);
-            script.onerror = () => resolve(false);
-            document.body.appendChild(script);
-        });
-    };
-
     const handleSubscribe = async (planName: string) => {
         setLoading(planName);
 
@@ -135,52 +116,25 @@ export function PricingSection({ titleOverride }: { titleOverride?: string }) {
             return;
         }
 
-        const res = await loadRazorpay();
-
-        if (!res) {
-            alert('Razorpay SDK failed to load. Are you online?');
-            setLoading(null);
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/razorpay/subscription', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ planType: planName }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to create subscription');
-            }
-
-            const options = {
-                key: data.keyId,
-                subscription_id: data.subscriptionId,
-                name: "Bizroom",
-                description: `${planName} Subscription`,
-                handler: function (response: any) {
-                    alert("Subscription Successful! Payment ID: " + response.razorpay_payment_id);
-                },
-                theme: {
-                    color: "#0F172A"
+        await startSubscriptionCheckout({
+            planType: planName as PlanType,
+            description: `${planName} Subscription`,
+            onSuccess: ({ isPremium }) => {
+                setLoading(null);
+                if (isPremium) {
+                    alert("Subscription successful! Your account is now Premium.");
+                    router.push("/dashboard");
+                } else {
+                    alert("Payment received - your account will update shortly.");
                 }
-            };
-
-            const paymentObject = new window.Razorpay(options);
-            paymentObject.open();
-
-        } catch (error: any) {
-            console.error('Subscription Error:', error);
-            let errorMessage = error.message || 'Something went wrong';
-            alert(errorMessage);
-        } finally {
-            setLoading(null);
-        }
+            },
+            onError: (message) => {
+                console.error('Subscription Error:', message);
+                alert(message);
+                setLoading(null);
+            },
+            onDismiss: () => setLoading(null),
+        });
     };
 
     return (

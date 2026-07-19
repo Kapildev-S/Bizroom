@@ -476,7 +476,7 @@ export default function AgentPage() {
   const recentChats = sessions.slice(0, 8);
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-[#f4f7ff] text-[#17313a]">
+    <div className="relative h-[calc(100vh-4rem)] overflow-hidden bg-[#f4f7ff] text-[#17313a]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(15,111,128,0.06),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(0,180,216,0.05),transparent_24%)]" />
 
       {/* Delete Confirmation Dialog */}
@@ -688,7 +688,7 @@ export default function AgentPage() {
         </div>
       )}
 
-      <div className="relative flex min-h-[calc(100vh-4rem)]">
+      <div className="relative flex h-[calc(100vh-4rem)]">
         {/* Desktop Sidebar */}
         <aside className="hidden w-[260px] flex-shrink-0 border-r border-[#d9e3f7] bg-[#eef4ff] md:flex md:flex-col">
           <div className="p-4 pb-2">
@@ -915,7 +915,7 @@ export default function AgentPage() {
         </aside>
 
         {/* Main Content */}
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <header className="flex h-[44px] items-center justify-between border-b border-[#d9e3f7] bg-[#f7f9ff] px-4 md:px-5">
             <div className="flex items-center gap-2 text-[12px] text-slate-700">
               <Button

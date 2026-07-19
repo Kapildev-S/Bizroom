@@ -102,7 +102,8 @@ export function BusinessTable() {
             toast({ title: "Already Premium", description: "This user is already on a premium plan." });
             return;
         }
-        await adminGrantPremium(user!.uid, userId, 365);
+        const idToken = await user!.getIdToken();
+        await adminGrantPremium(idToken, userId, 365);
         toast({ title: "Success", description: `Premium plan granted for 1 year` });
         loadData();
     } catch (e: any) {

@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { razorpay } from "@/lib/razorpay";
+import { verifyRequestAuth } from "@/lib/firebase-admin";
+import { createPendingSubscriptionStub } from "@/lib/subscriptionSync";
 
 export async function POST(req: Request) {
     try {
-        const { planType, userId } = await req.json();
-
+        // The authenticated caller's uid is the only thing allowed to receive the
+        // premium credit - never trust a client-supplied userId field for this.
+        const userId = await verifyRequestAuth(req);
         if (!userId) {
-            return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const { planType } = await req.json();
 
         let planId = "";
         let totalCount = 12; // default
@@ -30,15 +35,6 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: "Invalid plan type" }, { status: 400 });
         }
 
-        console.log("Debug Razorpay Env:", {
-            keyIdExists: !!process.env.RAZORPAY_KEY_ID,
-            keySecretExists: !!process.env.RAZORPAY_KEY_SECRET,
-            keyIdPrefix: process.env.RAZORPAY_KEY_ID?.substring(0, 4),
-            planId: planId,
-            planType: planType
-        });
-
-
         if (!planId) {
             return NextResponse.json({
                 error: `Plan ID for ${planType} not configured. Please set RAZORPAY_PLAN_ID_* in .env`
@@ -53,6 +49,15 @@ export async function POST(req: Request) {
             notes: {
                 userId: userId
             }
+        });
+
+        // Record it immediately, before any payment happens, so the reconciliation
+        // job has a doc to check even if the very first activation webhook is lost.
+        await createPendingSubscriptionStub({
+            razorpaySubscriptionId: subscription.id,
+            userId,
+            planId,
+            planType,
         });
 
         return NextResponse.json({

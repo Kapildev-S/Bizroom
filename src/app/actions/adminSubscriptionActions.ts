@@ -1,14 +1,18 @@
 "use server";
 
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, verifyIdTokenString, ADMIN_UID } from '@/lib/firebase-admin';
 
 const db = getAdminDb();
-const ADMIN_ID = '3l2SpTceF9Qany7x5IRHdHBPU9J3';
 
-export async function adminGrantPremium(adminId: string, targetUserId: string, durationDays: number = 365) {
-    if (adminId !== ADMIN_ID) {
+async function assertAdmin(idToken: string) {
+    const uid = await verifyIdTokenString(idToken);
+    if (uid !== ADMIN_UID) {
         throw new Error('Unauthorized. Admin access required.');
     }
+}
+
+export async function adminGrantPremium(idToken: string, targetUserId: string, durationDays: number = 365) {
+    await assertAdmin(idToken);
 
     try {
         const userSettingsRef = db.doc(`users/${targetUserId}/settings/appSettings`);
@@ -44,10 +48,8 @@ export async function adminGrantPremium(adminId: string, targetUserId: string, d
     }
 }
 
-export async function adminRevokePremium(adminId: string, targetUserId: string) {
-    if (adminId !== ADMIN_ID) {
-        throw new Error('Unauthorized. Admin access required.');
-    }
+export async function adminRevokePremium(idToken: string, targetUserId: string) {
+    await assertAdmin(idToken);
 
     try {
         const userSettingsRef = db.doc(`users/${targetUserId}/settings/appSettings`);

@@ -189,7 +189,10 @@ export default function AdminDashboard() {
     const fetchTicketAnalytics = async () => {
         setTicketLoading(true);
         try {
-            const res = await fetch(`/api/admin/tickets?adminId=${currentUser?.uid}`);
+            const idToken = await currentUser?.getIdToken();
+            const res = await fetch(`/api/admin/tickets`, {
+                headers: { Authorization: `Bearer ${idToken}` },
+            });
             const data = await res.json();
             if (data.summary) {
                 setTicketSummary(data.summary);
@@ -220,8 +223,10 @@ export default function AdminDashboard() {
         try {
             const confirmRes = true; // Confirmation is handled by AlertDialog component
 
-            const response = await fetch(`/api/admin/events?adminId=${currentUser.uid}&eventId=${eventId}`, {
+            const idToken = await currentUser.getIdToken();
+            const response = await fetch(`/api/admin/events?eventId=${eventId}`, {
                 method: 'DELETE',
+                headers: { Authorization: `Bearer ${idToken}` },
             });
             const data = await response.json();
 
@@ -255,7 +260,10 @@ export default function AdminDashboard() {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/admin/users?adminId=${currentUser?.uid}`);
+            const idToken = await currentUser?.getIdToken();
+            const res = await fetch(`/api/admin/users`, {
+                headers: { Authorization: `Bearer ${idToken}` },
+            });
             const data = await res.json();
             if (data.users) {
                 setUsers(data.users);
@@ -374,7 +382,8 @@ export default function AdminDashboard() {
         if (!currentUser) return;
         setIsGranting(true);
         try {
-            const res = await adminGrantPremium(currentUser.uid, userId, durationDays);
+            const idToken = await currentUser.getIdToken();
+            const res = await adminGrantPremium(idToken, userId, durationDays);
             if (res.success) {
                 toast({ title: 'Success', description: 'Premium granted successfully' });
                 fetchUsers();
@@ -393,7 +402,8 @@ export default function AdminDashboard() {
         if (!currentUser) return;
         setIsRevoking(true);
         try {
-            const res = await adminRevokePremium(currentUser.uid, userId);
+            const idToken = await currentUser.getIdToken();
+            const res = await adminRevokePremium(idToken, userId);
             if (res.success) {
                 toast({ title: 'Success', description: 'Premium revoked successfully' });
                 fetchUsers();

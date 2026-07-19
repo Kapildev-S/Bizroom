@@ -400,6 +400,7 @@ function getToolsForInstance(
       };
 
       const hintWords = synonymHints[query] || [query];
+      const numbersInQuery = query.match(/\d+/g) || [];
 
       const scored = snapshot.docs
         .map(doc => {
@@ -414,9 +415,20 @@ function getToolsForInstance(
           if (hintWords.some(hint => productName.includes(hint))) score += 25;
           if (hintWords.some(hint => query.includes(hint))) score += 15;
 
+          numbersInQuery.forEach(num => {
+             if (productName.includes(num)) score += 30;
+          });
+
+          const tokens = query.split(/\s+/);
+          tokens.forEach(token => {
+             if (token.length > 2 && productName.includes(token)) {
+                score += 10;
+             }
+          });
+
           return { ...product, score };
         })
-        .filter(Boolean)
+        .filter(p => p && p.score > 0)
         .sort((a: any, b: any) => b.score - a.score)
         .slice(0, 5);
 
@@ -424,29 +436,117 @@ function getToolsForInstance(
     }
   );
 
-  const createInvoiceTool = aiInstance.defineTool(
+  const processInvoiceIntentTool = aiInstance.defineTool(
     {
-      name: 'createInvoice',
-      description: 'Create a new invoice. Returns the created invoice ID and invoice number.',
+      name: 'processInvoiceIntent',
+      description: 'Extracts invoice intent (customer, products, quantities) from natural language and creates an invoice. Do NOT ask the user for exact format or prices. Just extract what they said.',
       inputSchema: z.object({
         userId: z.string(),
-        customerId: z.string(),
-        customerName: z.string(),
+        customerQuery: z.string().optional(),
         items: z.array(z.object({
-          productId: z.string(),
-          productName: z.string(),
+          productQuery: z.string(),
           quantity: z.number(),
-          unitPrice: z.number(),
-          totalPrice: z.number(),
         })),
-        subtotal: z.number(),
-        totalAmount: z.number(),
+        discountPercentage: z.number().optional(),
       }),
       outputSchema: z.any(),
     },
     async (input) => {
       if (!db) throw new Error('Database not initialized');
 
+      // 1. Resolve Customer
+      let customerId = 'walk-in';
+      let customerName = 'Walk-in Customer';
+
+      if (input.customerQuery && input.customerQuery.toLowerCase() !== 'walk-in') {
+        const custSnap = await db.collection(`users/${input.userId}/customers`).get();
+        const queryLower = input.customerQuery.toLowerCase();
+        
+        let bestCustMatch = null;
+        for (const doc of custSnap.docs) {
+          const data = doc.data();
+          const name = (data.name || '').toLowerCase();
+          const phone = (data.phone || '').toLowerCase();
+          if (name.includes(queryLower) || phone.includes(queryLower)) {
+            bestCustMatch = { id: doc.id, name: data.name, ...data };
+            break;
+          }
+        }
+        
+        if (bestCustMatch) {
+          customerId = bestCustMatch.id;
+          customerName = bestCustMatch.name || 'Unknown';
+        } else {
+          return { error: `Could not find customer matching '${input.customerQuery}'. Please ask user to clarify or add the customer.` };
+        }
+      }
+
+      // 2. Resolve Products
+      const prodSnap = await db.collection(`users/${input.userId}/products`).get();
+      const allProducts = prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      
+      const resolvedItems = [];
+      let subtotal = 0;
+
+      for (const item of input.items) {
+        const query = normalizeProductQuery(item.productQuery);
+        const numbersInQuery = query.match(/\d+/g) || [];
+        const tokens = query.split(/\s+/);
+        
+        let bestMatch = null;
+        let highestScore = 0;
+        let candidates: string[] = [];
+
+        for (const p of allProducts) {
+          const pName = normalizeProductQuery(p.name || '');
+          let score = 0;
+          if (!pName) continue;
+          
+          if (pName === query) score += 100;
+          if (pName.includes(query)) score += 50;
+          if (query.includes(pName)) score += 40;
+          
+          numbersInQuery.forEach(num => { if (pName.includes(num)) score += 30; });
+          tokens.forEach(t => { if (t.length > 2 && pName.includes(t)) score += 10; });
+
+          if (score > highestScore) {
+            highestScore = score;
+            bestMatch = p;
+            candidates = [p.name];
+          } else if (score === highestScore && score > 0) {
+            candidates.push(p.name);
+          }
+        }
+
+        if (!bestMatch || highestScore < 10) {
+          return { error: `Could not find product matching '${item.productQuery}'. Please ask the user to clarify.` };
+        }
+        if (candidates.length > 1 && highestScore < 100) {
+          return { error: `Found multiple products for '${item.productQuery}': ${candidates.join(', ')}. Please ask the user which one they meant.` };
+        }
+
+        const unitPrice = Number(bestMatch.price || bestMatch.mrp || 0);
+        const calcTotal = unitPrice * item.quantity;
+        subtotal += calcTotal;
+
+        resolvedItems.push({
+          productId: bestMatch.id,
+          productName: bestMatch.name,
+          quantity: item.quantity,
+          unitPrice: unitPrice,
+          totalPrice: calcTotal,
+          mrp: unitPrice,
+          taxAmount: 0,
+          gstRate: 0,
+        });
+      }
+
+      // 3. Apply Discount
+      const discountPercent = input.discountPercentage || 0;
+      const discountAmount = (subtotal * discountPercent) / 100;
+      const totalAmount = subtotal - discountAmount;
+
+      // 4. Create Invoice Transaction
       const counterRef = db.doc(`users/${input.userId}/counters/invoices`);
       let invoiceNumber = '';
       let invoiceId = '';
@@ -462,19 +562,14 @@ function getToolsForInstance(
         invoiceId = newInvoiceRef.id;
         transaction.set(newInvoiceRef, {
           invoiceNumber,
-          customerId: input.customerId,
-          customerName: input.customerName,
-          items: input.items.map(item => ({
-            ...item,
-            mrp: item.unitPrice,
-            taxAmount: 0,
-            gstRate: 0,
-          })),
-          subtotal: input.subtotal || 0,
-          totalAmount: input.totalAmount || 0,
+          customerId,
+          customerName,
+          items: resolvedItems,
+          subtotal,
+          totalAmount,
           taxRate: 0,
           taxAmount: 0,
-          discountAmount: 0,
+          discountAmount,
           issueDate: admin.firestore.FieldValue.serverTimestamp(),
           dueDate: admin.firestore.FieldValue.serverTimestamp(),
           status: 'sent',
@@ -486,7 +581,44 @@ function getToolsForInstance(
       });
 
       onInvoiceCreated?.({ invoiceId, invoiceNumber });
-      return { invoiceId, invoiceNumber, message: 'Invoice created successfully' };
+      return { 
+        invoiceId, 
+        invoiceNumber, 
+        message: `Invoice ${invoiceNumber} created successfully for ${customerName} with ${resolvedItems.length} items. Total: ₹${totalAmount}`
+      };
+    }
+  );
+  const deleteInvoiceTool = aiInstance.defineTool(
+    {
+      name: 'deleteInvoice',
+      description: 'Delete an invoice by its ID.',
+      inputSchema: z.object({
+        userId: z.string(),
+        invoiceId: z.string(),
+      }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      if (!db) throw new Error('Database not initialized');
+      await db.collection(`users/${input.userId}/invoices`).doc(input.invoiceId).delete();
+      return { message: 'Invoice deleted successfully.' };
+    }
+  );
+
+  const printInvoiceTool = aiInstance.defineTool(
+    {
+      name: 'printInvoice',
+      description: 'Trigger the UI to print a specific invoice.',
+      inputSchema: z.object({
+        userId: z.string(),
+        invoiceId: z.string(),
+      }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      // In a real setup, this might send a real-time message to the frontend.
+      // For now, we return a special command string that the UI interprets.
+      return { _trigger: 'PRINT_INVOICE', invoiceId: input.invoiceId, message: 'Print command sent.' };
     }
   );
 
@@ -500,7 +632,9 @@ function getToolsForInstance(
     getTopCustomersTool,
     getInvoiceByNumberTool,
     getLastCreatedInvoiceTool,
-    createInvoiceTool,
+    processInvoiceIntentTool,
+    deleteInvoiceTool,
+    printInvoiceTool,
   ];
 }
 
@@ -526,30 +660,19 @@ export const billingAgentFlow = ai.defineFlow(
     }
 
     const systemPrompt = `
-You are "BizBot", the friendly and helpful billing assistant for "BizRoom".
-You can help users create customers, look up products, and create invoices.
-You should understand short, informal, typo-prone billing requests and infer the most likely intent.
-If the user request is ambiguous, ask one short clarifying question instead of guessing.
+You are "BizBot", the intelligent task orchestrator for "BizRoom".
+Your primary goal is to reliably execute business workflows using intent extraction and tool calling.
+You are NOT a general conversational chatbot. You are a business engine.
 
-IMPORTANT RULES:
+CRITICAL ORCHESTRATION RULES:
 1. ALWAYS pass \`userId: "${userId}"\` when calling ANY tool.
-2. If asked to create an invoice, first check if the customer exists using getCustomers. If not, create the customer first.
-3. Before creating each invoice line item, resolve the user's wording to the exact stored product name.
-   - Use searchProducts for each item phrase when needed.
-   - Prefer exact catalog names like "Prepaid Recharge" over the user's shorthand like "recharge".
-   - Example mappings: "recharge" -> "Prepaid Recharge", "domain" -> your stored domain product name, if available.
-   - If a product/service doesn't exist, use a generic productId like "custom-item".
-4. Calculate subtotal and totalAmount carefully before creating the invoice.
-5. After successfully creating an invoice, tell the user it's done and mention the invoice number.
-6. For billing questions, use these tools:
-   - sales of a month -> getSalesByMonth
-   - last N days paid bills -> getRecentPaidBills
-   - top customer(s) -> getTopCustomers
-   - invoice number lookup -> getInvoiceByNumber
-   - last invoice created -> getLastCreatedInvoice
-7. If a month is mentioned without a year, assume the current year.
-8. If the user asks for a vague invoice number without details, use getLastCreatedInvoice and answer with the latest invoice number.
-9. Return your final response in Markdown format. Be concise but friendly.
+2. EXTRACT INTENT, DON'T FIX FORMATS: Understand whatever the user says (even shorthand like "ck 65 2" or "recharge rendu"). Extract the customer name, product queries, and quantities, and pass them to \`processInvoiceIntent\`.
+3. NO RIGID SCHEMAS: NEVER ask the user to provide exact prices, product IDs, or specific formats. The backend tools will handle fuzzy matching and database lookups.
+4. CONTEXT MEMORY: Rely heavily on the chat history. If a user says "add 2 more" or "print it", use the active customer/invoice context from previous messages.
+5. TOOL ECOSYSTEM:
+   - For invoices: \`processInvoiceIntent\`, \`deleteInvoice\`, \`printInvoice\`
+   - For lookup: \`getSalesByMonth\`, \`getRecentPaidBills\`, \`getTopCustomers\`, \`getInvoiceByNumber\`, \`getLastCreatedInvoice\`, \`searchProducts\`
+6. Once a task is completed, return a concise Markdown summary of the action taken (e.g., "Invoice INV005 created successfully.").
 `;
 
     // Format message history for Genkit

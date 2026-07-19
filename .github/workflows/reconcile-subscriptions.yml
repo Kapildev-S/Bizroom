@@ -1,0 +1,24 @@
+name: Reconcile Razorpay Subscriptions
+
+on:
+  schedule:
+    # Every 15 minutes. Adjust to taste - this just needs to be frequent enough
+    # that a missed webhook doesn't leave a user in the wrong state for long.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reconciliation endpoint
+        run: |
+          response=$(curl -sS -o /tmp/response.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECONCILE_URL }}/api/cron/reconcile-subscriptions" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}")
+          echo "HTTP status: $response"
+          cat /tmp/response.json
+          if [ "$response" -ge 300 ]; then
+            echo "Reconciliation call failed"
+            exit 1
+          fi
