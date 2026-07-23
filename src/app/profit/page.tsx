@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, TrendingUp, Search, ArrowRight, DollarSign, Save } from 'lucide-react';
+import { Loader2, TrendingUp, Search, ArrowRight, DollarSign, Save, Banknote, Smartphone } from 'lucide-react';
 import type { Invoice, Product } from '@/lib/mockData';
 import type { InvoiceProfit } from '@/lib/types/profit';
 import { getAllProfits } from '@/lib/firebase/profitActions';
@@ -128,6 +128,21 @@ export default function ProfitDashboard() {
   }));
   
   const dailyRevenue = dailyInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+  
+  const dailyCashRevenue = dailyInvoices
+    .filter(inv => {
+      const mode = inv.paymentMode?.toLowerCase() || (inv.notes?.toLowerCase().includes('upi') ? 'upi' : 'cash');
+      return mode === 'cash';
+    })
+    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  const dailyUpiRevenue = dailyInvoices
+    .filter(inv => {
+      const mode = inv.paymentMode?.toLowerCase() || (inv.notes?.toLowerCase().includes('upi') ? 'upi' : 'cash');
+      return mode === 'upi';
+    })
+    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
   const dailyTrackedProfit = dailyProfitsWithDynamic.reduce((sum, p) => sum + (p.profitInfo?.val || 0), 0);
   
   // Calculate total historical tracking for the Overview (including dynamic)
@@ -181,7 +196,7 @@ export default function ProfitDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Daily Revenue ({reportDate})</CardTitle>
@@ -194,24 +209,32 @@ export default function ProfitDashboard() {
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Cash Sales</CardTitle>
+                    <Banknote className="h-4 w-4 text-[#E87B1E]" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-slate-800">₹{dailyCashRevenue.toFixed(2)}</div>
+                    <p className="text-xs text-muted-foreground mt-1">Total cash collected</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">UPI Sales</CardTitle>
+                    <Smartphone className="h-4 w-4 text-purple-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-slate-800">₹{dailyUpiRevenue.toFixed(2)}</div>
+                    <p className="text-xs text-muted-foreground mt-1">Total UPI / QR payments</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Daily Profit</CardTitle>
                     <TrendingUp className="h-4 w-4 text-green-500" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-green-600">₹{dailyTrackedProfit.toFixed(2)}</div>
                     <p className="text-xs text-muted-foreground mt-1">Total profit for selected date</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Daily Margin</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {dailyRevenue > 0 ? ((dailyTrackedProfit / dailyRevenue) * 100).toFixed(1) : "0.0"}%
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Average margin for the day</p>
                   </CardContent>
                 </Card>
               </div>

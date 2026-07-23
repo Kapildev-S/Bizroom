@@ -20,6 +20,7 @@ interface ReceiptPrintViewProps {
   phone?: string;
   tagline?: string;
   enclaimQrUrl?: string;
+  orderType?: 'parcel' | 'dine_in' | null;
 }
 
 export function ReceiptPrintView({
@@ -38,6 +39,7 @@ export function ReceiptPrintView({
   paymentMode,
   currency = "INR",
   enclaimQrUrl,
+  orderType,
 }: ReceiptPrintViewProps) {
   const currencySymbol = getCurrencySymbol(currency);
   const now = new Date();
@@ -65,6 +67,11 @@ export function ReceiptPrintView({
 
       <div className="text-xs text-center mb-3">
         Invoice No : {invoiceNo} &nbsp;|&nbsp; Date : {displayDate} &nbsp;|&nbsp; Time : {displayTime}
+        {orderType && (
+          <div className="mt-1 font-bold text-sm tracking-wider">
+            TYPE: {orderType === 'dine_in' ? 'DINE IN' : 'PARCEL'}
+          </div>
+        )}
       </div>
 
       <div className="border-t-[1.5px] border-black border-dashed my-3"></div>

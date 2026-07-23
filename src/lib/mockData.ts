@@ -78,6 +78,8 @@ export type Invoice = {
   notes?: string;
   currency: string; // e.g., 'USD', 'INR'
   isTaxInclusive?: boolean;
+  paymentMode?: 'cash' | 'upi';
+  orderType?: 'parcel' | 'dine_in' | null;
 };
 
 export type SmsCampaign = {

@@ -11,11 +11,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ["'Barlow'", 'sans-serif'],
-        heading: ["'Instrument Serif'", 'serif'],
-        headline: ['var(--font-display)', 'serif'],
-        sans: ['var(--font-sans)', 'sans-serif'],
-        display: ['var(--font-display)', 'sans-serif'],
+        clash: ["'Clash Display'", "'Plus Jakarta Sans'", 'sans-serif'],
+        jakarta: ["'Plus Jakarta Sans'", 'sans-serif'],
+        body: ["'Plus Jakarta Sans'", 'sans-serif'],
+        heading: ["'Clash Display'", "'Plus Jakarta Sans'", 'sans-serif'],
+        headline: ["'Clash Display'", 'sans-serif'],
+        sans: ["'Plus Jakarta Sans'", 'sans-serif'],
+        display: ["'Clash Display'", 'sans-serif'],
         code: ['monospace'],
       },
       animation: {

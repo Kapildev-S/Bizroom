@@ -8,7 +8,7 @@ import {
   Loader2, Plus, Minus, Search, Printer, Banknote, Smartphone,
   ArrowLeft, ArrowRight, Trash, Settings, Bluetooth, BluetoothConnected,
   BluetoothOff, RefreshCw, Zap, CheckCircle2, XCircle, WifiOff, Weight,
-  Scale, Package
+  Scale, Package, Utensils
 } from "lucide-react";
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
@@ -69,6 +69,7 @@ export default function POSPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'upi'>('cash');
+  const [orderType, setOrderType] = useState<'parcel' | 'dine_in' | null>(null);
   const [saving, setSaving] = useState(false);
   const loading = productsLoading || settingsLoading;
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -435,7 +436,9 @@ export default function POSPage() {
         })),
         subtotal, taxRate: 0, taxAmount: 0, totalAmount: total,
         status: 'paid', currency,
-        notes: `POS Sale – Paid via ${paymentMode.toUpperCase()}`,
+        notes: `POS Sale – Paid via ${paymentMode.toUpperCase()}${orderType ? ` (${orderType === 'dine_in' ? 'DINE IN' : 'PARCEL'})` : ''}`,
+        paymentMode,
+        orderType,
         createdAt: Timestamp.now(),
       };
       
@@ -470,7 +473,8 @@ export default function POSPage() {
           taxAmount,
           total,
           paymentMode,
-          currencySymbol
+          currencySymbol,
+          orderType
         );
         await writeToPrinter(payload);
       } catch (printErr: any) {
@@ -480,6 +484,7 @@ export default function POSPage() {
       }
 
       clearCart();
+      setOrderType(null);
       toast({ title: "Order Complete ✓", description: "Invoice saved and receipt printed." });
     } catch (err) {
       console.error("Save error:", err);
@@ -886,6 +891,34 @@ export default function POSPage() {
                 <span className="text-lg font-bold text-[#1a2b4b]">Total</span>
                 <span className="text-2xl font-bold text-[#E87B1E]">{currencySymbol}{total.toFixed(2)}</span>
               </div>
+            </div>
+
+            {/* Order Type Selector */}
+            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3">
+              <button
+                type="button"
+                onClick={() => setOrderType(prev => prev === 'parcel' ? null : 'parcel')}
+                className={`py-2 md:py-3 rounded-xl border-2 flex items-center justify-center gap-2 transition-all font-bold text-xs uppercase tracking-wider ${
+                  orderType === 'parcel'
+                    ? 'border-purple-600 bg-purple-50 text-purple-600'
+                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <Package className="h-4 w-4 md:h-5 md:w-5" />
+                Parcel
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderType(prev => prev === 'dine_in' ? null : 'dine_in')}
+                className={`py-2 md:py-3 rounded-xl border-2 flex items-center justify-center gap-2 transition-all font-bold text-xs uppercase tracking-wider ${
+                  orderType === 'dine_in'
+                    ? 'border-purple-600 bg-purple-50 text-purple-600'
+                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <Utensils className="h-4 w-4 md:h-5 md:w-5" />
+                Dine In
+              </button>
             </div>
 
             {/* Payment mode */}

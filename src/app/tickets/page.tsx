@@ -7,8 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Search, Clock, ArrowRight, Loader2, CheckCircle2, Share2, Video, Ticket } from "lucide-react";
+import { Calendar, MapPin, Search, Clock, ArrowRight, Loader2, CheckCircle2, Share2, Video, Ticket, Users, BookOpen, Network, Music, Sparkles, Wine, Trophy, HelpCircle, Rocket, Star, Shield, QrCode, RotateCcw, Filter, Bell, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { TubesBackground } from "@/components/ui/TubesBackground";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -24,6 +32,9 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { getEvents, type EventData, type TicketType } from "@/app/actions/eventActions";
 import { createBooking } from "@/app/actions/bookingActions";
+import { GuestBookingsModal } from "@/components/tickets/GuestBookingsModal";
+import CtaFooter from "@/components/CtaFooter";
+import { KresnaFooter } from "@/components/KresnaFooter";
 
 function EventImage({ imageUrl, title }: { imageUrl?: string; title: string }) {
     const [error, setError] = useState(false);
@@ -58,6 +69,8 @@ export default function TicketsPage() {
 function TicketsPageContent() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
+    const [selectedLocation, setSelectedLocation] = useState("All");
+    const [selectedDate, setSelectedDate] = useState("All");
     const [events, setEvents] = useState<EventData[]>([]);
     const [loading, setLoading] = useState(true);
     const [bookingLoading, setBookingLoading] = useState(false);
@@ -66,6 +79,7 @@ function TicketsPageContent() {
 
     const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
     const [bookingFormOpen, setBookingFormOpen] = useState(false);
+    const [guestModalOpen, setGuestModalOpen] = useState(false);
 
     // Multi-Ticket Selection State: { [ticketId]: quantity }
     const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
@@ -80,6 +94,35 @@ function TicketsPageContent() {
     const { toast } = useToast();
 
     const categories = ["All", "Conference", "Workshop", "Networking", "Concert", "Festival", "Exhibition", "Party", "Sports", "Other"];
+
+    const getCategoryIcon = (category: string) => {
+        switch (category) {
+            case "All": return <Ticket className="h-4 w-4 mr-1.5" />;
+            case "Conference": return <Users className="h-4 w-4 mr-1.5" />;
+            case "Workshop": return <BookOpen className="h-4 w-4 mr-1.5" />;
+            case "Networking": return <Network className="h-4 w-4 mr-1.5" />;
+            case "Concert": return <Music className="h-4 w-4 mr-1.5" />;
+            case "Festival": return <Sparkles className="h-4 w-4 mr-1.5" />;
+            case "Exhibition": return <Sparkles className="h-4 w-4 mr-1.5" />;
+            case "Party": return <Wine className="h-4 w-4 mr-1.5" />;
+            case "Sports": return <Trophy className="h-4 w-4 mr-1.5" />;
+            default: return <HelpCircle className="h-4 w-4 mr-1.5" />;
+        }
+    };
+
+    const getCategoryColor = (category: string) => {
+        switch (category) {
+            case "Conference": return "bg-blue-50 text-blue-700 border-blue-200";
+            case "Workshop": return "bg-purple-50 text-purple-700 border-purple-200";
+            case "Networking": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+            case "Concert": return "bg-amber-50 text-amber-700 border-amber-200";
+            case "Festival": return "bg-rose-50 text-rose-700 border-rose-200";
+            case "Exhibition": return "bg-indigo-50 text-indigo-700 border-indigo-200";
+            case "Party": return "bg-pink-50 text-pink-700 border-pink-200";
+            case "Sports": return "bg-cyan-50 text-cyan-700 border-cyan-200";
+            default: return "bg-slate-50 text-slate-700 border-slate-200";
+        }
+    };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -407,12 +450,37 @@ function TicketsPageContent() {
         }
     };
 
+    const locationsList = Array.from(new Set(events.map(e => e.venueName || e.venue || "").filter(Boolean)));
+
     const filteredEvents = events.filter(event => {
         const venueCheck = event.venueName || event.venue || ""; // Handle new/old
-        const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            venueCheck.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = !searchQuery.trim() || 
+            event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            venueCheck.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (event.category && event.category.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesCategory = selectedCategory === "All" || event.category === selectedCategory;
-        return matchesSearch && matchesCategory;
+        const matchesLocation = selectedLocation === "All" || venueCheck.toLowerCase().includes(selectedLocation.toLowerCase());
+        
+        let matchesDate = true;
+        if (selectedDate !== "All" && event.date) {
+            const eventDateObj = new Date(event.date);
+            const today = new Date();
+            if (selectedDate === "Today") {
+                matchesDate = eventDateObj.toDateString() === today.toDateString();
+            } else if (selectedDate === "This Weekend") {
+                const day = today.getDay();
+                const diffToSat = (6 - day + 7) % 7;
+                const saturday = new Date(today);
+                saturday.setDate(today.getDate() + diffToSat);
+                const sunday = new Date(saturday);
+                sunday.setDate(saturday.getDate() + 1);
+                matchesDate = eventDateObj.toDateString() === saturday.toDateString() || eventDateObj.toDateString() === sunday.toDateString();
+            } else if (selectedDate === "This Month") {
+                matchesDate = eventDateObj.getMonth() === today.getMonth() && eventDateObj.getFullYear() === today.getFullYear();
+            }
+        }
+
+        return matchesSearch && matchesCategory && matchesLocation && matchesDate;
     });
 
     const formatDate = (dateString: string) => {
@@ -432,115 +500,252 @@ function TicketsPageContent() {
     };
 
     return (
-        <div className="min-h-screen bg-background-light">
-            <header className="bg-background/80 backdrop-blur-md sticky top-0 z-50 border-b">
-                <div className="container mx-auto py-4 px-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-headline font-bold text-foreground">BizRoom <span className="text-primary">Events</span></h1>
-                    <Button variant="outline" size="sm" asChild>
-                        <a href="/dashboard/bookings">My Bookings</a>
-                    </Button>
+        <div className="min-h-screen bg-slate-50/50 relative">
+            {/* Transparent Header overlaying TubesBackground */}
+            <header className="absolute top-0 w-full py-5 px-6 md:px-12 z-50 border-b border-white/10 bg-slate-950/40 backdrop-blur-md">
+                <div className="container mx-auto flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <img src="/favicon.svg" alt="BizRoom Logo" className="h-9 w-9 object-contain drop-shadow-[0_0_12px_rgba(6,182,212,0.5)]" />
+                        <h1 className="text-xl md:text-2xl font-jakarta font-black text-white tracking-tight">BizRoom <span className="text-cyan-400 font-black">Events</span></h1>
+                    </div>
+
+                    {/* Navigation Links - Removed Venues & Categories as requested */}
+                    <nav className="hidden md:flex items-center space-x-8 text-sm font-semibold text-slate-300">
+                        <a href="/tickets" className="text-cyan-400 border-b-2 border-cyan-400 pb-1">Home</a>
+                        <a href="#events-section" className="hover:text-white transition-colors">Events</a>
+                        <a href="#" className="hover:text-white transition-colors">Organizers</a>
+                        <a href="#" className="hover:text-white transition-colors">Become Organizer</a>
+                        <a href="#" className="hover:text-white transition-colors">Pricing</a>
+                    </nav>
+
+                    <div className="flex items-center">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setGuestModalOpen(true)} 
+                            className="rounded-full border-white/20 bg-white/5 hover:bg-white/10 text-white hover:text-white font-bold px-5 transition-all"
+                        >
+                            My Bookings
+                        </Button>
+                    </div>
                 </div>
             </header>
 
-            <main className="container mx-auto px-4 py-8 md:py-12">
-                {/* Hero / Search Section */}
-                <section className="mb-12 text-center max-w-4xl mx-auto">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        <h2 className="text-4xl md:text-5xl font-headline font-bold mb-4 text-foreground">Discover Incredible Events</h2>
-                        <p className="text-muted-foreground mb-8 text-lg">Book tickets for conferences, workshops, concerts, and more.</p>
+            {/* Pure Light Streak Hero Section Matching Reference Screenshot 1-to-1 */}
+            <section className="relative w-full z-10 overflow-hidden bg-slate-950 min-h-[85vh] flex flex-col justify-center">
+                <TubesBackground className="min-h-[85vh]">
+                    <div className="container mx-auto px-6 md:px-12 h-full flex flex-col justify-center pt-28 pb-12 pointer-events-none relative z-10">
+                        <div className="max-w-6xl mx-auto w-full pointer-events-auto flex flex-col space-y-7">
+                            
+                            {/* Top Pill Badge */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4 }}
+                            >
+                                <div className="inline-flex items-center gap-2 bg-cyan-950/60 border border-cyan-500/30 rounded-full px-4 py-1.5 backdrop-blur-md shadow-lg shadow-cyan-500/10">
+                                    <Rocket className="h-3.5 w-3.5 text-cyan-400" />
+                                    <span className="text-cyan-300 text-xs font-bold uppercase tracking-wider">PREMIUM EVENT BOOKING PLATFORM</span>
+                                </div>
+                            </motion.div>
 
-                        <div className="relative max-w-lg mx-auto mb-8">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
-                            <Input
-                                type="text"
-                                placeholder="Search events, venues..."
-                                className="pl-10 h-12 rounded-full shadow-sm border-muted-foreground/20 focus-visible:ring-primary text-base"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
+                            {/* Headline with Clash Display Font (Weight: 700, Size: 92px, Letter Spacing: -3px) */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5, delay: 0.1 }}
+                                className="space-y-1 text-left"
+                            >
+                                <h1 className="text-[44px] sm:text-[68px] md:text-[80px] lg:text-[92px] font-clash font-bold text-white tracking-[-3px] leading-[0.95]">
+                                    Discover &amp; Book
+                                </h1>
+                                <h2 className="text-[44px] sm:text-[68px] md:text-[80px] lg:text-[92px] font-clash font-bold text-cyan-400 tracking-[-3px] leading-[0.95]">
+                                    Incredible Events
+                                </h2>
+                                <p className="text-slate-300/90 text-base md:text-xl font-jakarta font-medium leading-relaxed max-w-2xl pt-3">
+                                    Conferences, workshops, concerts, networking events and more with industry leading brands.
+                                </p>
+                            </motion.div>
 
-                        <div className="flex flex-wrap justify-center gap-2">
-                            {categories.map((cat) => (
-                                <Button
-                                    key={cat}
-                                    variant={selectedCategory === cat ? "default" : "outline"}
-                                    onClick={() => setSelectedCategory(cat)}
-                                    className={`rounded-full ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            {/* Trust Badges matching Reference Image: 3 Items */}
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.5, delay: 0.15 }}
+                                className="flex flex-wrap items-center gap-6 pt-1 text-slate-200 text-sm font-semibold"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Shield className="h-4 w-4 text-cyan-400 shrink-0" />
+                                    <span>Verified Organizers</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0" />
+                                    <span>Secure Payments</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <QrCode className="h-4 w-4 text-cyan-400 shrink-0" />
+                                    <span>Instant QR Tickets</span>
+                                </div>
+                            </motion.div>
+
+                            {/* Interactive Multi-Column Search Bar matching Reference Screenshot */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5, delay: 0.2 }}
+                                className="w-full bg-slate-950/80 border border-cyan-500/20 rounded-2xl p-2.5 shadow-2xl backdrop-blur-xl flex flex-col lg:flex-row items-stretch gap-2 mt-4"
+                            >
+                                {/* Query Input */}
+                                <div className="flex-1 flex items-center px-4 py-2 border-b lg:border-b-0 lg:border-r border-white/10">
+                                    <Search className="text-cyan-400 h-5 w-5 mr-3 shrink-0" />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search events, organizers, venues..."
+                                        className="border-none bg-transparent text-white placeholder-slate-400 focus-visible:ring-0 text-sm md:text-base h-10 p-0 shadow-none"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Location Select */}
+                                <div className="flex items-center px-4 py-2 border-b lg:border-b-0 lg:border-r border-white/10 shrink-0 min-w-[170px]">
+                                    <MapPin className="text-cyan-400 h-4 w-4 mr-2.5 shrink-0" />
+                                    <div className="flex flex-col text-left w-full">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">LOCATION</span>
+                                        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                                            <SelectTrigger className="h-6 p-0 border-none bg-transparent text-xs font-bold text-white focus:ring-0 shadow-none [&>svg]:text-white/70">
+                                                <SelectValue placeholder="Current Location" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-white/10 text-white">
+                                                <SelectItem value="All">Current Location</SelectItem>
+                                                {locationsList.map(loc => (
+                                                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Date Select */}
+                                <div className="flex items-center px-4 py-2 border-b lg:border-b-0 lg:border-r border-white/10 shrink-0 min-w-[150px]">
+                                    <Calendar className="text-cyan-400 h-4 w-4 mr-2.5 shrink-0" />
+                                    <div className="flex flex-col text-left w-full">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">DATE</span>
+                                        <Select value={selectedDate} onValueChange={setSelectedDate}>
+                                            <SelectTrigger className="h-6 p-0 border-none bg-transparent text-xs font-bold text-white focus:ring-0 shadow-none [&>svg]:text-white/70">
+                                                <SelectValue placeholder="This Weekend" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-white/10 text-white">
+                                                <SelectItem value="All">Anytime</SelectItem>
+                                                <SelectItem value="Today">Today</SelectItem>
+                                                <SelectItem value="This Weekend">This Weekend</SelectItem>
+                                                <SelectItem value="This Month">This Month</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Category Select */}
+                                <div className="flex items-center px-4 py-2 shrink-0 min-w-[160px]">
+                                    <Filter className="text-cyan-400 h-4 w-4 mr-2.5 shrink-0" />
+                                    <div className="flex flex-col text-left w-full">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">CATEGORY</span>
+                                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                            <SelectTrigger className="h-6 p-0 border-none bg-transparent text-xs font-bold text-white focus:ring-0 shadow-none [&>svg]:text-white/70">
+                                                <SelectValue placeholder="All Categories" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-white/10 text-white">
+                                                {categories.map(cat => (
+                                                    <SelectItem key={cat} value={cat}>{cat === "All" ? "All Categories" : cat}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Search Button */}
+                                <Button 
+                                    onClick={() => {
+                                        const el = document.getElementById("events-section");
+                                        if (el) el.scrollIntoView({ behavior: "smooth" });
+                                    }}
+                                    className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold rounded-xl h-12 px-7 text-sm shrink-0 shadow-lg shadow-cyan-500/25 transition-all active:scale-95 flex items-center gap-2"
                                 >
-                                    {cat}
+                                    Search Events <ArrowRight className="h-4 w-4" />
                                 </Button>
-                            ))}
+                            </motion.div>
+
                         </div>
-                    </motion.div>
-                </section>
+                    </div>
+                </TubesBackground>
+            </section>
+
+            <main id="events-section" className="container mx-auto px-6 py-12">
 
                 {/* Loading State */}
                 {loading && (
-                    <div className="flex justify-center py-20">
+                    <div className="flex justify-center py-24">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
                 )}
 
                 {/* Events Grid */}
                 {!loading && (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {filteredEvents.map((event, index) => (
                             <motion.div
                                 key={event.id}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: index * 0.1 }}
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.08, duration: 0.4 }}
                             >
-                                <Card className="h-full border-none shadow-lg overflow-hidden group hover:shadow-2xl transition-all hover:-translate-y-1 bg-white flex flex-col">
-                                    <div className="relative h-48 overflow-hidden bg-muted shrink-0">
+                                <Card className="h-full border border-slate-100 shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white flex flex-col rounded-3xl overflow-hidden group">
+                                    <div className="relative h-52 overflow-hidden bg-slate-100 shrink-0">
                                         <EventImage imageUrl={event.imageUrl} title={event.title} />
                                         <div className="absolute top-4 left-4">
-                                            <Badge className="bg-white/90 text-foreground hover:bg-white backdrop-blur-sm font-bold">
+                                            <Badge className={`border px-3 py-1 rounded-full font-bold shadow-sm backdrop-blur-sm bg-white/95 ${getCategoryColor(event.category)}`}>
                                                 {event.category}
                                             </Badge>
                                         </div>
                                         <div className="absolute top-4 right-4">
-                                            <Badge variant="secondary" className="backdrop-blur-sm shadow-sm backdrop-saturate-150 bg-white/70">
+                                            <Badge variant="secondary" className="backdrop-blur-md shadow-sm bg-slate-900/80 text-white font-bold border-none px-3 py-1 rounded-full">
                                                 {getPriceDisplay(event)}
                                             </Badge>
                                         </div>
                                     </div>
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-xl font-bold font-headline line-clamp-2">{event.title}</CardTitle>
+                                    <CardHeader className="pb-2 pt-5 px-6">
+                                        <CardTitle className="text-xl font-bold font-headline line-clamp-2 text-slate-900 group-hover:text-primary transition-colors leading-snug">{event.title}</CardTitle>
                                     </CardHeader>
-                                    <CardContent className="space-y-4 pb-4 flex-grow">
-                                        <div className="flex items-center text-muted-foreground text-sm">
-                                            <Calendar className="h-4 w-4 mr-2 text-primary" />
-                                            <span>{formatDate(event.startDate || event.date || "")}</span>
-                                            <span className="mx-2">•</span>
-                                            <Clock className="h-4 w-4 mr-1 text-primary" />
-                                            <span>{event.startTime || event.time || ""}</span>
+                                    <CardContent className="space-y-4 pb-5 px-6 flex-grow">
+                                        <div className="flex flex-col gap-2.5">
+                                            <div className="flex items-center text-slate-500 text-xs font-semibold">
+                                                <Calendar className="h-4 w-4 mr-2 text-primary shrink-0" />
+                                                <span>{formatDate(event.startDate || event.date || "")}</span>
+                                                <span className="mx-2 text-slate-300">•</span>
+                                                <Clock className="h-4 w-4 mr-1.5 text-primary shrink-0" />
+                                                <span>{event.startTime || event.time || ""}</span>
+                                            </div>
+                                            <div className="flex items-start text-slate-500 text-xs font-semibold">
+                                                {event.locationType === "online" || event.isOnline ? (
+                                                    <Video className="h-4 w-4 mr-2 text-primary shrink-0 mt-0.5" />
+                                                ) : (
+                                                    <MapPin className="h-4 w-4 mr-2 text-primary shrink-0 mt-0.5" />
+                                                )}
+                                                <span className="line-clamp-1 leading-normal">
+                                                    {event.locationType === "online" || event.isOnline ? "Online Event" : (event.venueName || event.venue)}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-start text-muted-foreground text-sm">
-                                            {event.locationType === "online" || event.isOnline ? (
-                                                <Video className="h-4 w-4 mr-2 mt-1 text-primary shrink-0" />
-                                            ) : (
-                                                <MapPin className="h-4 w-4 mr-2 mt-1 text-primary shrink-0" />
-                                            )}
-                                            <span className="line-clamp-1">
-                                                {event.locationType === "online" || event.isOnline ? "Online Event" : (event.venueName || event.venue)}
-                                            </span>
-                                        </div>
-                                        <div className="line-clamp-2 text-sm text-muted-foreground/80">
+                                        <div className="line-clamp-3 text-xs text-slate-400 leading-relaxed font-medium pt-1 border-t border-slate-50">
                                             {event.description}
                                         </div>
                                     </CardContent>
-                                    <CardFooter className="pt-0 mt-auto">
+                                    <CardFooter className="pt-0 pb-6 px-6 mt-auto">
                                         <Button
-                                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md rounded-lg h-11"
+                                            className="w-full bg-slate-900 hover:bg-primary text-white hover:text-white font-bold shadow-md rounded-2xl h-12 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/10"
                                             onClick={() => handleOpenBooking(event)}
                                         >
-                                            Book Ticket <ArrowRight className="ml-2 h-4 w-4" />
+                                            Book Ticket <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                                         </Button>
                                     </CardFooter>
                                 </Card>
@@ -551,8 +756,8 @@ function TicketsPageContent() {
 
                 {!loading && filteredEvents.length === 0 && (
                     <div className="text-center py-20">
-                        <p className="text-muted-foreground text-lg">No events found matching your criteria.</p>
-                        <Button variant="link" onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }} className="mt-2 text-primary">Clear Filters</Button>
+                        <p className="text-slate-400 text-lg font-medium">No events found matching your search criteria.</p>
+                        <Button variant="link" onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }} className="mt-2 text-primary font-bold">Clear Filters</Button>
                     </div>
                 )}
             </main>
@@ -655,13 +860,13 @@ function TicketsPageContent() {
                                 {/* Attendee List */}
                                 <div className="space-y-6 pt-2">
                                     {attendees.map((attendee, index) => (
-                                        <div key={index} className="space-y-4 p-4 border rounded-xl bg-card relative">
-                                            <div className="absolute -top-3 left-3 bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-lg">
+                                        <div key={index} className="space-y-4 p-5 border border-slate-100 rounded-2xl bg-slate-50/50 shadow-sm relative pt-8 mt-4">
+                                            <div className="absolute -top-3 left-4 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-md shadow-primary/10">
                                                 Attendee {index + 1}
                                             </div>
-
-                                            <div className="space-y-2 mt-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Full Name <span className="text-red-500">*</span></Label>
+ 
+                                            <div className="space-y-1.5 mt-2">
+                                                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Full Name <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     required
                                                     value={attendee.name}
@@ -671,12 +876,12 @@ function TicketsPageContent() {
                                                         setAttendees(next);
                                                     }}
                                                     placeholder={`Name of Attendee ${index + 1}`}
-                                                    className="h-10"
+                                                    className="h-10 bg-white border-slate-200 focus-visible:ring-primary rounded-xl"
                                                 />
                                             </div>
-
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Mobile Number <span className="text-red-500">*</span></Label>
+ 
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Mobile Number <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     type="tel"
                                                     required
@@ -688,12 +893,12 @@ function TicketsPageContent() {
                                                     }}
                                                     placeholder="10-digit mobile number"
                                                     maxLength={10}
-                                                    className="h-10"
+                                                    className="h-10 bg-white border-slate-200 focus-visible:ring-primary rounded-xl"
                                                 />
                                             </div>
-
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Place / City <span className="text-red-500">*</span></Label>
+ 
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Place / City <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     required
                                                     value={attendee.place}
@@ -703,7 +908,7 @@ function TicketsPageContent() {
                                                         setAttendees(next);
                                                     }}
                                                     placeholder="e.g. Chennai, Bangalore"
-                                                    className="h-10"
+                                                    className="h-10 bg-white border-slate-200 focus-visible:ring-primary rounded-xl"
                                                 />
                                             </div>
                                         </div>
@@ -753,6 +958,17 @@ function TicketsPageContent() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Guest Bookings OTP Modal */}
+            <GuestBookingsModal open={guestModalOpen} onOpenChange={setGuestModalOpen} />
+
+            {/* CTA Section */}
+            <CtaFooter />
+
+            {/* Footer */}
+            <div id="contact">
+                <KresnaFooter />
+            </div>
         </div>
     );
 }

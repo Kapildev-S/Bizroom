@@ -183,6 +183,22 @@ export default function ReportsPage() {
     const totalPaid = filteredInvoices.filter(i => i.status === 'paid').reduce((a, i) => a + i.totalAmount, 0);
     const totalUnpaid = filteredInvoices.filter(i => i.status !== 'paid').reduce((a, i) => a + i.totalAmount, 0);
 
+    // Payment mode breakdown
+    let cashRevenue = 0;
+    let upiRevenue = 0;
+    let cashCount = 0;
+    let upiCount = 0;
+    filteredInvoices.forEach(inv => {
+      const mode = inv.paymentMode?.toLowerCase() || (inv.notes?.toLowerCase().includes('upi') ? 'upi' : 'cash');
+      if (mode === 'upi') {
+        upiRevenue += inv.totalAmount;
+        upiCount += 1;
+      } else {
+        cashRevenue += inv.totalAmount;
+        cashCount += 1;
+      }
+    });
+
     // Product sales aggregation (works for both regular invoices and POS bills)
     const productMap: Record<string, { name: string; qty: number; revenue: number; invoiceCount: number }> = {};
     filteredInvoices.forEach(inv => {
@@ -217,6 +233,10 @@ export default function ReportsPage() {
       totalPaid,
       totalUnpaid,
       productSales,
+      cashRevenue,
+      upiRevenue,
+      cashCount,
+      upiCount,
     };
   }, [filteredInvoices]);
 
@@ -751,7 +771,7 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="distribution" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Donut Chart - Status Distribution */}
             <Card className="shadow-sm rounded-2xl border-slate-200">
               <CardHeader>
@@ -854,6 +874,64 @@ export default function ReportsPage() {
                   <div className="text-center">
                     <p className="text-lg font-bold text-emerald-600">{reportData.totalRevenue > 0 ? ((reportData.totalPaid / reportData.totalRevenue) * 100).toFixed(1) : 0}%</p>
                     <p className="text-[10px] text-slate-500 uppercase">Collection Rate</p>
+                  </div>
+                </div>
+              </CardContent>
+            {/* Payment Method Distribution */}
+            <Card className="shadow-sm rounded-2xl border-slate-200">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-900">Payment Methods</CardTitle>
+                    <CardDescription>Breakdown by payment mode (Cash vs UPI)</CardDescription>
+                  </div>
+                  <Smartphone className="h-5 w-5 text-[#0f6f80]" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-4">
+                  <div className="flex justify-between items-center bg-slate-50 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Banknote className="h-5 w-5 text-[#E87B1E]" />
+                      <span className="font-semibold text-slate-700">Cash</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-slate-900">{currencySymbol}{reportData.cashRevenue.toFixed(2)}</div>
+                      <div className="text-xs text-slate-500">{reportData.cashCount} Invoices</div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center bg-slate-50 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-5 w-5 text-purple-600" />
+                      <span className="font-semibold text-slate-700">UPI</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-slate-900">{currencySymbol}{reportData.upiRevenue.toFixed(2)}</div>
+                      <div className="text-xs text-slate-500">{reportData.upiCount} Invoices</div>
+                    </div>
+                  </div>
+                  {/* Progress bar contribution */}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-slate-500">
+                      <span>Cash vs UPI Share</span>
+                      <span>
+                        {reportData.cashRevenue + reportData.upiRevenue > 0
+                          ? ((reportData.upiRevenue / (reportData.cashRevenue + reportData.upiRevenue)) * 100).toFixed(0)
+                          : 0}% UPI
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full bg-[#E87B1E] rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-purple-600"
+                        style={{
+                          width: `${
+                            reportData.cashRevenue + reportData.upiRevenue > 0
+                              ? (reportData.upiRevenue / (reportData.cashRevenue + reportData.upiRevenue)) * 100
+                              : 0
+                          }%`
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>

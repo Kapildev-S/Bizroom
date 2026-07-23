@@ -269,7 +269,8 @@ export const generateReceiptPayload = (
   taxAmount: number,
   total: number,
   paymentMode: string,
-  currency: string
+  currency: string,
+  orderType?: 'parcel' | 'dine_in' | null
 ): Uint8Array => {
   const encoder = new ReceiptPrinterEncoder({ language: 'esc-pos', width: 48 });
   const dashedLine = '-'.repeat(48);
@@ -315,7 +316,13 @@ export const generateReceiptPayload = (
     .line(dashedLine)
     .bold(true).line("INVOICE").bold(false)
     .line(`Invoice No: ${invoiceNo} | Date: ${displayDate}`)
-    .line(`Time: ${displayTime}`)
+    .line(`Time: ${displayTime}`);
+
+  if (orderType) {
+    receipt = receipt.line(`Type: ${orderType === 'dine_in' ? 'DINE IN' : 'PARCEL'}`);
+  }
+
+  receipt = receipt
     .line(dashedLine)
     .align('left')
     .bold(true);
