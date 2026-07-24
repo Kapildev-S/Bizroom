@@ -70,11 +70,41 @@ export async function syncSubscriptionFromRazorpay(
 
     if (userId) {
         const userSettingsRef = db.doc(`users/${userId}/settings/appSettings`);
+        
+        let finalStatus = isPremium ? 'premium' : 'basic';
+        let finalExpiry = currentEnd ? currentEnd.toISOString() : new Date().toISOString();
+
+        if (!isPremium) {
+            // Check if user has ANY other active subscription or manual grant in premium_subscriptions
+            const userSubsSnap = await db.collection('premium_subscriptions')
+                .where('userId', '==', userId)
+                .get();
+
+            const now = new Date();
+            let hasOtherActive = false;
+            userSubsSnap.forEach(doc => {
+                const data = doc.data();
+                if (doc.id !== razorpaySubscriptionId && data.isPremium) {
+                    const expiry = data.premiumExpiry ? new Date(data.premiumExpiry) : null;
+                    if (!expiry || expiry > now) {
+                        hasOtherActive = true;
+                        if (expiry) {
+                            finalExpiry = expiry.toISOString();
+                        }
+                    }
+                }
+            });
+
+            if (hasOtherActive) {
+                finalStatus = 'premium';
+            }
+        }
+
         await userSettingsRef.set(
             {
-                subscriptionStatus: isPremium ? 'premium' : 'basic',
-                premiumExpiry: currentEnd ? currentEnd.toISOString() : new Date().toISOString(),
-                subscriptionId: razorpaySubscriptionId,
+                subscriptionStatus: finalStatus,
+                premiumExpiry: finalExpiry,
+                subscriptionId: isPremium ? razorpaySubscriptionId : (existing?.subscriptionId || razorpaySubscriptionId),
                 lastSyncedAt: new Date().toISOString(),
             },
             { merge: true }
