@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, DollarSign, FileText, BarChart as BarChartIcon, AlertCircle, Download, Share2, PieChart, TrendingUp, Filter, Calendar, ArrowUpRight, RefreshCw, Users, Package, ShoppingBag, ArrowUpDown } from 'lucide-react';
+import { Loader2, DollarSign, FileText, BarChart as BarChartIcon, AlertCircle, Download, Share2, PieChart, TrendingUp, Filter, Calendar, ArrowUpRight, RefreshCw, Users, Package, ShoppingBag, ArrowUpDown, Banknote, Smartphone } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -877,6 +877,8 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </CardContent>
+            </Card>
+
             {/* Payment Method Distribution */}
             <Card className="shadow-sm rounded-2xl border-slate-200">
               <CardHeader>
