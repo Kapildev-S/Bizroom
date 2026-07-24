@@ -881,72 +881,79 @@ export default function POSPage() {
           </ScrollArea>
 
           {/* Cart footer */}
-          <div className="p-4 md:p-6 bg-[#fafafa] border-t shrink-0">
-            <div className="space-y-1.5 mb-3 md:mb-5">
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{subtotal.toFixed(2)}</span></div>
+          <div className="p-3 md:p-4 bg-[#fafafa] border-t shrink-0">
+            <div className="space-y-1 mb-2 md:mb-3">
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Subtotal</span>
+                <span className="font-semibold text-[#1a2b4b]">{currencySymbol}{subtotal.toFixed(2)}</span>
+              </div>
               {taxAmount > 0 && (
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Tax {settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '' : `(${(settings?.invoiceSettings as any)?.taxRate || 0}%)`}</span><span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span></div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Tax {settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '' : `(${(settings?.invoiceSettings as any)?.taxRate || 0}%)`}</span>
+                  <span className="font-semibold text-[#1a2b4b]">{currencySymbol}{taxAmount.toFixed(2)}</span>
+                </div>
               )}
-              <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200">
-                <span className="text-lg font-bold text-[#1a2b4b]">Total</span>
-                <span className="text-2xl font-bold text-[#E87B1E]">{currencySymbol}{total.toFixed(2)}</span>
+              <div className="flex justify-between items-center pt-1.5 mt-1 border-t border-gray-200">
+                <span className="text-sm font-bold text-[#1a2b4b]">Total</span>
+                <span className="text-xl font-bold text-[#E87B1E]">{currencySymbol}{total.toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Order Type Selector */}
-            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3">
+            {/* Order Type Selector - Compact */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 type="button"
                 onClick={() => setOrderType(prev => prev === 'parcel' ? null : 'parcel')}
-                className={`py-2 md:py-3 rounded-xl border-2 flex items-center justify-center gap-2 transition-all font-bold text-xs uppercase tracking-wider ${
+                className={`py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1.5 transition-all font-bold text-[11px] uppercase tracking-wider ${
                   orderType === 'parcel'
-                    ? 'border-purple-600 bg-purple-50 text-purple-600'
+                    ? 'border-purple-600 bg-purple-50 text-purple-600 shadow-sm'
                     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                 }`}
               >
-                <Package className="h-4 w-4 md:h-5 md:w-5" />
+                <Package className="h-3.5 w-3.5 shrink-0" />
                 Parcel
               </button>
               <button
                 type="button"
                 onClick={() => setOrderType(prev => prev === 'dine_in' ? null : 'dine_in')}
-                className={`py-2 md:py-3 rounded-xl border-2 flex items-center justify-center gap-2 transition-all font-bold text-xs uppercase tracking-wider ${
+                className={`py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1.5 transition-all font-bold text-[11px] uppercase tracking-wider ${
                   orderType === 'dine_in'
-                    ? 'border-purple-600 bg-purple-50 text-purple-600'
+                    ? 'border-purple-600 bg-purple-50 text-purple-600 shadow-sm'
                     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                 }`}
               >
-                <Utensils className="h-4 w-4 md:h-5 md:w-5" />
+                <Utensils className="h-3.5 w-3.5 shrink-0" />
                 Dine In
               </button>
             </div>
 
-            {/* Payment mode */}
-            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-3 md:mb-4">
+            {/* Payment mode - Compact */}
+            <div className="grid grid-cols-2 gap-2 mb-2 md:mb-3">
               {(['cash', 'upi'] as const).map(mode => (
                 <button
                   key={mode}
                   onClick={() => setPaymentMode(mode)}
-                  className={`py-2 md:py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${paymentMode === mode
-                    ? 'border-[#E87B1E] bg-[#fff8f3] text-[#E87B1E]'
-                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-                    }`}
+                  className={`py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1.5 transition-all font-bold text-[11px] uppercase tracking-wider ${
+                    paymentMode === mode
+                      ? 'border-[#E87B1E] bg-[#fff8f3] text-[#E87B1E] shadow-sm'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                  }`}
                 >
-                  {mode === 'cash' ? <Banknote className="h-5 w-5 md:h-6 md:w-6" /> : <Smartphone className="h-5 w-5 md:h-6 md:w-6" />}
-                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider">{mode}</span>
+                  {mode === 'cash' ? <Banknote className="h-3.5 w-3.5 shrink-0" /> : <Smartphone className="h-3.5 w-3.5 shrink-0" />}
+                  <span>{mode}</span>
                 </button>
               ))}
             </div>
 
             {/* PAY NOW */}
             <button
-              className="w-full bg-[#E87B1E] hover:bg-[#d66a15] text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:shadow-none"
+              className="w-full bg-[#E87B1E] hover:bg-[#d66a15] text-white py-2.5 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-orange-500/20 transition-all disabled:opacity-50 disabled:shadow-none"
               disabled={cart.length === 0 || saving}
               onClick={handlePayAndPrint}
             >
               {saving
-                ? <Loader2 className="h-5 w-5 animate-spin" />
-                : <><Printer className="h-5 w-5" /> PAY &amp; PRINT <ArrowRight className="h-5 w-5" /></>}
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <><Printer className="h-4 w-4" /> PAY &amp; PRINT <ArrowRight className="h-4 w-4" /></>}
             </button>
 
             {/* Printer warning if not connected */}
