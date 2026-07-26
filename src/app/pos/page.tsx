@@ -276,13 +276,15 @@ export default function POSPage() {
       const weightKey = `${weightProduct.id}_w${grams}`;
       const existing = prev.find(i => i.id === weightKey);
       if (existing) {
-        return prev.map(i =>
-          i.id === weightKey
-            ? { ...i, quantity: i.quantity + kg, totalPrice: i.totalPrice + calculatedAmount, weightInGrams: (i.weightInGrams || 0) + grams }
-            : i
-        );
+        const filtered = prev.filter(i => i.id !== weightKey);
+        return [{
+          ...existing,
+          quantity: existing.quantity + kg,
+          totalPrice: existing.totalPrice + calculatedAmount,
+          weightInGrams: (existing.weightInGrams || 0) + grams
+        }, ...filtered];
       }
-      return [...prev, {
+      return [{
         id: weightKey,
         productId: weightProduct.id,
         productName: weightProduct.name,
@@ -294,7 +296,7 @@ export default function POSPage() {
         weightInGrams: grams,
         gstRate: weightProduct.gstRate,
         hsnCode: weightProduct.hsnCode,
-      }];
+      }, ...prev];
     });
 
     closeWeightDialog();
@@ -316,20 +318,21 @@ export default function POSPage() {
     setCart(prev => {
       const existing = prev.find(i => i.id === idKey);
       if (existing) {
-        return prev.map(i =>
-          i.id === idKey
-            ? { ...i, quantity: i.quantity + 1, totalPrice: (i.quantity + 1) * i.unitPrice }
-            : i
-        );
+        const filtered = prev.filter(i => i.id !== idKey);
+        return [{
+          ...existing,
+          quantity: existing.quantity + 1,
+          totalPrice: (existing.quantity + 1) * existing.unitPrice
+        }, ...filtered];
       }
-      return [...prev, {
+      return [{
         id: idKey, productId: product.id, productName: product.name,
         quantity: 1, unitPrice: priceToUse, totalPrice: priceToUse,
         image: product.imageUrl,
         soldBy: 'piece',
         gstRate: product.gstRate,
         hsnCode: product.hsnCode,
-      }];
+      }, ...prev];
     });
   }, []);
 
