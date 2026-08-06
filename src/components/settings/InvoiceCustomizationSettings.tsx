@@ -255,6 +255,14 @@ export default function InvoiceCustomizationSettings({ settings, onSave }: Invoi
                           </FormItem>
                           <FormItem>
                             <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
+                              <FormControl><RadioGroupItem value="A5_LANDSCAPE" className="sr-only" /></FormControl>
+                              <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary bg-slate-50">
+                                <span className="text-xs font-medium uppercase font-bold text-primary">A5 Landscape</span>
+                              </div>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel className="[&:has([data-state=checked])>div]:ring-2 ring-primary cursor-pointer">
                               <FormControl><RadioGroupItem value="A4_LANDSCAPE" className="sr-only" /></FormControl>
                               <div className="rounded-md p-3 h-12 flex items-center justify-center border border-border transition-all hover:border-primary bg-slate-50">
                                 <span className="text-xs font-medium uppercase font-bold text-primary">A4 Landscape</span>

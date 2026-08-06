@@ -31,6 +31,7 @@ import StylishInvoice from './templates/StylishInvoice';
 import ProfessionalInvoice from './templates/ProfessionalInvoice';
 import GstTaxInvoice from './templates/GstTaxInvoice';
 import { getCurrencySymbol } from '@/lib/utils';
+import { getPaperDimensions, isLandscapePaper } from '@/lib/paperSize';
 
 
 interface InvoiceViewProps {
@@ -42,35 +43,6 @@ interface InvoiceViewProps {
   onDelete: () => void;
   currentUser: User | null;
 }
-
-const getPaperDimensions = (paperSize: string, isLandscape: boolean) => {
-  let width = 210; // mm
-  let height = 297; // mm
-
-  if (paperSize === 'A5') {
-    width = isLandscape ? 210 : 148;
-    height = isLandscape ? 148 : 210;
-  } else if (paperSize === 'Thermal80') {
-    width = 80;
-    height = 297;
-  } else if (paperSize === 'Thermal58') {
-    width = 58;
-    height = 297;
-  } else if (paperSize === '4x3') {
-    width = 101.6;
-    height = 76.2;
-  } else if (paperSize === '4x6') {
-    width = 101.6;
-    height = 152.4;
-  } else if (paperSize === 'A4_LANDSCAPE') {
-    width = 297;
-    height = 210;
-  } else {
-    width = isLandscape ? 297 : 210;
-    height = isLandscape ? 210 : 297;
-  }
-  return { width, height };
-};
 
 const getStatusBadgeVariant = (status: Invoice['status']) => {
   switch (status) {
@@ -155,24 +127,19 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     }
 
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-
-    let sizeValue = 'A4';
-    if (paperSize === 'A5') sizeValue = 'A5';
-    else if (paperSize === 'Thermal80') sizeValue = '80mm 297mm';
-    else if (paperSize === 'Thermal58') sizeValue = '58mm 297mm';
-    else if (paperSize === '4x3') sizeValue = '4in 3in';
-    else if (paperSize === '4x6') sizeValue = '4in 6in';
-    else if (paperSize === 'A4_LANDSCAPE') sizeValue = 'A4 landscape';
+    const customWidth = settings?.customizationSettings?.customWidth;
+    const customHeight = settings?.customizationSettings?.customHeight;
+    const customUnit = settings?.customizationSettings?.unit;
+    const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, customWidth, customHeight);
 
     const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
-    const { width: paperWidth } = getPaperDimensions(paperSize, isLandscape);
+    const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, customUnit);
     const printZoom = paperWidth / baseWidth;
 
     styleElement.innerHTML = `
       @media print {
         @page {
-          size: ${sizeValue} ${isLandscape && paperSize !== 'A4_LANDSCAPE' && paperSize !== '4x3' ? 'landscape' : 'portrait'};
+          size: ${paperWidth}mm ${paperHeight}mm;
           margin: 0;
         }
 
@@ -211,37 +178,47 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           padding: 0 !important;
           z-index: 2147483647 !important;
           background: white !important;
-          overflow: visible !important;
+          overflow: hidden !important;
         }
 
-        /* Invoice container: full width, no extra spacing */
+        /* Invoice container: exactly the target paper size, anchors the scaled card */
         .invoice-container {
-          width: 100% !important;
-          min-height: 100% !important;
+          width: ${paperWidth}mm !important;
+          height: ${paperHeight}mm !important;
+          position: relative !important;
           margin: 0 !important;
           padding: 0 !important;
           box-sizing: border-box !important;
+          overflow: hidden !important;
           background: white !important;
         }
 
-        /* Card wrapper: scale the content to fit the target paper size */
+        /* Card wrapper: scale the content to fill the target paper size edge-to-edge.
+           transform:scale is used instead of zoom - zoom interacts unreliably with
+           Chrome's print "fit to page" auto-scaling and left blank margins on A5. */
         #invoice-print-root {
           display: block !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
           width: ${baseWidth}mm !important;
           max-width: none !important;
           margin: 0 !important;
           padding: 0 !important;
-          transform: none !important;
+          transform: scale(${printZoom}) !important;
+          transform-origin: top left !important;
           box-shadow: none !important;
           border: none !important;
           border-radius: 0 !important;
           background: white !important;
-          zoom: ${printZoom} !important;
+          zoom: 1 !important;
         }
 
-        /* Prevent double scaling in templates */
+        /* Prevent double scaling in templates. display is intentionally left
+           alone here - GstTaxInvoice relies on its own display:flex (set via
+           className) so its items table can grow to fill the page; forcing
+           display:block !important here used to silently cancel that. */
         #invoice-root {
-          display: block !important;
           width: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
@@ -267,7 +244,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     return () => {
       // Keep it
     };
-  }, [orientation, settings?.customizationSettings?.paperSize]);
+  }, [orientation, settings?.customizationSettings?.paperSize, settings?.customizationSettings?.customWidth, settings?.customizationSettings?.customHeight, settings?.customizationSettings?.unit]);
 
   // State for reliable generation
   const [isLogoLoaded, setIsLogoLoaded] = useState(!logoDataUri);
@@ -307,8 +284,11 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       if (!containerRef.current) return;
 
       const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-      const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-      const { width: paperWidth } = getPaperDimensions(paperSize, isLandscape);
+      const customWidth = settings?.customizationSettings?.customWidth;
+      const customHeight = settings?.customizationSettings?.customHeight;
+      const customUnit = settings?.customizationSettings?.unit;
+      const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, customWidth, customHeight);
+      const { width: paperWidth } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, customUnit);
 
       const availableWidth = containerRef.current.offsetWidth - 48; // Space minus padding
       const targetWidthPx = paperWidth * 3.7795275591; // mm to Pixels at 96dpi
@@ -329,11 +309,13 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
       window.removeEventListener('resize', updateScale);
       clearTimeout(timer);
     };
-  }, [settings?.customizationSettings?.paperSize, orientation]);
+  }, [settings?.customizationSettings?.paperSize, settings?.customizationSettings?.customWidth, settings?.customizationSettings?.customHeight, orientation]);
 
   const getPaperClass = () => {
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+    const customWidth = settings?.customizationSettings?.customWidth;
+    const customHeight = settings?.customizationSettings?.customHeight;
+    const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, customWidth, customHeight);
     return `paper-${paperSize.toLowerCase()} orientation-${isLandscape ? 'landscape' : 'portrait'}`;
   };
 
@@ -345,7 +327,7 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
     if (!input) return null;
 
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+    const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, settings?.customizationSettings?.customWidth, settings?.customizationSettings?.customHeight);
     const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
     const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297;
 
@@ -468,9 +450,12 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
       const imgData = canvas.toDataURL('image/png', 1.0);
 
-      const isLandscape = orientation === 'landscape' || (settings?.customizationSettings?.paperSize === 'A4_LANDSCAPE');
       const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-      const { width: pdfWidth, height: pdfHeight } = getPaperDimensions(paperSize, isLandscape);
+      const customWidth = settings?.customizationSettings?.customWidth;
+      const customHeight = settings?.customizationSettings?.customHeight;
+      const customUnit = settings?.customizationSettings?.unit;
+      const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, customWidth, customHeight);
+      const { width: pdfWidth, height: pdfHeight } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, customUnit);
 
       const pdf = new jsPDF({
         orientation: pdfWidth > pdfHeight ? 'l' : 'p',
@@ -612,22 +597,26 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const template = settings?.customizationSettings?.template || 'classic';
 
   const renderInvoice = (forPrint: boolean = false) => {
+    const paperSize = settings?.customizationSettings?.paperSize || 'A4';
+    const customWidth = settings?.customizationSettings?.customWidth;
+    const customHeight = settings?.customizationSettings?.customHeight;
+    const customUnit = settings?.customizationSettings?.unit;
+    const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, customWidth, customHeight);
+
+    const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
+    const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297;
+
     const templateProps = {
       invoice,
       customer,
       settings,
       logoDataUri,
       onImageLoad: handleLogoLoad,
-      onImageError: handleLogoError
+      onImageError: handleLogoError,
+      pageHeightMm: baseHeight
     };
 
-    const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-
-    const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210;
-    const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297;
-
-    const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape);
+    const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, customUnit);
     const paperScale = paperWidth / baseWidth;
     const displayScale = paperScale * scale;
 
@@ -690,15 +679,18 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
 
   useEffect(() => {
     const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-    const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
+    const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, settings?.customizationSettings?.customWidth, settings?.customizationSettings?.customHeight);
     if (isLandscape) document.body.classList.add('force-landscape');
     else document.body.classList.remove('force-landscape');
     return () => document.body.classList.remove('force-landscape');
-  }, [orientation, settings?.customizationSettings?.paperSize]);
+  }, [orientation, settings?.customizationSettings?.paperSize, settings?.customizationSettings?.customWidth, settings?.customizationSettings?.customHeight]);
 
   const paperSize = settings?.customizationSettings?.paperSize || 'A4';
-  const isLandscape = orientation === 'landscape' || (paperSize === 'A4_LANDSCAPE');
-  const { height: paperHeight } = getPaperDimensions(paperSize, isLandscape);
+  const customWidth = settings?.customizationSettings?.customWidth;
+  const customHeight = settings?.customizationSettings?.customHeight;
+  const customUnit = settings?.customizationSettings?.unit;
+  const isLandscape = orientation === 'landscape' || isLandscapePaper(paperSize, customWidth, customHeight);
+  const { height: paperHeight } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, customUnit);
 
   return (
     <>

@@ -9,6 +9,7 @@ import ModernInvoice from '../invoices/templates/ModernInvoice';
 import StylishInvoice from '../invoices/templates/StylishInvoice';
 import ProfessionalInvoice from '../invoices/templates/ProfessionalInvoice';
 import GstTaxInvoice from '../invoices/templates/GstTaxInvoice';
+import { getPaperDimensions, isLandscapePaper } from '@/lib/paperSize';
 
 interface InvoicePreviewProps {
   themeColor: string;
@@ -18,35 +19,6 @@ interface InvoicePreviewProps {
   customHeight?: number;
   unit?: string;
 }
-
-const getPaperDimensions = (paperSize: string, isLandscape: boolean) => {
-  let width = 210; // mm
-  let height = 297; // mm
-  
-  if (paperSize === 'A5') {
-    width = isLandscape ? 210 : 148;
-    height = isLandscape ? 148 : 210;
-  } else if (paperSize === 'Thermal80') {
-    width = 80;
-    height = 297;
-  } else if (paperSize === 'Thermal58') {
-    width = 58;
-    height = 297;
-  } else if (paperSize === '4x3') {
-    width = 101.6;
-    height = 76.2;
-  } else if (paperSize === '4x6') {
-    width = 101.6;
-    height = 152.4;
-  } else if (paperSize === 'A4_LANDSCAPE') {
-    width = 297;
-    height = 210;
-  } else {
-    width = isLandscape ? 297 : 210;
-    height = isLandscape ? 210 : 297;
-  }
-  return { width, height };
-};
 
 const SAMPLE_CUSTOMER: Customer = {
   id: 'sample-cust',
@@ -144,11 +116,11 @@ export default function InvoicePreview({
     }
   };
 
-  const isLandscape = paperSize === 'A4_LANDSCAPE';
+  const isLandscape = isLandscapePaper(paperSize, customWidth, customHeight);
   const baseWidth = isLandscape || (paperSize === '4x3') ? 297 : 210; // mm
   const baseHeight = isLandscape || (paperSize === '4x3') ? 210 : 297; // mm
 
-  const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape);
+  const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, unit);
   const paperScale = paperWidth / baseWidth;
   
   const previewScale = 0.55;
@@ -160,7 +132,8 @@ export default function InvoicePreview({
       customer: SAMPLE_CUSTOMER,
       settings: sampleSettings,
       logoDataUri: null,
-      onImageLoad: () => {}
+      onImageLoad: () => {},
+      pageHeightMm: baseHeight
     };
 
     switch (template) {

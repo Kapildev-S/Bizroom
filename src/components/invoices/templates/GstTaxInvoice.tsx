@@ -36,9 +36,12 @@ interface TemplateProps {
   logoDataUri: string | null;
   onImageLoad: () => void;
   onImageError?: () => void;
+  // Target physical page height in mm - lets the items table grow to fill the
+  // page instead of leaving blank space below the totals on short invoices.
+  pageHeightMm?: number;
 }
 
-export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri, onImageLoad, onImageError }: TemplateProps) {
+export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri, onImageLoad, onImageError, pageHeightMm }: TemplateProps) {
     const currencySymbol = getCurrencySymbol(invoice.currency);
     const businessProfile = settings?.businessProfile;
     const invoiceSettings = settings?.invoiceSettings;
@@ -67,10 +70,10 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
     const summaryRows = Array.from(summaryMap.values());
 
     return (
-        <div 
+        <div
           id="invoice-root"
-          className="bg-white text-[10px] text-black font-sans leading-tight border-0 w-full"
-          style={{ wordBreak: 'break-word' }}
+          className="bg-white text-[10px] text-black font-sans leading-tight border-0 w-full flex flex-col"
+          style={{ wordBreak: 'break-word', minHeight: pageHeightMm ? `${pageHeightMm}mm` : undefined }}
         >
             {/* Top Bar with GSTIN - TABLE FIXED FOR STABILITY */}
             <table className="w-full border-b border-black text-[9px] border-collapse table-fixed">
@@ -153,8 +156,9 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                 </tbody>
             </table>
 
-            {/* Items Table - FIXED LAYOUT ONLY */}
-            <table className="w-full border-collapse border-y border-black table-fixed mt-2">
+            {/* Items Table - grows to fill any leftover page height so short invoices
+                don't leave the bottom of the page blank */}
+            <table className="w-full border-collapse border-y border-black table-fixed mt-2 flex-1">
                 <colgroup>
                     <col style={{ width: '6%' }} />
                     <col style={{ width: '37%' }} />
