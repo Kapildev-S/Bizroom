@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import type { Invoice, Customer, AppSettings } from '@/lib/mockData';
 import ClassicInvoice from '../invoices/templates/ClassicInvoice';
@@ -122,8 +122,33 @@ export default function InvoicePreview({
 
   const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSize, isLandscape, customWidth, customHeight, unit);
   const paperScale = paperWidth / baseWidth;
-  
-  const previewScale = 0.55;
+
+  // Auto-fit: shrink to whatever the panel can actually show instead of a
+  // fixed 0.55 - a hardcoded scale could render wider than the panel for
+  // landscape/custom paper sizes and get clipped by overflow-x-hidden.
+  const mmToPx = 3.7795275591;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.55);
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (!containerRef.current) return;
+      const availableWidth = containerRef.current.offsetWidth - 16; // small breathing room
+      const targetWidthPx = paperWidth * mmToPx;
+      const fitScale = availableWidth > 0 ? availableWidth / targetWidthPx : 0.55;
+      setPreviewScale(Math.min(0.55, fitScale));
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    const timer = setTimeout(updateScale, 300);
+
+    return () => {
+      window.removeEventListener('resize', updateScale);
+      clearTimeout(timer);
+    };
+  }, [paperWidth]);
+
   const displayScale = paperScale * previewScale;
 
   const renderTemplate = () => {
@@ -148,7 +173,7 @@ export default function InvoicePreview({
 
   return (
     <Card className="shadow-inner h-[600px] overflow-hidden bg-slate-50 flex justify-center items-start border-0">
-      <div className="relative w-full h-full overflow-y-auto overflow-x-hidden p-6 flex justify-center">
+      <div ref={containerRef} className="relative w-full h-full overflow-y-auto overflow-x-hidden p-6 flex justify-center">
         <div 
           className="flex-shrink-0 bg-transparent rounded-sm"
           style={{

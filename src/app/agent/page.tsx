@@ -1010,8 +1010,11 @@ export default function AgentPage() {
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex min-h-0 flex-1 overflow-hidden px-4 py-4 md:px-6 md:py-5">
-                  <div ref={scrollRef} className="h-full min-h-0 overflow-y-auto overscroll-contain">
-                    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+                  {/* flex flex-col justify-end anchors short conversations to the
+                      bottom (next to the input bar) instead of leaving them
+                      floating at the top with a large blank gap beneath. */}
+                  <div ref={scrollRef} className="flex h-full min-h-0 w-full flex-col justify-end overflow-y-auto overscroll-contain">
+                    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                       {activeMessages.map((msg, index) => {
                         if (msg.role === "system" || msg.role === "tool") return null;
 

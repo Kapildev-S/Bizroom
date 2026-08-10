@@ -25,10 +25,8 @@ import {
   Lightbulb,
   User,
   Sparkles,
-  Truck,
   Calculator,
   FileImage,
-  Smartphone,
   ShieldCheck,
   Bot,
   TrendingUp
@@ -74,8 +72,6 @@ const businessToolsItems = [
   { href: "/dashboard/feedback", label: "Feedback & Insights", icon: Sparkles },
   { href: "/dashboard/events", label: "Organize Events", icon: CalendarCheck },
   { href: "/sms-marketing", label: "SMS Marketing", icon: MessageSquareText },
-  { href: "/deliveries", label: "Deliveries", icon: Truck },
-  { href: "/recharge", label: "Mobile Recharge", icon: Smartphone },
   { href: "/profit", label: "Profit Dashboard", icon: TrendingUp },
 ];
 

@@ -501,33 +501,31 @@ function TicketsPageContent() {
 
     return (
         <div className="min-h-screen bg-slate-50/50 relative">
-            {/* Transparent Header overlaying TubesBackground */}
-            <header className="absolute top-0 w-full py-5 px-6 md:px-12 z-50 border-b border-white/10 bg-slate-950/40 backdrop-blur-md">
-                <div className="container mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <img src="/favicon.svg" alt="BizRoom Logo" className="h-9 w-9 object-contain drop-shadow-[0_0_12px_rgba(6,182,212,0.5)]" />
-                        <h1 className="text-xl md:text-2xl font-jakarta font-black text-white tracking-tight">BizRoom <span className="text-cyan-400 font-black">Events</span></h1>
-                    </div>
+            {/* Transparent Header overlaying TubesBackground - matches the homepage navbar */}
+            <header className="absolute top-0 w-full py-6 px-4 md:px-8 flex justify-between items-center z-50 pointer-events-auto">
+                <Link href="/tickets" className="flex items-center gap-2 text-white hover:text-white/80 transition-colors">
+                    {/* Plain img (not next/image) - next/image's built-in optimizer rejects
+                        local SVGs unless dangerouslyAllowSVG is set in next.config.ts. */}
+                    <img src="/bizroom-icon-transparent.svg" alt="BizRoom Logo" className="w-6 h-6 object-contain" />
+                    <span className="text-lg font-bold tracking-tight">BizRoom <span className="text-cyan-400">Events</span></span>
+                </Link>
 
-                    {/* Navigation Links - Removed Venues & Categories as requested */}
-                    <nav className="hidden md:flex items-center space-x-8 text-sm font-semibold text-slate-300">
-                        <a href="/tickets" className="text-cyan-400 border-b-2 border-cyan-400 pb-1">Home</a>
-                        <a href="#events-section" className="hover:text-white transition-colors">Events</a>
-                        <a href="#" className="hover:text-white transition-colors">Organizers</a>
-                        <a href="#" className="hover:text-white transition-colors">Become Organizer</a>
-                        <a href="#" className="hover:text-white transition-colors">Pricing</a>
-                    </nav>
+                <nav className="hidden md:flex bg-[#1a1a1a]/60 backdrop-blur-md rounded-full p-1 border border-white/10 items-center">
+                    <Link href="/tickets" className="text-xs font-medium text-white px-4 py-2 rounded-full bg-white/10 transition-colors">Home</Link>
+                    <Link href="#events-section" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Events</Link>
+                    <Link href="/auth/login" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Organizers</Link>
+                    <Link href="/auth/login" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Become Organizer</Link>
+                </nav>
 
-                    <div className="flex items-center">
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setGuestModalOpen(true)} 
-                            className="rounded-full border-white/20 bg-white/5 hover:bg-white/10 text-white hover:text-white font-bold px-5 transition-all"
-                        >
-                            My Bookings
-                        </Button>
-                    </div>
+                <div className="flex items-center">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGuestModalOpen(true)}
+                        className="rounded-full border-white/20 bg-white/5 hover:bg-white/10 text-white hover:text-white font-bold px-5 transition-all"
+                    >
+                        My Bookings
+                    </Button>
                 </div>
             </header>
 
@@ -549,20 +547,20 @@ function TicketsPageContent() {
                                 </div>
                             </motion.div>
 
-                            {/* Headline with Clash Display Font (Weight: 700, Size: 92px, Letter Spacing: -3px) */}
+                            {/* Headline - same font-sans (Plus Jakarta Sans) typeface as the homepage, instead of the Clash Display override */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5, delay: 0.1 }}
                                 className="space-y-1 text-left"
                             >
-                                <h1 className="text-[44px] sm:text-[68px] md:text-[80px] lg:text-[92px] font-clash font-bold text-white tracking-[-3px] leading-[0.95]">
+                                <h1 className="text-[44px] sm:text-[68px] md:text-[80px] lg:text-[92px] font-bold text-white tracking-[-3px] leading-[0.95]">
                                     Discover &amp; Book
                                 </h1>
-                                <h2 className="text-[44px] sm:text-[68px] md:text-[80px] lg:text-[92px] font-clash font-bold text-cyan-400 tracking-[-3px] leading-[0.95]">
+                                <h2 className="text-[44px] sm:text-[68px] md:text-[80px] lg:text-[92px] font-bold text-cyan-400 tracking-[-3px] leading-[0.95]">
                                     Incredible Events
                                 </h2>
-                                <p className="text-slate-300/90 text-base md:text-xl font-jakarta font-medium leading-relaxed max-w-2xl pt-3">
+                                <p className="text-slate-300/90 text-base md:text-xl font-medium leading-relaxed max-w-2xl pt-3">
                                     Conferences, workshops, concerts, networking events and more with industry leading brands.
                                 </p>
                             </motion.div>

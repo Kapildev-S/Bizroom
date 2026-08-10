@@ -167,7 +167,10 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           display: none !important;
         }
 
-        /* Print wrapper: fixed overlay covering the full page */
+        /* Print wrapper: fixed overlay covering the full page. overflow stays
+           visible and nothing below is clipped to a fixed height - invoices
+           taller than one physical page must still print in full instead of
+           being cut off partway down. */
         .invoice-print-wrapper {
           display: block !important;
           position: fixed !important;
@@ -178,40 +181,35 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           padding: 0 !important;
           z-index: 2147483647 !important;
           background: white !important;
-          overflow: hidden !important;
+          overflow: visible !important;
         }
 
-        /* Invoice container: exactly the target paper size, anchors the scaled card */
+        /* Invoice container: full width, no extra spacing */
         .invoice-container {
-          width: ${paperWidth}mm !important;
-          height: ${paperHeight}mm !important;
-          position: relative !important;
+          width: 100% !important;
+          min-height: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
           box-sizing: border-box !important;
-          overflow: hidden !important;
           background: white !important;
         }
 
-        /* Card wrapper: scale the content to fill the target paper size edge-to-edge.
-           transform:scale is used instead of zoom - zoom interacts unreliably with
-           Chrome's print "fit to page" auto-scaling and left blank margins on A5. */
+        /* Card wrapper: scale the content to fit the target paper size. zoom
+           (not transform) is used deliberately - zoom affects layout/flow so
+           overflowing content still paginates onto further pages instead of
+           being clipped or removed from the page's normal document flow. */
         #invoice-print-root {
           display: block !important;
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
           width: ${baseWidth}mm !important;
           max-width: none !important;
           margin: 0 !important;
           padding: 0 !important;
-          transform: scale(${printZoom}) !important;
-          transform-origin: top left !important;
+          transform: none !important;
           box-shadow: none !important;
           border: none !important;
           border-radius: 0 !important;
           background: white !important;
-          zoom: 1 !important;
+          zoom: ${printZoom} !important;
         }
 
         /* Prevent double scaling in templates. display is intentionally left

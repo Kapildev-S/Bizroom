@@ -26,15 +26,17 @@ import {
   ArrowRight,
   CheckCircle,
   Star,
-  Loader2,
   Calculator,
-  Smartphone,
   Fingerprint,
   Sparkles,
   Paperclip,
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  Ticket,
+  QrCode,
+  ShieldCheck,
+  CalendarCheck,
 } from "lucide-react";
 import Image from "next/image";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -70,12 +72,6 @@ const mainFeatures = [
     title: "Customer Management",
     description: "Keep all your client information organized in one place for easy access.",
     image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80",
-  },
-  {
-    icon: Smartphone,
-    title: "Mobile Recharge",
-    description: "Recharge mobile numbers for all major operators instantly.",
-    image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&q=80",
   },
 ];
 
@@ -116,7 +112,6 @@ const fadeInFromRight = {
 
 export default function HomePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const isMobile = useIsMobile();
 
@@ -135,42 +130,35 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    // This is a public marketing page - render it immediately for anonymous
+    // visitors (the vast majority) instead of blocking on a full-screen
+    // spinner while Firebase Auth resolves. Only the rare already-logged-in
+    // visitor gets redirected, as a non-blocking side effect once auth
+    // state is known. router.replace prevents the marketing page from
+    // being in browser history for them.
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // If user is logged in, redirect them to the dashboard page.
-        // router.replace prevents the marketing page from being in browser history.
         router.replace('/dashboard');
-      } else {
-        // If no user, stop loading and show the marketing page.
-        setLoading(false);
       }
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [router]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="absolute top-0 w-full py-6 px-4 md:px-8 flex justify-between items-center z-50 pointer-events-auto">
         <Link href="/" className="flex items-center gap-2 text-white hover:text-white/80 transition-colors">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-            <path d="M12 2L2 22h20L12 2z" />
-          </svg>
+          {/* Plain img (not next/image) - next/image's built-in optimizer rejects
+              local SVGs unless dangerouslyAllowSVG is set in next.config.ts. */}
+          <img src="/bizroom-icon-transparent.svg" alt="BizRoom Logo" className="w-6 h-6 object-contain" />
           <span className="text-lg font-bold tracking-tight">BizRoom<sup className="text-[10px] font-normal ml-0.5 text-white/50">BETA</sup></span>
         </Link>
         <nav className="hidden md:flex bg-[#1a1a1a]/60 backdrop-blur-md rounded-full p-1 border border-white/10 items-center">
           <Link href="#pricing" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Pricing</Link>
           <Link href="#features" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Features</Link>
+          <Link href="/tickets" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors">Events</Link>
           <Link href="#contact" className="text-xs font-medium text-white/70 hover:text-white px-4 py-2 rounded-full hover:bg-white/5 transition-colors flex items-center gap-1">
             Contact
           </Link>
@@ -189,7 +177,11 @@ export default function HomePage() {
 
         {/* Hero Section */}
         <section className="relative w-full z-10 overflow-hidden">
-          <TubesBackground className="min-h-[80vh] md:min-h-[90vh]">
+          {/* bg-[#0f1115] gives the hero its dark backdrop immediately - the
+              tubes canvas animation only paints once its WebGL library
+              finishes loading async, and without this the whole section is
+              blank white until then. */}
+          <TubesBackground className="min-h-[80vh] md:min-h-[90vh] bg-[#0f1115]">
             <div className="container mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center pt-32 pb-20 md:pt-40 md:pb-32 pointer-events-none text-center relative z-10">
               <motion.div initial="hidden" animate="visible" variants={fadeInFromLeft} className="pointer-events-auto flex flex-col items-center w-full max-w-5xl mx-auto relative">
                 
@@ -237,7 +229,7 @@ export default function HomePage() {
         </div>
 
         {/* Features Stacking Cards Section */}
-        <section className="py-20 md:py-28 relative bg-background" id="features">
+        <section className="py-16 md:py-20 relative bg-background" id="features">
           <div className="container mx-auto px-4 md:px-6 mb-16 text-center">
             <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
               A Complete Toolkit for Your Business
@@ -246,8 +238,8 @@ export default function HomePage() {
               Everything you need to execute and control your business operations.
             </p>
           </div>
-          
-          <div className="container mx-auto px-4 md:px-6 pb-32">
+
+          <div className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col relative space-y-24 md:space-y-32">
               {mainFeatures.map((feature, idx) => (
                 <div 
@@ -275,7 +267,7 @@ export default function HomePage() {
                       <div className="relative z-10 flex flex-col h-full">
                         <div className="flex items-center gap-4 mb-8">
                           <span className="text-primary text-xs font-bold tracking-widest uppercase">{feature.title.split(' ')[0]}</span>
-                          <span className="text-white/20 text-xs font-mono">0{idx + 1} / 06</span>
+                          <span className="text-white/20 text-xs font-mono">0{idx + 1} / 0{mainFeatures.length}</span>
                         </div>
                         
                         <h3 className="mb-4 text-3xl md:text-4xl font-bold text-white tracking-tight">{feature.title}</h3>
@@ -299,11 +291,92 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Event Ticketing Platform Promo */}
+        <section className="py-16 md:py-20 relative bg-background" id="events">
+          <div className="container mx-auto px-4 md:px-6 mb-16 text-center">
+            <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
+              More Than Just Billing
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Sell tickets and manage live events alongside your invoicing, all from the same BizRoom account.
+            </p>
+          </div>
 
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="bg-[#0f1115] border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col md:flex-row max-w-5xl mx-auto relative">
+              {/* Neon glow accent */}
+              <div className="absolute -top-24 -left-24 w-80 h-80 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
 
+              <div className="flex-1 p-10 md:p-16 relative z-10">
+                <div className="flex items-center gap-2 mb-6">
+                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">NEW</span>
+                  <span className="text-primary text-xs font-bold tracking-widest uppercase">Event Ticketing Platform</span>
+                </div>
+
+                <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight mb-4">
+                  Sell Event Tickets Like a Pro
+                </h2>
+                <p className="text-base md:text-lg text-white/50 leading-relaxed mb-10 max-w-lg">
+                  Launch conferences, workshops, concerts and more with instant QR e-tickets, secure payments and a real-time organizer dashboard - built right into your BizRoom account.
+                </p>
+
+                <ul className="space-y-4 mb-10">
+                  <li className="flex items-center gap-3 text-white/80 text-sm md:text-base">
+                    <QrCode className="w-5 h-5 text-primary shrink-0" />
+                    Instant QR e-tickets emailed to every guest
+                  </li>
+                  <li className="flex items-center gap-3 text-white/80 text-sm md:text-base">
+                    <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
+                    Secure payments with verified organizers
+                  </li>
+                  <li className="flex items-center gap-3 text-white/80 text-sm md:text-base">
+                    <BarChart3 className="w-5 h-5 text-primary shrink-0" />
+                    Live analytics - revenue, turnout &amp; check-in rate
+                  </li>
+                  <li className="flex items-center gap-3 text-white/80 text-sm md:text-base">
+                    <CalendarCheck className="w-5 h-5 text-primary shrink-0" />
+                    Guest ticket lookup by email OTP - no account needed
+                  </li>
+                </ul>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button asChild className="bg-white hover:bg-white/90 text-black rounded-full px-6 h-11 text-sm font-medium">
+                    <Link href="/tickets">
+                      <Ticket className="mr-2 h-4 w-4" /> Explore Events
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="border-white/20 text-white bg-transparent hover:bg-white/10 hover:text-white rounded-full px-6 h-11 text-sm font-medium">
+                    <Link href="/auth/signup">
+                      Become an Organizer <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Decorative ticket visual */}
+              <div className="flex-1 relative min-h-[280px] md:min-h-[unset] flex items-center justify-center border-t md:border-t-0 md:border-l border-white/5 p-10">
+                <div className="relative w-full max-w-xs">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <span className="text-white/40 text-[10px] uppercase tracking-widest font-bold">E-Ticket</span>
+                      <Ticket className="w-5 h-5 text-primary" />
+                    </div>
+                    <p className="text-white font-bold text-lg mb-1">BizRoom Live Summit</p>
+                    <p className="text-white/40 text-xs mb-6">Sat, 12 Sep &middot; 6:00 PM</p>
+                    <div className="border-t border-dashed border-white/15 pt-6 flex items-center justify-center">
+                      <div className="bg-white p-3 rounded-lg">
+                        <QrCode className="w-20 h-20 text-black" strokeWidth={1} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Arceage Style Testimonial Slider */}
-        <section className="bg-[#f5f5f5] py-24 px-6 md:px-12 lg:px-24 flex items-center justify-center min-h-[600px] border-t border-gray-200">
+        <section className="bg-[#f5f5f5] py-16 md:py-20 px-6 md:px-12 lg:px-24 flex items-center justify-center min-h-[420px] border-t border-gray-200">
           <div className="w-full max-w-5xl mx-auto flex flex-col h-full">
             <h4 className="text-gray-500 font-medium text-sm mb-12 tracking-wide uppercase">Customer Feedback</h4>
             
