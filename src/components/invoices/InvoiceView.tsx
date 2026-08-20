@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { Invoice, Customer, AppSettings } from '@/lib/mockData';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,11 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
   const [isReadyToShare, setIsReadyToShare] = useState(false);
   const [shareableFile, setShareableFile] = useState<File | null>(null);
 
+  // The print layer is portaled into <body>, which is only possible after mount
+  // (document doesn't exist during SSR).
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+
   // Inject dynamic @page styles
   useEffect(() => {
     const styleId = 'dynamic-print-styles';
@@ -143,9 +149,12 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           margin: 0;
         }
 
+        /* min-height (not height) so invoices taller than one sheet can still
+           paginate instead of being clipped at the first page boundary. */
         html, body {
           width: 100% !important;
-          height: 100% !important;
+          min-height: 100% !important;
+          height: auto !important;
           margin: 0 !important;
           padding: 0 !important;
           overflow: visible !important;
@@ -158,6 +167,18 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           print-color-adjust: exact !important;
         }
 
+        /* Hide the entire app shell. The print layer is portaled directly into
+           <body>, so hiding every other top-level child removes the whole
+           dashboard chrome at once - including the shadcn sidebar's invisible
+           "gap" spacer div, which keeps its w-[--sidebar-width] h-svh box in
+           print even though the sidebar itself is .no-print. That leftover
+           spacer (plus <main>'s padding) made the page content ~290mm wide on
+           a 210mm sheet, so the browser scaled the whole invoice down to ~72%
+           and pushed it to the right instead of filling the sheet. */
+        body > *:not(.invoice-print-wrapper) {
+          display: none !important;
+        }
+
         /* Hide specific UI elements */
         nav, header, footer, aside,
         [data-sidebar], .sidebar,
@@ -167,19 +188,18 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
           display: none !important;
         }
 
-        /* Print wrapper: fixed overlay covering the full page. overflow stays
-           visible and nothing below is clipped to a fixed height - invoices
-           taller than one physical page must still print in full instead of
-           being cut off partway down. */
+        /* Print wrapper: normal document flow, not position:fixed. Per the CSS
+           paged-media spec, fixed-position content is clipped to a single
+           page and does not paginate - any content taller than one physical
+           page (e.g. a longer invoice, or larger fonts) was being silently
+           cut off at the page boundary instead of flowing onto page 2.
+           Everything else on the screen is already display:none in print,
+           so normal flow still starts right at the top of the page. */
         .invoice-print-wrapper {
           display: block !important;
-          position: fixed !important;
-          inset: 0 !important;
           width: 100% !important;
-          height: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
-          z-index: 2147483647 !important;
           background: white !important;
           overflow: visible !important;
         }
@@ -187,7 +207,6 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         /* Invoice container: full width, no extra spacing */
         .invoice-container {
           width: 100% !important;
-          min-height: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
           box-sizing: border-box !important;
@@ -792,12 +811,20 @@ export const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, customer, set
         </div>
       </div>
 
-      {/* Hidden Print Area - Escaped from Auto-Centering Layout */}
-      <div className="invoice-print-wrapper hidden print:block !m-0 !p-0">
-        <div className="invoice-container">
-          {renderInvoice(true)}
-        </div>
-      </div>
+      {/* Print layer - portaled to <body> so it sits outside the dashboard
+          shell (sidebar spacer + <main> padding). In normal flow inside the
+          shell it inherited those offsets, which made the printed page far
+          wider than the sheet and forced the browser to scale the invoice
+          down. As a direct child of <body> it starts at the page origin at
+          exactly 1:1, and stays in normal flow so long invoices paginate. */}
+      {isMounted && createPortal(
+        <div className="invoice-print-wrapper hidden print:block !m-0 !p-0">
+          <div className="invoice-container">
+            {renderInvoice(true)}
+          </div>
+        </div>,
+        document.body
+      )}
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-3xl">
