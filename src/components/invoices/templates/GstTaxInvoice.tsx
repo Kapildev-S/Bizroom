@@ -72,11 +72,11 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
     return (
         <div
           id="invoice-root"
-          className="bg-white text-[12px] text-black font-sans leading-tight border-0 w-full flex flex-col"
+          className="bg-white text-[17px] text-black font-sans leading-tight border-0 w-full flex flex-col"
           style={{ wordBreak: 'break-word', minHeight: pageHeightMm ? `${pageHeightMm}mm` : undefined }}
         >
             {/* Top Bar with GSTIN - TABLE FIXED FOR STABILITY */}
-            <table className="w-full border-b border-black text-[11px] border-collapse table-fixed">
+            <table className="w-full border-b border-black text-[15px] border-collapse table-fixed">
                 <tbody>
                     <tr>
                         <td className="p-1 font-bold w-[40%] text-left" style={{ wordBreak: 'break-word' }}>
@@ -92,11 +92,11 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
             {/* Header / Business Name */}
             <div className="py-4 text-center">
                 <h1 className="text-2xl font-black uppercase tracking-tight leading-none mb-1" style={{ wordBreak: 'break-word' }}>{businessProfile?.businessName || 'Business Name'}</h1>
-                <p className="text-[11px] leading-tight max-w-[80%] mx-auto" style={{ wordBreak: 'break-word' }}>{businessProfile?.address || '123 Street, City, State, PIN'}</p>
-                {businessProfile?.email && <p className="text-[11px]">E-Mail: {businessProfile.email}</p>}
+                <p className="text-[14px] leading-tight max-w-[80%] mx-auto" style={{ wordBreak: 'break-word' }}>{businessProfile?.address || '123 Street, City, State, PIN'}</p>
+                {businessProfile?.email && <p className="text-[14px]">E-Mail: {businessProfile.email}</p>}
                 
                 <div className="mt-3">
-                    <span className="border-y border-black px-10 py-1 font-bold text-base uppercase inline-block">Invoice</span>
+                    <span className="border-y border-black px-10 py-1 font-bold text-[17px] uppercase inline-block">Invoice</span>
                 </div>
 
                 {logoDataUri && (
@@ -120,9 +120,9 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                         <td className="w-1/2 p-2 border-r border-black" style={{ verticalAlign: 'top', wordBreak: 'break-word' }}>
                             <p className="font-bold underline mb-1">To.</p>
                             <div className="pl-2">
-                                <p className="font-bold text-base uppercase leading-none mb-1">{invoice.customerName || customer?.name}</p>
-                                <p className="whitespace-pre-wrap leading-tight text-[11px]">{customer?.address || invoice.placeOfSupply || 'Customer Address'}</p>
-                                {invoice.customerPhone && <p className="mt-1">Phone: {invoice.customerPhone}</p>}
+                                <p className="font-bold text-[19px] uppercase leading-none mb-1">{invoice.customerName || customer?.name}</p>
+                                <p className="whitespace-pre-wrap leading-tight text-[17px]">{customer?.address || invoice.placeOfSupply || 'Customer Address'}</p>
+                                {invoice.customerPhone && <p className="mt-1 whitespace-nowrap">Phone: {invoice.customerPhone}</p>}
                                 {invoice.customerGstin && (
                                     <p className="font-bold border border-black/20 mt-2 px-2 py-0.5 inline-block rounded-sm">
                                         GSTIN: {invoice.customerGstin}
@@ -132,22 +132,22 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                         </td>
                         {/* Invoice Meta (Right) */}
                         <td className="w-1/2 p-2" style={{ verticalAlign: 'top', wordBreak: 'break-word' }}>
-                            <table className="w-full border-collapse text-[12px]">
+                            <table className="w-full border-collapse text-[17px]">
                                 <tbody>
                                     <tr className="border-b border-black/5">
-                                        <td className="font-bold w-[130px] py-1">Date</td>
+                                        <td className="font-bold w-[150px] py-1 whitespace-nowrap">Date</td>
                                         <td className="w-[10px]">:</td>
-                                        <td className="py-1">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
+                                        <td className="py-1 whitespace-nowrap">{new Date(invoice.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
                                     </tr>
                                     <tr className="border-b border-black/5">
-                                        <td className="font-bold py-1">Invoice Number</td>
+                                        <td className="font-bold py-1 whitespace-nowrap">Invoice Number</td>
                                         <td>:</td>
-                                        <td className="py-1 font-bold">{invoice.invoiceNumber}</td>
+                                        <td className="py-1 font-bold whitespace-nowrap">{invoice.invoiceNumber}</td>
                                     </tr>
                                     <tr>
-                                        <td className="font-bold py-1">Payment Terms</td>
+                                        <td className="font-bold py-1 whitespace-nowrap">Payment Terms</td>
                                         <td>:</td>
-                                        <td className="py-1 uppercase">Cash/Credit</td>
+                                        <td className="py-1 uppercase whitespace-nowrap">Cash/Credit</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -159,39 +159,47 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
             {/* Items Table - grows to fill any leftover page height so short invoices
                 don't leave the bottom of the page blank */}
             <table className="w-full border-collapse border-y border-black table-fixed mt-2 flex-1">
+                {/* Column widths must match the number of cells actually rendered.
+                    The MRP column is conditional, so its <col> has to be too - a
+                    fixed 8-col group against 7 rendered cells shifted every width
+                    left by one and left Amount with just 5%, which wrapped the
+                    figures onto a second line. */}
                 <colgroup>
                     <col style={{ width: '6%' }} />
-                    <col style={{ width: '37%' }} />
+                    <col style={{ width: settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '28%' : '34%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '8%' }} />
+                    {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <col style={{ width: '11%' }} />}
                     <col style={{ width: '12%' }} />
                     <col style={{ width: '8%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '5%' }} />
-                    <col style={{ width: '12%' }} />
+                    <col style={{ width: settings?.invoiceSettings?.enableAdvancedInvoiceSystem ? '14%' : '19%' }} />
                 </colgroup>
                 <thead className="bg-gray-50/50">
-                    <tr className="font-bold text-[13px] uppercase border-b border-black">
-                        <th className="border-r border-black p-1 w-[6%] text-center">S.No</th>
-                        <th className="border-r border-black p-1 w-[37%] text-left">Description</th>
-                        <th className="border-r border-black p-1 w-[12%] text-center">HSN SAC</th>
-                        <th className="border-r border-black p-1 w-[8%] text-center">QTY</th>
-                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="border-r border-black p-1 w-[10%] text-right">MRP</th>}
-                        <th className="border-r border-black p-1 w-[10%] text-right">Rate</th>
-                        <th className="border-r border-black p-1 w-[5%] text-center">Tax</th>
-                        <th className="p-1 w-[12%] text-right">Amount</th>
+                    <tr className="font-bold text-[14px] uppercase border-b border-black">
+                        <th className="border-r border-black p-1 text-center whitespace-nowrap">S.No</th>
+                        <th className="border-r border-black p-1 text-left whitespace-nowrap">Description</th>
+                        <th className="border-r border-black p-1 text-center whitespace-nowrap">HSN SAC</th>
+                        <th className="border-r border-black p-1 text-center whitespace-nowrap">QTY</th>
+                        {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <th className="border-r border-black p-1 text-right whitespace-nowrap">MRP</th>}
+                        <th className="border-r border-black p-1 text-right whitespace-nowrap">Rate</th>
+                        <th className="border-r border-black p-1 text-center whitespace-nowrap">Tax</th>
+                        <th className="p-1 text-right whitespace-nowrap">Amount</th>
                     </tr>
                 </thead>
                 <tbody className="min-h-[250px]">
                     {invoice.items.map((item, index) => (
                         <tr key={index} className="border-b border-black last:border-b-0 border-dotted h-6 text-[17px]">
-                            <td className="border-r border-black px-1 text-center" style={{ wordBreak: 'break-word' }}>{index + 1}</td>
+                            {/* Only the description may wrap - codes and figures use
+                                whitespace-nowrap with wordBreak reset so they never
+                                split across two lines. */}
+                            <td className="border-r border-black px-1 text-center whitespace-nowrap" style={{ wordBreak: 'normal' }}>{index + 1}</td>
                             <td className="border-r border-black px-1 text-left" style={{ wordBreak: 'break-word' }}>{item.productName}</td>
-                            <td className="border-r border-black px-1 text-center" style={{ wordBreak: 'break-word' }}>{item.hsnCode || '-'}</td>
-                            <td className="border-r border-black px-1 text-center">{item.quantity}</td>
-                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border-r border-black px-1 text-right">{(item.mrp || item.unitPrice).toFixed(2)}</td>}
-                            <td className="border-r border-black px-1 text-right">{item.unitPrice.toFixed(2)}</td>
-                            <td className="border-r border-black px-1 text-center">{item.gstRate}%</td>
-                            <td className="px-1 text-right font-bold">{item.totalPrice.toFixed(2)}</td>
+                            <td className="border-r border-black px-1 text-center whitespace-nowrap" style={{ wordBreak: 'normal' }}>{item.hsnCode || '-'}</td>
+                            <td className="border-r border-black px-1 text-center whitespace-nowrap" style={{ wordBreak: 'normal' }}>{item.quantity}</td>
+                            {settings?.invoiceSettings?.enableAdvancedInvoiceSystem && <td className="border-r border-black px-1 text-right whitespace-nowrap" style={{ wordBreak: 'normal' }}>{(item.mrp || item.unitPrice).toFixed(2)}</td>}
+                            <td className="border-r border-black px-1 text-right whitespace-nowrap" style={{ wordBreak: 'normal' }}>{item.unitPrice.toFixed(2)}</td>
+                            <td className="border-r border-black px-1 text-center whitespace-nowrap" style={{ wordBreak: 'normal' }}>{item.gstRate}%</td>
+                            <td className="px-1 text-right font-bold whitespace-nowrap" style={{ wordBreak: 'normal' }}>{item.totalPrice.toFixed(2)}</td>
                         </tr>
                     ))}
                     {/* Consistent height fillers */}
@@ -216,10 +224,10 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                     <tr>
                         {/* Word conversion and Tax Table (65%) */}
                         <td className="w-[65%] border-r border-black p-0" style={{ verticalAlign: 'top', wordBreak: 'break-word', boxSizing: 'border-box' }}>
-                            <div className="p-2 border-b border-black font-bold italic min-h-[40px] leading-tight flex items-center text-[11px] bg-slate-50/30">
+                            <div className="p-2 border-b border-black font-bold italic min-h-[40px] leading-tight flex items-center text-[17px] bg-slate-50/30">
                                 {toWordsRupee(invoice.totalAmount)}
                             </div>
-                            <table className="w-full text-[11px] border-collapse table-fixed">
+                            <table className="w-full text-[17px] border-collapse table-fixed">
                                 {invoice.gstType !== 'IGST' ? (
                                     <colgroup>
                                         <col style={{ width: '25%' }} />
@@ -237,48 +245,50 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                                         <col style={{ width: '15%' }} />
                                     </colgroup>
                                 )}
-                                <thead className="bg-gray-50/50">
+                                {/* Headers stay a little smaller than the figures so
+                                    labels like "NET TAX" can't wrap in a 15% column. */}
+                                <thead className="bg-gray-50/50 text-[13px]">
                                     <tr className="border-b border-black font-bold text-center">
-                                        <th className="border-r border-black py-0.5 w-[25%] uppercase">Taxable</th>
+                                        <th className="border-r border-black py-0.5 w-[25%] uppercase whitespace-nowrap">Taxable</th>
                                         {invoice.gstType !== 'IGST' ? (
                                             <>
-                                                <th className="border-r border-black py-0.5 w-[15%]">CGST%</th>
-                                                <th className="border-r border-black py-0.5 w-[15%]">AMT</th>
-                                                <th className="border-r border-black py-0.5 w-[15%]">SGST%</th>
-                                                <th className="border-r border-black py-0.5 w-[15%]">AMT</th>
+                                                <th className="border-r border-black py-0.5 w-[15%] whitespace-nowrap">CGST%</th>
+                                                <th className="border-r border-black py-0.5 w-[15%] whitespace-nowrap">AMT</th>
+                                                <th className="border-r border-black py-0.5 w-[15%] whitespace-nowrap">SGST%</th>
+                                                <th className="border-r border-black py-0.5 w-[15%] whitespace-nowrap">AMT</th>
                                             </>
                                         ) : (
                                             <>
-                                                <th className="border-r border-black py-0.5 w-[30%]" colSpan={2}>IGST%</th>
-                                                <th className="border-r border-black py-0.5 w-[30%]" colSpan={2}>AMT</th>
+                                                <th className="border-r border-black py-0.5 w-[30%] whitespace-nowrap" colSpan={2}>IGST%</th>
+                                                <th className="border-r border-black py-0.5 w-[30%] whitespace-nowrap" colSpan={2}>AMT</th>
                                             </>
                                         )}
-                                        <th className="py-0.5 w-[15%]">NET TAX</th>
+                                        <th className="py-0.5 w-[15%] whitespace-nowrap">NET TAX</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {summaryRows.map((row, i) => (
-                                        <tr key={i} className="border-b border-black/10 last:border-b-0 text-center">
-                                            <td className="border-r border-black py-1 font-bold italic w-[25%]">{row.taxable.toFixed(2)}</td>
+                                        <tr key={i} className="border-b border-black/10 last:border-b-0 text-center" style={{ wordBreak: 'normal' }}>
+                                            <td className="border-r border-black py-1 font-bold italic w-[25%] whitespace-nowrap">{row.taxable.toFixed(2)}</td>
                                             {invoice.gstType !== 'IGST' ? (
                                                 <>
-                                                    <td className="border-r border-black py-1 w-[15%]">{row.rate / 2}</td>
-                                                    <td className="border-r border-black py-1 w-[15%]">{(row.tax / 2).toFixed(2)}</td>
-                                                    <td className="border-r border-black py-1 w-[15%]">{row.rate / 2}</td>
-                                                    <td className="border-r border-black py-1 w-[15%]">{(row.tax / 2).toFixed(2)}</td>
+                                                    <td className="border-r border-black py-1 w-[15%] whitespace-nowrap">{row.rate / 2}</td>
+                                                    <td className="border-r border-black py-1 w-[15%] whitespace-nowrap">{(row.tax / 2).toFixed(2)}</td>
+                                                    <td className="border-r border-black py-1 w-[15%] whitespace-nowrap">{row.rate / 2}</td>
+                                                    <td className="border-r border-black py-1 w-[15%] whitespace-nowrap">{(row.tax / 2).toFixed(2)}</td>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <td className="border-r border-black py-1 w-[30%]" colSpan={2}>{row.rate}%</td>
-                                                    <td className="border-r border-black py-1 font-medium w-[30%]" colSpan={2}>{row.tax.toFixed(2)}</td>
+                                                    <td className="border-r border-black py-1 w-[30%] whitespace-nowrap" colSpan={2}>{row.rate}%</td>
+                                                    <td className="border-r border-black py-1 font-medium w-[30%] whitespace-nowrap" colSpan={2}>{row.tax.toFixed(2)}</td>
                                                 </>
                                             )}
-                                            <td className="py-1 font-bold w-[15%]">{row.tax.toFixed(2)}</td>
+                                            <td className="py-1 font-bold w-[15%] whitespace-nowrap">{row.tax.toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                            <div className="p-1 px-2 border-t border-black text-[9px] font-bold">
+                            <div className="p-1 px-2 border-t border-black text-[12px] font-bold">
                                 E. & O. E.
                             </div>
                         </td>
@@ -288,19 +298,21 @@ export default function GstTaxInvoice({ invoice, customer, settings, logoDataUri
                             <table className="w-full border-collapse table-fixed">
                                 <tbody>
                                     <tr className="font-bold bg-neutral-100 border-b border-black">
-                                        <td className="p-1.5 text-left text-[13px] w-1/2">GRAND TOTAL</td>
-                                        <td className="p-1.5 text-right text-[13px] font-black w-1/2">{currencySymbol}{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                        <td className="p-1.5 text-left text-[17px] w-1/2 whitespace-nowrap">GRAND TOTAL</td>
+                                        <td className="p-1.5 text-right text-[17px] font-black w-1/2 whitespace-nowrap">{currencySymbol}{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     </tr>
                                     <tr>
                                         <td className="p-2 text-center pt-8 pb-3" colSpan={2}>
-                                            <p className="font-bold underline uppercase mb-12 text-[11px]">For {businessProfile?.businessName}</p>
+                                            <p className="font-bold underline uppercase mb-12 text-[14px]">For {businessProfile?.businessName}</p>
                                             <div className="mx-auto w-[85%] border-t border-black/40 pt-1">
-                                                <p className="font-bold text-[10px] uppercase tracking-wider">Authorised Signatory</p>
+                                                <p className="font-bold text-[13px] uppercase tracking-wider whitespace-nowrap">Authorised Signatory</p>
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr className="bg-black text-white font-bold text-center text-[12px]">
-                                        <td className="py-1 uppercase tracking-widest" colSpan={2}>
+                                    {/* 14px + tracking-widest is the largest that keeps this
+                                        single line inside the 35% totals column. */}
+                                    <tr className="bg-black text-white font-bold text-center text-[14px]">
+                                        <td className="py-1 uppercase tracking-widest whitespace-nowrap" colSpan={2}>
                                             Amount Payable: {currencySymbol}{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </td>
                                     </tr>
