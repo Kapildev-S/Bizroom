@@ -34,7 +34,7 @@ async function makeUserPremium(userId) {
     process.exit(0);
 }
 
-makeUserPremium('ZiBbTqJ1jJMPvhaaxLhg7tOGj752').catch(e => {
+makeUserPremium('lPPYtQ7ghnXYON6Saqox0kri7DG3').catch(e => {
     console.error('❌ Error:', e.message);
     process.exit(1);
 });

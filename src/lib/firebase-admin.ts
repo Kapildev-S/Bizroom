@@ -1,21 +1,55 @@
 import * as admin from 'firebase-admin';
 
-if (!admin.apps.length) {
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: 'bill-7362b',
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: privateKey,
-        }),
-    });
+function initFirebaseAdmin() {
+    if (admin.apps.length > 0) {
+        return admin.apps[0]!;
+    }
+
+    const projectId = 'bill-7362b';
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    if (clientEmail && rawPrivateKey) {
+        try {
+            let privateKey = rawPrivateKey.trim();
+            if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+                privateKey = privateKey.slice(1, -1);
+            }
+            privateKey = privateKey.replace(/\\n/g, '\n');
+
+            return admin.initializeApp({
+                credential: admin.credential.cert({
+                    projectId,
+                    clientEmail,
+                    privateKey,
+                }),
+            });
+        } catch (error) {
+            console.error('Failed to initialize Firebase Admin with cert, using default credentials fallback:', error);
+        }
+    }
+
+    try {
+        return admin.initializeApp({ projectId });
+    } catch (error) {
+        console.error('Failed to initialize Firebase Admin with default credentials:', error);
+        throw error;
+    }
+}
+
+try {
+    initFirebaseAdmin();
+} catch (e) {
+    console.error('Firebase Admin initialization caught top-level error:', e);
 }
 
 export function getAdminDb() {
+    initFirebaseAdmin();
     return admin.firestore();
 }
 
 export function getAdminAuth() {
+    initFirebaseAdmin();
     return admin.auth();
 }
 

@@ -50,7 +50,7 @@ async function makeUserPremium(userId: string) {
 }
 
 const userIds = [
-    'ZiBbTqJ1jJMPvhaaxLhg7tOGj752'
+    'lPPYtQ7ghnXYON6Saqox0kri7DG3'
 ];
 
 async function upgradeAll() {

@@ -1,21 +1,23 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Crown, 
-  CreditCard, 
-  LineChart, 
-  Bot, 
-  Zap, 
-  FileText, 
-  Bell, 
+import {
+  LayoutDashboard,
+  Building2,
+  Crown,
+  CreditCard,
+  LineChart,
+  Bot,
+  Zap,
+  FileText,
+  Bell,
   Settings,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const sidebarItems = [
@@ -34,47 +36,70 @@ const sidebarItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="w-64 bg-card border-r flex flex-col hidden md:flex h-full">
-      <div className="p-6">
-        <Link href="/admin" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Crown className="w-5 h-5 text-primary-foreground" />
+    <div
+      className={cn(
+        "hidden md:flex flex-col bg-card border-r h-full transition-all duration-300 ease-in-out",
+        collapsed ? "w-[68px]" : "w-64"
+      )}
+    >
+      {/* Logo */}
+      <div className={cn("flex items-center gap-2 p-5 border-b", collapsed && "justify-center px-3")}>
+        <Link href="/admin" className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <Crown className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-bold text-xl tracking-tight">Super Admin</span>
+          {!collapsed && (
+            <span className="font-bold text-lg tracking-tight truncate">Super Admin</span>
+          )}
         </Link>
       </div>
-      
-      <div className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+
+      {/* Nav Items */}
+      <div className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
         {sidebarItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.name}
               href={item.href}
+              title={collapsed ? item.name : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                isActive 
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+                collapsed ? "justify-center" : "",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <item.icon className="w-5 h-5" />
-              {item.name}
+              <item.icon className="w-5 h-5 shrink-0" />
+              {!collapsed && <span className="truncate">{item.name}</span>}
             </Link>
           );
         })}
       </div>
-      
-      <div className="p-4 border-t mt-auto">
-        <div className="bg-muted rounded-xl p-4 text-sm">
-          <p className="font-semibold mb-1">System Status</p>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            All systems operational
+
+      {/* Footer */}
+      <div className="p-3 border-t mt-auto space-y-2">
+        {!collapsed && (
+          <div className="bg-muted rounded-xl p-3 text-sm">
+            <p className="font-semibold mb-1 text-xs">System Status</p>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              All systems operational
+            </div>
           </div>
-        </div>
+        )}
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          className="w-full flex items-center justify-center gap-2 p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {!collapsed && <span>Collapse</span>}
+        </button>
       </div>
     </div>
   );

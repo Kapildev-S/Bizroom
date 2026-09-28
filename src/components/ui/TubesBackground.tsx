@@ -16,13 +16,14 @@ interface TubesBackgroundProps {
   enableClickInteraction?: boolean;
 }
 
-export function TubesBackground({ 
-  children, 
+export function TubesBackground({
+  children,
   className,
-  enableClickInteraction = true 
+  enableClickInteraction = true,
 }: TubesBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasFailed, setHasFailed] = useState(false);
   const tubesRef = useRef<any>(null);
 
   useEffect(() => {
@@ -44,26 +45,20 @@ export function TubesBackground({
             colors: ["#f967fb", "#53bc28", "#6958d5"],
             lights: {
               intensity: 200,
-              colors: ["#83f36e", "#fe8a2e", "#ff008a", "#60aed5"]
-            }
-          }
+              colors: ["#83f36e", "#fe8a2e", "#ff008a", "#60aed5"],
+            },
+          },
         });
 
         tubesRef.current = app;
-        setIsLoaded(true);
+        if (mounted) setIsLoaded(true);
 
-        const handleResize = () => {
-          // Window resize handled internally by component typically
-        };
-
+        const handleResize = () => {};
         window.addEventListener('resize', handleResize);
-        
-        cleanup = () => {
-          window.removeEventListener('resize', handleResize);
-        };
-
+        cleanup = () => window.removeEventListener('resize', handleResize);
       } catch (error) {
-        console.error("Failed to load TubesCursor:", error);
+        console.warn("TubesBackground: WebGL animation failed to load, using CSS fallback.", error);
+        if (mounted) setHasFailed(true);
       }
     };
 
@@ -77,27 +72,46 @@ export function TubesBackground({
 
   const handleClick = () => {
     if (!enableClickInteraction || !tubesRef.current) return;
-    
     const colors = randomColors(3);
     const lightsColors = randomColors(4);
-    
-    tubesRef.current.tubes.setColors(colors);
-    tubesRef.current.tubes.setLightsColors(lightsColors);
+    tubesRef.current.tubes?.setColors(colors);
+    tubesRef.current.tubes?.setLightsColors(lightsColors);
   };
 
   return (
-    <div 
-      className={cn("relative w-full overflow-hidden bg-background", className)}
+    <div
+      className={cn("relative w-full overflow-hidden", className)}
       onClick={handleClick}
     >
-      <canvas 
-        ref={canvasRef} 
-        className="absolute inset-0 w-full h-full block"
-        style={{ touchAction: 'none' }}
+      {/* CSS gradient fallback shown when WebGL fails OR as initial background
+          while the canvas loads — this prevents the white flash */}
+      <div
+        className={cn(
+          "absolute inset-0 transition-opacity duration-1000",
+          // Keep the fallback visible when WebGL fails; hide it once tubes loaded
+          isLoaded ? "opacity-0" : "opacity-100"
+        )}
+        style={{
+          background: hasFailed
+            ? `
+              radial-gradient(ellipse at 20% 50%, rgba(105, 88, 213, 0.4) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(249, 103, 251, 0.3) 0%, transparent 55%),
+              radial-gradient(ellipse at 60% 80%, rgba(83, 188, 40, 0.25) 0%, transparent 50%),
+              #0f1115
+            `
+            : '#0f1115',
+        }}
       />
-      
-      {/* Content Overlay */}
-      <div className="relative z-10 w-full h-full pointer-events-none">
+
+      {/* WebGL canvas — z-index 0 so it stays behind content overlay */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full block"
+        style={{ touchAction: 'none', zIndex: 0 }}
+      />
+
+      {/* Content Overlay — z-index 10 ensures it always renders above the canvas */}
+      <div className="relative w-full h-full" style={{ zIndex: 10 }}>
         {children}
       </div>
     </div>

@@ -16,9 +16,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from '@/components/ui/dialog';
 import { 
-  MoreHorizontal, Search, UserCheck, LogIn, Crown, Ban, CheckCircle, 
-  Trash2, Edit, KeySquare, TrendingUp, Users, FileText, ShoppingCart
+  MoreHorizontal, Search, UserCheck, LogIn, Crown, Ban, CheckCircle,
+  Trash2, Edit, KeySquare, TrendingUp, Users, FileText, ShoppingCart, FileArchive
 } from 'lucide-react';
+import { BusinessInvoiceZipDialog } from '@/components/admin/BusinessInvoiceZipDialog';
 import { useToast } from '@/hooks/use-toast';
 import { 
   fetchAllBusinesses, updateBusinessStatus, verifyBusiness, deleteBusiness, 
@@ -40,6 +41,11 @@ export function BusinessTable() {
   // Edit Dialog State
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<any>(null);
+
+  // Bulk bill export state
+  const [isBillZipDialogOpen, setIsBillZipDialogOpen] = useState(false);
+  const [exportingBusiness, setExportingBusiness] = useState<{ id: string; businessName: string } | null>(null);
+
   const [editForm, setEditForm] = useState({
       businessName: '',
       ownerName: '',
@@ -149,6 +155,11 @@ export function BusinessTable() {
       if (newWindow) newWindow.close();
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
+  };
+
+  const openBillZipDialog = (b: any) => {
+      setExportingBusiness({ id: b.id, businessName: b.businessName });
+      setIsBillZipDialogOpen(true);
   };
 
   const openEditDialog = (b: any) => {
@@ -291,6 +302,10 @@ export function BusinessTable() {
                           <LogIn className="mr-2 h-4 w-4 text-indigo-500" /> Login as Business
                         </DropdownMenuItem>
                         
+                        <DropdownMenuItem onClick={() => openBillZipDialog(b)} disabled={!b.billsGenerated}>
+                          <FileArchive className="mr-2 h-4 w-4 text-sky-500" /> Download Bills ({b.billsGenerated})
+                        </DropdownMenuItem>
+
                         <DropdownMenuItem onClick={() => handleUpgrade(b.id, b.subscription)}>
                           <Crown className="mr-2 h-4 w-4 text-amber-500" /> Upgrade to Premium
                         </DropdownMenuItem>
@@ -331,6 +346,13 @@ export function BusinessTable() {
           <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}>Next</Button>
         </div>
       </div>
+
+      {/* Bulk Bill PDF Export Dialog */}
+      <BusinessInvoiceZipDialog
+          open={isBillZipDialogOpen}
+          onOpenChange={setIsBillZipDialogOpen}
+          business={exportingBusiness}
+      />
 
       {/* Edit Business Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

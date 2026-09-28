@@ -30,14 +30,11 @@ export default {
         'button-gradient': 'linear-gradient(135deg, #188373 0%, #2853AA 100%)',
       },
       colors: {
-        "primary": "#00ccc5",
         "background-light": "#f5f8f8",
         "background-dark": "#0f2323",
         "emerald-glow": "#188373",
         "sapphire-glow": "#2853AA",
         background: 'hsl(var(--background))',
-        // ... kept existing colors where possible, but primary is overridden above for this specific design request
-        'background-light-legacy': 'rgb(var(--background-light))', // Renaming old ones to avoid conflict if needed, or just appending
         foreground: 'hsl(var(--foreground))',
         card: {
           DEFAULT: 'hsl(var(--card))',
@@ -47,10 +44,10 @@ export default {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',
         },
-        // primary: { // Commenting out old primary object to use the simple string color requested, or I can map it.
-        //   DEFAULT: 'rgb(var(--primary-design))',
-        //   foreground: 'hsl(var(--primary-foreground))',
-        // },
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
@@ -69,7 +66,7 @@ export default {
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
-        ring: 'rgb(var(--primary-design))',
+        ring: 'hsl(var(--ring))',
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

@@ -25,8 +25,21 @@ async function makeUserPremium(userId) {
         await userSettingsRef.set({
             subscriptionStatus: 'premium',
             premiumExpiry: premiumExpiry.toISOString(),
+            premiumSince: new Date().toISOString(),
             lastPaymentAt: new Date().toISOString(),
             lastPaymentId: 'manual_upgrade',
+        }, { merge: true });
+
+        // Add to global premium_subscriptions collection
+        const globalSubRef = db.doc(`premium_subscriptions/manual_${userId}`);
+        await globalSubRef.set({
+            userId: userId,
+            subscriptionId: `manual_${userId}`,
+            status: 'active',
+            planId: 'manual_yearly',
+            premiumExpiry: premiumExpiry.toISOString(),
+            lastPaymentAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         }, { merge: true });
 
         console.log(`✅ Successfully upgraded user ${userId} to premium`);
@@ -44,7 +57,7 @@ async function makeUserPremium(userId) {
 
 // Run the script
 const userIds = [
-    'ZiBbTqJ1jJMPvhaaxLhg7tOGj752'
+    'lPPYtQ7ghnXYON6Saqox0kri7DG3'
 ];
 
 async function upgradeAll() {
